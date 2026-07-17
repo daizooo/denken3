@@ -74,6 +74,28 @@ const AC3_QUESTIONS: MasterQuestion[] = [
   // 問25,26 捨て問（V結線・電源直列）
 ]
 
+const TRANS_QUESTIONS: MasterQuestion[] = [
+  { id: 'trans_1',  number: 1,  title: 'RL直列回路（H20-A10）',                      difficulty: 1 },
+  { id: 'trans_2',  number: 2,  title: 'RL直列回路（H17-A9）',                        difficulty: 1 },
+  { id: 'trans_3',  number: 3,  title: 'RC直列回路（H28-A10/R5下-A10）',              difficulty: 2 },
+  { id: 'trans_4',  number: 4,  title: 'RC直列回路（H18-A10）',                       difficulty: 1 },
+  { id: 'trans_5',  number: 5,  title: 'RC直列回路（H30-A10）',                       difficulty: 1 },
+  { id: 'trans_6',  number: 6,  title: 'RC直列回路 ほか（R1-A10）',                   difficulty: 1 },
+  { id: 'trans_7',  number: 7,  title: 'RC直列回路／RC直並列回路（H19-A10）',          difficulty: 1 },
+  { id: 'trans_8',  number: 8,  title: 'RC直列回路（H15-A9）',                        difficulty: 2 },
+  { id: 'trans_9',  number: 9,  title: 'RL直列回路（H21-A10）',                       difficulty: 2 },
+  { id: 'trans_10', number: 10, title: 'RL直列回路／RC直列回路（H27-A10）',            difficulty: 2 },
+  { id: 'trans_11', number: 11, title: 'RL直列回路（R3-A10）',                        difficulty: 2 },
+  // 問12 捨て問（RL直並列回路）
+  { id: 'trans_13', number: 13, title: 'RC直列回路（H23-A10）',                       difficulty: 2 },
+  { id: 'trans_14', number: 14, title: 'RL直列回路／RL直並列回路（H24-A9）',           difficulty: 2 },
+  { id: 'trans_15', number: 15, title: 'RC直列回路／RC直並列回路（H26-A11）',          difficulty: 2 },
+  // 問16 捨て問（RL直列回路／RLC直並列回路）
+  // 問17 捨て問（RL直列回路／RLC直並列回路）
+  // 問18 捨て問（RC直並列回路）
+  // 問19 捨て問（RC直列回路 ほか）
+]
+
 // 他の章は問題を解いた順に追加する
 // 捨て問リスト（参照用コメント）:
 //   直流回路  : 問31,37,72
@@ -87,7 +109,7 @@ const AC3_QUESTIONS: MasterQuestion[] = [
 
 const CHAPTERS: Chapter[] = [
   { code: 'dc',       name: '直流回路',  subject: '理論', totalCount: 69, questions: [] },
-  { code: 'trans',    name: '過渡現象',  subject: '理論', totalCount: 14, questions: [] },
+  { code: 'trans',    name: '過渡現象',  subject: '理論', totalCount: 14, questions: TRANS_QUESTIONS },
   { code: 'ac1',      name: '単相交流',  subject: '理論', totalCount: 48, questions: [] },
   { code: 'ac3',      name: '三相交流',  subject: '理論', totalCount: 22, questions: AC3_QUESTIONS },
   { code: 'elec',     name: '静電気',    subject: '理論', totalCount: 66, questions: [] },
