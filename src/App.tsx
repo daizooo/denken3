@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, TrendingUp, Save } from 'lucide-react'
+import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
 
 // ==============================
 // TYPES
@@ -371,7 +371,7 @@ export default function App() {
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
     const today = new Date().toISOString().split('T')[0]
-    return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+    return !r || r.status === '未着手' || (r.due_date && r.due_date <= today)
   }).length
 
   return (
@@ -385,9 +385,16 @@ export default function App() {
               <BookOpen size={18} className="text-blue-600" />
               <span className="font-bold text-gray-800 text-base">電験3種 過去問マスター</span>
             </div>
-            <div className="text-xs text-gray-400 flex items-center gap-1.5">
+            <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
               <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
+                title="ログアウト"
+              >
+                <LogOut size={14} />
+              </button>
             </div>
           </div>
 
@@ -450,7 +457,7 @@ export default function App() {
                 const today = new Date().toISOString().split('T')[0]
                 const dueCount = c.questions.filter(q => {
                   const r = reviews[q.id]
-                  return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+                  return !r || r.status === '未着手' || (r.due_date && r.due_date <= today)
                 }).length
                 return (
                   <button key={c.code}
