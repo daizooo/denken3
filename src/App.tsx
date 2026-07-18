@@ -329,9 +329,16 @@ export default function App() {
       setUser(session?.user ?? null)
       if (!session?.user) setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null)
-      if (!session?.user) setLoading(false)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setReviews({})
+        setLoading(false)
+      } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        // TOKEN_REFRESHED では user を更新しない（不要な再フェッチ防止）
+        setUser(prev => prev?.id === session?.user?.id ? prev : (session?.user ?? null))
+        if (!session?.user) setLoading(false)
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -464,9 +471,15 @@ export default function App() {
               <BookOpen size={18} className="text-blue-600" />
               <span className="font-bold text-gray-800 text-base">電験3種 過去問マスター</span>
             </div>
-            <div className="text-xs text-gray-400 flex items-center gap-1.5">
+            <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
               <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-lg border border-gray-200 hover:border-red-200"
+              >
+                ログアウト
+              </button>
             </div>
           </div>
 
