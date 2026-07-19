@@ -577,7 +577,6 @@ const CHAPTERS: Chapter[] = [
 
 const SUBJECTS: Subject[] = ['理論', '電力', '機械', '法規']
 
-const COMMON_TAGS = ['公式忘れ', '計算ミス', '単位ミス', '勘違い', '時間切れ', '初見']
 
 const STATUS_BG: Record<Status, string> = {
   'A':    'bg-green-100 text-green-800 border-green-300',
@@ -694,13 +693,12 @@ export default function App() {
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('review')
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
-  const [editTags, setEditTags]   = useState<string[]>([])
   const [editDate, setEditDate]   = useState<string>('')
 
   // ---- Auth ----
@@ -787,7 +785,6 @@ export default function App() {
     const updated: Review = {
       ...current,
       memo: editMemo,
-      tags: editTags,
       last_reviewed: lastReviewed,
       due_date: dueDate,
     }
@@ -799,7 +796,7 @@ export default function App() {
     })
     setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo, editTags, editDate])
+  }, [user, reviews, editMemo, editDate])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -852,6 +849,18 @@ export default function App() {
   }, [allQuestions, reviews])
 
   // ---- Render guards ----
+  // reviewタブで復習が0になったらlistに切り替え
+  useEffect(() => {
+    if (!loading && activeTab === 'review') {
+      const today = new Date().toISOString().split('T')[0]
+      const due = allQuestions.filter(q => {
+        const r = reviews[q.id]
+        return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+      }).length
+      if (due === 0) setActiveTab('list')
+    }
+  }, [loading, activeTab, allQuestions, reviews])
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400 text-sm">読み込み中...</p>
@@ -913,14 +922,24 @@ export default function App() {
 
           {/* 表示タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {(['review', 'list', 'dashboard'] as const).map(t => (
+            {todayDue > 0 && (
+              <button
+                onClick={() => setActiveTab('review')}
+                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                  activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                今日の復習 ({todayDue})
+              </button>
+            )}
+            {(['list', 'dashboard'] as const).map(t => (
               <button key={t}
                 onClick={() => setActiveTab(t)}
                 className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
                   activeTab === t ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {t === 'review' ? `今日の復習 (${todayDue})` : t === 'list' ? '全問題' : '分析'}
+                {t === 'list' ? '全問題' : '分析'}
               </button>
             ))}
           </div>
@@ -1071,7 +1090,6 @@ export default function App() {
                               } else {
                                 setEditingId(q.id)
                                 setEditMemo(review.memo)
-                                setEditTags([...review.tags])
                                 setEditDate(review.last_reviewed ?? '')
                               }
                             }}
@@ -1090,23 +1108,6 @@ export default function App() {
                                 onChange={e => setEditDate(e.target.value)}
                                 className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-blue-300 bg-white"
                               />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 font-medium mb-1.5">タグ</p>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {COMMON_TAGS.map(t => (
-                                  <button key={t}
-                                    onClick={() => setEditTags(prev =>
-                                      prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
-                                    )}
-                                    className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
-                                      editTags.includes(t)
-                                        ? 'bg-orange-100 text-orange-700 border-orange-300'
-                                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                    }`}
-                                  >{t}</button>
-                                ))}
-                              </div>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">メモ</p>
