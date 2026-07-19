@@ -7,7 +7,7 @@ import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
 // ==============================
 // TYPES
 // ==============================
-type Status = 'A' | 'A-' | 'B' | 'C' | 'D' | '未着手'
+type Status = 'A' | 'B' | 'C' | '未着手'
 
 interface MasterQuestion {
   id: string
@@ -27,6 +27,11 @@ interface Chapter {
 
 type Subject = '理論' | '電力' | '機械' | '法規'
 
+interface ReviewHistoryEntry {
+  date: string
+  status: Status
+}
+
 interface Review {
   question_id: string
   status: Status
@@ -38,6 +43,7 @@ interface Review {
   last_reviewed: string | null
   tags: string[]
   memo: string
+  review_history: ReviewHistoryEntry[]
 }
 
 // ==============================
@@ -571,27 +577,30 @@ const CHAPTERS: Chapter[] = [
 
 const SUBJECTS: Subject[] = ['理論', '電力', '機械', '法規']
 
-const COMMON_TAGS = ['公式忘れ', '計算ミス', '単位ミス', '勘違い', '時間切れ', '初見']
 
 const STATUS_BG: Record<Status, string> = {
   'A':    'bg-green-100 text-green-800 border-green-300',
-  'A-':   'bg-teal-100 text-teal-800 border-teal-300',
   'B':    'bg-blue-100 text-blue-800 border-blue-300',
-  'C':    'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'D':    'bg-red-100 text-red-800 border-red-300',
+  'C':    'bg-red-100 text-red-800 border-red-300',
   '未着手': 'bg-gray-100 text-gray-800 border-gray-300',
 }
 
 const STATUS_COLOR: Record<Status, string> = {
-  'A': '#22c55e', 'A-': '#14b8a6', 'B': '#3b82f6',
-  'C': '#eab308', 'D': '#ef4444', '未着手': '#9ca3af',
+  'A': '#22c55e', 'B': '#3b82f6', 'C': '#ef4444', '未着手': '#9ca3af',
+}
+
+const STATUS_LABEL: Record<Status, string> = {
+  'A': 'A（答えを見ずに解けた）',
+  'B': 'B（方向性OK・計算ミス）',
+  'C': 'C（答えを見た）',
+  '未着手': '未着手',
 }
 
 // ==============================
 // FSRS (簡易実装)
 // ==============================
 function calcFSRS(current: Partial<Review> | null, status: Status) {
-  const rMap: Record<Status, number> = { D: 1, C: 2, B: 2, 'A-': 3, A: 4, '未着手': 3 }
+  const rMap: Record<Status, number> = { C: 1, B: 3, A: 4, '未着手': 3 }
   const r = rMap[status]
   let stability   = current?.stability      ?? 0
   let diff        = current?.difficulty_fsrs ?? 5
@@ -648,6 +657,7 @@ function defaultReview(questionId: string): Review {
     stability: 0, difficulty_fsrs: 5,
     due_date: null, repetitions: 0, lapses: 0,
     last_reviewed: null, tags: [], memo: '',
+    review_history: [],
   }
 }
 
@@ -683,13 +693,14 @@ export default function App() {
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('review')
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0])
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
-  const [editTags, setEditTags]   = useState<string[]>([])
+  const [editDate, setEditDate]   = useState<string>('')
 
   // ---- Auth ----
   useEffect(() => {
@@ -723,7 +734,12 @@ export default function App() {
         if (error) console.error(error)
         if (data) {
           const map: Record<string, Review> = {}
-          data.forEach(r => { map[r.question_id] = r as Review })
+          data.forEach(r => {
+            map[r.question_id] = {
+              ...r,
+              review_history: Array.isArray(r.review_history) ? r.review_history : [],
+            } as Review
+          })
           setReviews(map)
         }
         setLoading(false)
@@ -735,7 +751,12 @@ export default function App() {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const fsrs = calcFSRS(current, status)
-    const updated: Review = { ...current, status, ...fsrs }
+    const today = new Date().toISOString().split('T')[0]
+    const review_history: ReviewHistoryEntry[] = [
+      ...(current.review_history ?? []),
+      { date: today, status },
+    ]
+    const updated: Review = { ...current, status, ...fsrs, review_history }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -746,11 +767,28 @@ export default function App() {
     setSaving(false)
   }, [user, reviews])
 
-  // ---- Save memo/tags ----
+  // ---- Save memo/tags/date ----
   const saveDetails = useCallback(async (questionId: string) => {
     if (!user) return
     const current = reviews[questionId] ?? defaultReview(questionId)
-    const updated: Review = { ...current, memo: editMemo, tags: editTags }
+
+    let lastReviewed = current.last_reviewed
+    let dueDate = current.due_date
+    if (editDate && editDate !== current.last_reviewed) {
+      lastReviewed = editDate
+      if (current.stability > 0) {
+        const d = new Date(editDate)
+        d.setDate(d.getDate() + Math.max(1, Math.round(current.stability)))
+        dueDate = d.toISOString().split('T')[0]
+      }
+    }
+
+    const updated: Review = {
+      ...current,
+      memo: editMemo,
+      last_reviewed: lastReviewed,
+      due_date: dueDate,
+    }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -759,7 +797,7 @@ export default function App() {
     })
     setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo, editTags])
+  }, [user, reviews, editMemo, editDate])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -776,22 +814,42 @@ export default function App() {
     )
   }, [currentChapters, chapterCode])
 
+  const reviewSchedule = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(d.getDate() + i)
+      const dStr = d.toISOString().split('T')[0]
+      const count = allQuestions.filter(q => {
+        const r = reviews[q.id]
+        if (i === 0) return r?.status === '未着手' || (r?.due_date && r.due_date <= dStr)
+        return reviews[q.id]?.due_date === dStr
+      }).length
+      const label = i === 0 ? '今日' : i === 1 ? '明日' : `${d.getMonth() + 1}/${d.getDate()}`
+      return { date: dStr, label, count }
+    })
+  }, [allQuestions, reviews])
+
   const filteredQuestions = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
-        const today = new Date().toISOString().split('T')[0]
-        const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
-        if (!isDue) return false
+        if (selectedDate === today) {
+          const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
+          if (!isDue) return false
+        } else {
+          if (!r?.due_date || r.due_date !== selectedDate) return false
+        }
       }
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-  }, [allQuestions, reviews, activeTab, filterStatus])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate])
 
   const dashData = useMemo(() => {
-    const counts: Record<Status, number> = { A: 0, 'A-': 0, B: 0, C: 0, D: 0, '未着手': 0 }
+    const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
     allQuestions.forEach(q => { counts[reviews[q.id]?.status ?? '未着手']++ })
 
     const pieData = (Object.entries(counts) as [Status, number][])
@@ -812,6 +870,18 @@ export default function App() {
   }, [allQuestions, reviews])
 
   // ---- Render guards ----
+  // reviewタブで復習が0になったらlistに切り替え
+  useEffect(() => {
+    if (!loading && activeTab === 'review') {
+      const today = new Date().toISOString().split('T')[0]
+      const due = allQuestions.filter(q => {
+        const r = reviews[q.id]
+        return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+      }).length
+      if (due === 0) setActiveTab('list')
+    }
+  }, [loading, activeTab, allQuestions, reviews])
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400 text-sm">読み込み中...</p>
@@ -873,14 +943,24 @@ export default function App() {
 
           {/* 表示タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {(['review', 'list', 'dashboard'] as const).map(t => (
+            {todayDue > 0 && (
+              <button
+                onClick={() => setActiveTab('review')}
+                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                  activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                今日の復習 ({todayDue})
+              </button>
+            )}
+            {(['list', 'dashboard'] as const).map(t => (
               <button key={t}
                 onClick={() => setActiveTab(t)}
                 className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
                   activeTab === t ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {t === 'review' ? `今日の復習 (${todayDue})` : t === 'list' ? '全問題' : '分析'}
+                {t === 'list' ? '全問題' : '分析'}
               </button>
             ))}
           </div>
@@ -939,10 +1019,36 @@ export default function App() {
               ))}
             </div>
 
+            {/* ===== DATE STRIP (review only) ===== */}
+            {activeTab === 'review' && (
+              <div className="overflow-x-auto -mx-0.5 px-0.5">
+                <div className="flex gap-1.5 pb-1" style={{ minWidth: 'max-content' }}>
+                  {reviewSchedule.map(({ date, label, count }) => (
+                    <button
+                      key={date}
+                      onClick={() => setSelectedDate(date)}
+                      className={`flex flex-col items-center px-3 py-1.5 rounded-xl border text-xs transition-colors min-w-[52px] ${
+                        selectedDate === date
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : count > 0
+                          ? 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                          : 'bg-gray-50 text-gray-400 border-gray-100'
+                      }`}
+                    >
+                      <span className="font-medium">{label}</span>
+                      <span className={`mt-0.5 font-bold ${
+                        selectedDate === date ? 'text-white' : count > 0 ? 'text-red-500' : 'text-gray-300'
+                      }`}>{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ===== STATUS FILTER (list only) ===== */}
             {activeTab === 'list' && (
               <div className="flex gap-1.5 flex-wrap">
-                {(['ALL', 'A', 'A-', 'B', 'C', 'D', '未着手'] as const).map(s => (
+                {(['ALL', 'A', 'B', 'C', '未着手'] as const).map(s => (
                   <button key={s}
                     onClick={() => setFilterStatus(s)}
                     className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
@@ -960,7 +1066,9 @@ export default function App() {
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
                 <p className="text-gray-400 text-sm">
                   {activeTab === 'review'
-                    ? '今日の復習はありません'
+                    ? selectedDate === new Date().toISOString().split('T')[0]
+                      ? '今日の復習はありません'
+                      : 'この日の復習予定はありません'
                     : '表示できる問題がありません'}
                 </p>
               </div>
@@ -1013,9 +1121,10 @@ export default function App() {
 
                         {/* Status buttons */}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
-                          {(['A', 'A-', 'B', 'C', 'D'] as Status[]).map(s => (
+                          {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
+                              title={STATUS_LABEL[s]}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
                                 review.status === s
                                   ? `${STATUS_BG[s]} scale-105 shadow-sm`
@@ -1030,7 +1139,7 @@ export default function App() {
                               } else {
                                 setEditingId(q.id)
                                 setEditMemo(review.memo)
-                                setEditTags([...review.tags])
+                                setEditDate(review.last_reviewed ?? '')
                               }
                             }}
                             className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
@@ -1041,21 +1150,13 @@ export default function App() {
                         {isEditing && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
                             <div>
-                              <p className="text-xs text-gray-500 font-medium mb-1.5">タグ</p>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {COMMON_TAGS.map(t => (
-                                  <button key={t}
-                                    onClick={() => setEditTags(prev =>
-                                      prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
-                                    )}
-                                    className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
-                                      editTags.includes(t)
-                                        ? 'bg-orange-100 text-orange-700 border-orange-300'
-                                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                    }`}
-                                  >{t}</button>
-                                ))}
-                              </div>
+                              <p className="text-xs text-gray-500 font-medium mb-1.5">実施日</p>
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={e => setEditDate(e.target.value)}
+                                className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-blue-300 bg-white"
+                              />
                             </div>
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">メモ</p>
@@ -1073,11 +1174,23 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* FSRS debug (collapsed) */}
-                        {review.repetitions > 0 && !isEditing && (
-                          <p className="text-xs text-gray-300 mt-1.5">
-                            {review.repetitions}回 / 安定度{review.stability.toFixed(1)}
-                          </p>
+                        {/* 実施日履歴 */}
+                        {review.review_history.length > 0 && !isEditing && (
+                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                            {review.review_history.map((entry, idx) => {
+                              const label = idx === 0 ? '初回' : `${idx}回目`
+                              const [, m, d] = entry.date.split('-')
+                              return (
+                                <span key={idx} className="text-xs text-gray-300">
+                                  {idx > 0 && <span className="mr-1">→</span>}
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500`}>
+                                    {label} {parseInt(m)}/{parseInt(d)}
+                                  </span>
+                                </span>
+                              )
+                            })}
+                            <span className="text-xs text-gray-300 ml-1">安定度{review.stability.toFixed(1)}</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1113,9 +1226,9 @@ function DashboardView({
       {/* 概要カード */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: '完答(A)', value: data.counts.A, color: 'text-green-600' },
-          { label: '習得中(A-〜B)', value: data.counts['A-'] + data.counts.B, color: 'text-blue-600' },
-          { label: '要復習(C+D)', value: data.counts.C + data.counts.D, color: 'text-red-500' },
+          { label: 'A（完全正答）', value: data.counts.A, color: 'text-green-600' },
+          { label: 'B（方向性OK）', value: data.counts.B, color: 'text-blue-600' },
+          { label: 'C（要学習）', value: data.counts.C, color: 'text-red-500' },
         ].map(item => (
           <div key={item.label} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
             <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
@@ -1166,7 +1279,7 @@ function DashboardView({
         <div className="space-y-2.5">
           {chapters.map(c => {
             const done = c.questions.filter(q =>
-              ['A', 'A-', 'B'].includes(reviews[q.id]?.status ?? '')
+              ['A', 'B'].includes(reviews[q.id]?.status ?? '')
             ).length
             const pct = c.questions.length > 0 ? (done / c.questions.length) * 100 : 0
             const mastered = c.questions.filter(q => reviews[q.id]?.status === 'A').length
