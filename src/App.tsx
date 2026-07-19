@@ -822,7 +822,7 @@ export default function App() {
       const dStr = d.toISOString().split('T')[0]
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
-        if (i === 0) return r?.status === '未着手' || (r?.due_date && r.due_date <= dStr)
+        if (i === 0) return !!(r?.due_date && r.due_date <= dStr)
         return reviews[q.id]?.due_date === dStr
       }).length
       const label = i === 0 ? '今日' : i === 1 ? '明日' : `${d.getMonth() + 1}/${d.getDate()}`
@@ -837,7 +837,7 @@ export default function App() {
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
         if (selectedDate === today) {
-          const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
+          const isDue = r?.due_date && r.due_date <= today
           if (!isDue) return false
         } else {
           if (!r?.due_date || r.due_date !== selectedDate) return false
@@ -882,7 +882,7 @@ export default function App() {
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
     const today = new Date().toISOString().split('T')[0]
-    return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+    return !!(r?.due_date && r.due_date <= today)
   }).length
 
   return (
@@ -936,7 +936,7 @@ export default function App() {
                 activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              今日の復習{todayDue > 0 ? ` (${todayDue})` : ''}
+              復習{todayDue > 0 ? ` (${todayDue})` : ''}
             </button>
             {(['list', 'dashboard'] as const).map(t => (
               <button key={t}
