@@ -789,9 +789,6 @@ export default function App() {
         entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
       )
       lastReviewed = editDate
-      review_history = review_history.map(entry =>
-        entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
-      )
       if (current.stability > 0) {
         const [y, m, d] = editDate.split('-').map(Number)
         const date = new Date(y, m - 1, d)
@@ -1135,22 +1132,24 @@ export default function App() {
                               }`}
                             >{s}</button>
                           ))}
-                          <button
-                            onClick={() => {
-                              if (isEditing) {
-                                setEditingId(null)
-                              } else {
-                                setEditingId(q.id)
-                                setEditMemo(review.memo)
-                                setEditDate(review.last_reviewed ?? '')
-                              }
-                            }}
-                            className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-                          >{isEditing ? '閉じる' : 'メモ'}</button>
+                          {activeTab === 'list' && (
+                            <button
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditingId(null)
+                                } else {
+                                  setEditingId(q.id)
+                                  setEditMemo(review.memo)
+                                  setEditDate(review.last_reviewed ?? '')
+                                }
+                              }}
+                              className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                            >{isEditing ? '閉じる' : 'メモ'}</button>
+                          )}
                         </div>
 
-                        {/* Edit panel */}
-                        {isEditing && (
+                        {/* Edit panel (全問題タブのみ) */}
+                        {isEditing && activeTab === 'list' && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">実施日</p>
