@@ -27,6 +27,11 @@ interface Chapter {
 
 type Subject = '理論' | '電力' | '機械' | '法規'
 
+interface ReviewHistoryEntry {
+  date: string
+  status: Status
+}
+
 interface Review {
   question_id: string
   status: Status
@@ -38,6 +43,7 @@ interface Review {
   last_reviewed: string | null
   tags: string[]
   memo: string
+  review_history: ReviewHistoryEntry[]
 }
 
 // ==============================
@@ -652,6 +658,7 @@ function defaultReview(questionId: string): Review {
     stability: 0, difficulty_fsrs: 5,
     due_date: null, repetitions: 0, lapses: 0,
     last_reviewed: null, tags: [], memo: '',
+    review_history: [],
   }
 }
 
@@ -728,7 +735,12 @@ export default function App() {
         if (error) console.error(error)
         if (data) {
           const map: Record<string, Review> = {}
-          data.forEach(r => { map[r.question_id] = r as Review })
+          data.forEach(r => {
+            map[r.question_id] = {
+              ...r,
+              review_history: Array.isArray(r.review_history) ? r.review_history : [],
+            } as Review
+          })
           setReviews(map)
         }
         setLoading(false)
@@ -740,7 +752,12 @@ export default function App() {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const fsrs = calcFSRS(current, status)
-    const updated: Review = { ...current, status, ...fsrs }
+    const today = new Date().toISOString().split('T')[0]
+    const review_history: ReviewHistoryEntry[] = [
+      ...(current.review_history ?? []),
+      { date: today, status },
+    ]
+    const updated: Review = { ...current, status, ...fsrs, review_history }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -1107,11 +1124,23 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* FSRS debug (collapsed) */}
-                        {review.repetitions > 0 && !isEditing && (
-                          <p className="text-xs text-gray-300 mt-1.5">
-                            {review.repetitions}回 / 安定度{review.stability.toFixed(1)}
-                          </p>
+                        {/* 実施日履歴 */}
+                        {review.review_history.length > 0 && !isEditing && (
+                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                            {review.review_history.map((entry, idx) => {
+                              const label = idx === 0 ? '初回' : `${idx}回目`
+                              const [, m, d] = entry.date.split('-')
+                              return (
+                                <span key={idx} className="text-xs text-gray-300">
+                                  {idx > 0 && <span className="mr-1">→</span>}
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500`}>
+                                    {label} {parseInt(m)}/{parseInt(d)}
+                                  </span>
+                                </span>
+                              )
+                            })}
+                            <span className="text-xs text-gray-300 ml-1">安定度{review.stability.toFixed(1)}</span>
+                          </div>
                         )}
                       </div>
                     </div>
