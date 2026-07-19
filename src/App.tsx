@@ -47,6 +47,7 @@ interface Review {
   tags: string[]
   memo: string
   review_history: ReviewHistoryEntry[]
+  first_reviewed: string | null
 }
 
 // ==============================
@@ -612,14 +613,25 @@ const RATING_MAP: Record<Status, Grade> = {
   '未着手': Rating.Good,
 }
 
-function toFSRSCard(review: Partial<Review>): Card {
-  const lastReview = review.last_reviewed ? new Date(review.last_reviewed) : new Date()
-  const due = review.due_date ? new Date(review.due_date) : new Date()
+// "YYYY-MM-DD" を UTC正午の Date に変換（TZによる日付ズレを防ぐ）
+function dateAtUTCNoon(dateStr: string): Date {
+  return new Date(`${dateStr}T12:00:00Z`)
+}
+
+// timestamptz / date いずれの文字列でも "YYYY-MM-DD" に正規化する
+function toDateStr(v: string | null | undefined): string {
+  if (!v) return ''
+  return v.slice(0, 10)
+}
+
+function toFSRSCard(review: Partial<Review>, now: Date): Card {
+  const lastReview = review.last_reviewed ? dateAtUTCNoon(toDateStr(review.last_reviewed)) : now
+  const due = review.due_date ? dateAtUTCNoon(toDateStr(review.due_date)) : now
   return {
     due,
     stability: review.stability ?? 0,
     difficulty: review.difficulty_fsrs ?? 5,
-    elapsed_days: Math.max(0, Math.floor((Date.now() - lastReview.getTime()) / 86400000)),
+    elapsed_days: Math.max(0, Math.floor((now.getTime() - lastReview.getTime()) / 86400000)),
     scheduled_days: Math.max(0, Math.floor((due.getTime() - lastReview.getTime()) / 86400000)),
     learning_steps: 0,
     reps: review.repetitions ?? 0,
@@ -629,13 +641,14 @@ function toFSRSCard(review: Partial<Review>): Card {
   }
 }
 
-function calcFSRS(current: Partial<Review> | null, status: Status) {
+// eventDate = 実施日（過去日でもよい）。未指定なら今日。
+function calcFSRS(current: Partial<Review> | null, status: Status, eventDate?: string) {
   if (status === '未着手') return {}
   const rating = RATING_MAP[status]
+  const now = eventDate ? dateAtUTCNoon(eventDate) : new Date()
   const card = current && (current.repetitions ?? 0) > 0
-    ? toFSRSCard(current)
-    : createEmptyCard()
-  const now = new Date()
+    ? toFSRSCard(current, now)
+    : createEmptyCard(now)
   const newCard = fsrsScheduler.repeat(card, now)[rating].card
   return {
     stability: newCard.stability,
@@ -643,8 +656,33 @@ function calcFSRS(current: Partial<Review> | null, status: Status) {
     repetitions: newCard.reps,
     lapses: newCard.lapses,
     due_date: newCard.due.toISOString().split('T')[0],
-    last_reviewed: now.toISOString().split('T')[0],
+    last_reviewed: eventDate ?? now.toISOString().split('T')[0],
     fsrs_state: newCard.state,
+  }
+}
+
+// review_history を実施日順に再生し、FSRS・初回/実施日・ステータスを一括導出する。
+// 記録・取消のどちらでも履歴と各フィールドが常に一致する。
+function deriveFromHistory(history: ReviewHistoryEntry[]) {
+  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date))
+  let acc: Partial<Review> = {
+    stability: 0, difficulty_fsrs: 5, repetitions: 0, lapses: 0,
+    due_date: null, last_reviewed: null, fsrs_state: State.New,
+  }
+  for (const e of sorted) {
+    acc = { ...acc, ...calcFSRS(acc, e.status, e.date) }
+  }
+  return {
+    stability: acc.stability ?? 0,
+    difficulty_fsrs: acc.difficulty_fsrs ?? 5,
+    repetitions: acc.repetitions ?? 0,
+    lapses: acc.lapses ?? 0,
+    due_date: acc.due_date ?? null,
+    fsrs_state: acc.fsrs_state ?? State.New,
+    review_history: sorted,
+    first_reviewed: sorted.length ? sorted[0].date : null,
+    last_reviewed: sorted.length ? sorted[sorted.length - 1].date : null,
+    status: (sorted.length ? sorted[sorted.length - 1].status : '未着手') as Status,
   }
 }
 
@@ -666,7 +704,7 @@ function defaultReview(questionId: string): Review {
     due_date: null, repetitions: 0, lapses: 0,
     last_reviewed: null, fsrs_state: State.New,
     tags: [], memo: '',
-    review_history: [],
+    review_history: [], first_reviewed: null,
   }
 }
 
@@ -709,7 +747,10 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
-  const [editDate, setEditDate]   = useState<string>('')
+  // 各問題の記録用「実施日」。未設定なら今日を使う。
+  const [recordDate, setRecordDate] = useState<Record<string, string>>({})
+  const todayStr = new Date().toISOString().split('T')[0]
+  const dateFor = (id: string) => recordDate[id] ?? todayStr
 
   // ---- Auth ----
   useEffect(() => {
@@ -747,6 +788,9 @@ export default function App() {
             map[r.question_id] = {
               ...r,
               review_history: Array.isArray(r.review_history) ? r.review_history : [],
+              last_reviewed: r.last_reviewed ? toDateStr(r.last_reviewed) : null,
+              first_reviewed: r.first_reviewed ? toDateStr(r.first_reviewed) : null,
+              due_date: r.due_date ? toDateStr(r.due_date) : null,
             } as Review
           })
           setReviews(map)
@@ -755,17 +799,49 @@ export default function App() {
       })
   }, [user])
 
-  // ---- Update status ----
+  // ---- 共通: 履歴から Review 全体を導出して保存 ----
+  const persistReview = useCallback(async (
+    current: Review,
+    history: ReviewHistoryEntry[],
+  ) => {
+    if (!user) return
+    const derived = deriveFromHistory(history)
+    const updated: Review = { ...current, ...derived }
+    setReviews(prev => ({ ...prev, [updated.question_id]: updated }))
+    setSaving(true)
+    const { error } = await supabase.from('denken_reviews').upsert({
+      user_id: user.id, ...updated,
+    })
+    if (error) console.error(error)
+    setSaving(false)
+  }, [user])
+
+  // ---- 実施日 + 理解度を記録（履歴に蓄積）----
   const updateStatus = useCallback(async (questionId: string, status: Status) => {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
-    const fsrs = calcFSRS(current, status)
-    const today = new Date().toISOString().split('T')[0]
-    const review_history: ReviewHistoryEntry[] = [
+    const date = dateFor(questionId)
+    const history: ReviewHistoryEntry[] = [
       ...(current.review_history ?? []),
-      { date: today, status },
+      { date, status },
     ]
-    const updated: Review = { ...current, status, ...fsrs, review_history }
+    await persistReview(current, history)
+  }, [user, reviews, persistReview, recordDate])
+
+  // ---- 履歴エントリを取り消し（誤記録の修正用）----
+  const deleteEntry = useCallback(async (questionId: string, index: number) => {
+    if (!user) return
+    const current = reviews[questionId]
+    if (!current) return
+    const history = current.review_history.filter((_, i) => i !== index)
+    await persistReview(current, history)
+  }, [user, reviews, persistReview])
+
+  // ---- メモを保存 ----
+  const saveDetails = useCallback(async (questionId: string) => {
+    if (!user) return
+    const current = reviews[questionId] ?? defaultReview(questionId)
+    const updated: Review = { ...current, memo: editMemo }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -774,45 +850,8 @@ export default function App() {
     })
     if (error) console.error(error)
     setSaving(false)
-  }, [user, reviews])
-
-  // ---- Save memo/tags/date ----
-  const saveDetails = useCallback(async (questionId: string) => {
-    if (!user) return
-    const current = reviews[questionId] ?? defaultReview(questionId)
-
-    let lastReviewed = current.last_reviewed
-    let dueDate = current.due_date
-    let review_history = [...(current.review_history ?? [])]
-    if (editDate && editDate !== current.last_reviewed) {
-      review_history = review_history.map(entry =>
-        entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
-      )
-      lastReviewed = editDate
-      if (current.stability > 0) {
-        const [y, m, d] = editDate.split('-').map(Number)
-        const date = new Date(y, m - 1, d)
-        date.setDate(date.getDate() + Math.max(1, Math.round(current.stability)))
-        dueDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-      }
-    }
-
-    const updated: Review = {
-      ...current,
-      memo: editMemo,
-      last_reviewed: lastReviewed,
-      due_date: dueDate,
-      review_history,
-    }
-
-    setReviews(prev => ({ ...prev, [questionId]: updated }))
-    setSaving(true)
-    await supabase.from('denken_reviews').upsert({
-      user_id: user.id, ...updated,
-    })
-    setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo, editDate])
+  }, [user, reviews, editMemo])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -894,7 +933,6 @@ export default function App() {
   const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
-  const todayStr = new Date().toISOString().split('T')[0]
   const reviewDueCount = (questions: { id: string }[]) =>
     questions.filter(q => {
       const r = reviews[q.id]
@@ -1119,8 +1157,16 @@ export default function App() {
                           <p className="text-xs text-gray-400 mt-1 truncate">{review.memo}</p>
                         )}
 
-                        {/* Status buttons */}
+                        {/* 実施日 + 理解度の記録 */}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
+                          <input
+                            type="date"
+                            value={dateFor(q.id)}
+                            max={todayStr}
+                            onChange={e => setRecordDate(prev => ({ ...prev, [q.id]: e.target.value }))}
+                            title="実施日（過去の日付も選べます）"
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-blue-300 bg-white"
+                          />
                           {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
@@ -1140,7 +1186,6 @@ export default function App() {
                                 } else {
                                   setEditingId(q.id)
                                   setEditMemo(review.memo)
-                                  setEditDate(review.last_reviewed ?? '')
                                 }
                               }}
                               className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
@@ -1148,18 +1193,9 @@ export default function App() {
                           )}
                         </div>
 
-                        {/* Edit panel (全問題タブのみ) */}
+                        {/* Edit panel（メモのみ・全問題タブ）*/}
                         {isEditing && activeTab === 'list' && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
-                            <div>
-                              <p className="text-xs text-gray-500 font-medium mb-1.5">実施日</p>
-                              <input
-                                type="date"
-                                value={editDate}
-                                onChange={e => setEditDate(e.target.value)}
-                                className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-blue-300 bg-white"
-                              />
-                            </div>
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">メモ</p>
                               <textarea
@@ -1176,17 +1212,22 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* 実施日履歴 */}
+                        {/* 実施日履歴（初回から蓄積・✕で取り消し）*/}
                         {review.review_history.length > 0 && !isEditing && (
                           <div className="mt-1.5 flex flex-wrap gap-1 items-center">
                             {review.review_history.map((entry, idx) => {
                               const label = idx === 0 ? '初回' : `${idx}回目`
                               const [, m, d] = entry.date.split('-')
                               return (
-                                <span key={idx} className="text-xs text-gray-300">
+                                <span key={idx} className="text-xs text-gray-300 inline-flex items-center">
                                   {idx > 0 && <span className="mr-1">→</span>}
-                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500`}>
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500 inline-flex items-center gap-1`}>
                                     {label} {parseInt(m)}/{parseInt(d)}
+                                    <button
+                                      onClick={() => deleteEntry(q.id, idx)}
+                                      title="この記録を取り消す"
+                                      className="text-gray-400 hover:text-red-500 leading-none"
+                                    >×</button>
                                   </span>
                                 </span>
                               )
