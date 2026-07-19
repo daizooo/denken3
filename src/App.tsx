@@ -774,8 +774,12 @@ export default function App() {
 
     let lastReviewed = current.last_reviewed
     let dueDate = current.due_date
+    let review_history = [...(current.review_history ?? [])]
     if (editDate && editDate !== current.last_reviewed) {
       lastReviewed = editDate
+      review_history = review_history.map(entry =>
+        entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
+      )
       if (current.stability > 0) {
         const d = new Date(editDate)
         d.setDate(d.getDate() + Math.max(1, Math.round(current.stability)))
@@ -788,6 +792,7 @@ export default function App() {
       memo: editMemo,
       last_reviewed: lastReviewed,
       due_date: dueDate,
+      review_history,
     }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
