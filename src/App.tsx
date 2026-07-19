@@ -694,6 +694,7 @@ export default function App() {
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0])
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
@@ -813,19 +814,39 @@ export default function App() {
     )
   }, [currentChapters, chapterCode])
 
+  const reviewSchedule = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(d.getDate() + i)
+      const dStr = d.toISOString().split('T')[0]
+      const count = allQuestions.filter(q => {
+        const r = reviews[q.id]
+        if (i === 0) return r?.status === '未着手' || (r?.due_date && r.due_date <= dStr)
+        return reviews[q.id]?.due_date === dStr
+      }).length
+      const label = i === 0 ? '今日' : i === 1 ? '明日' : `${d.getMonth() + 1}/${d.getDate()}`
+      return { date: dStr, label, count }
+    })
+  }, [allQuestions, reviews])
+
   const filteredQuestions = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
-        const today = new Date().toISOString().split('T')[0]
-        const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
-        if (!isDue) return false
+        if (selectedDate === today) {
+          const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
+          if (!isDue) return false
+        } else {
+          if (!r?.due_date || r.due_date !== selectedDate) return false
+        }
       }
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-  }, [allQuestions, reviews, activeTab, filterStatus])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate])
 
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
@@ -998,6 +1019,32 @@ export default function App() {
               ))}
             </div>
 
+            {/* ===== DATE STRIP (review only) ===== */}
+            {activeTab === 'review' && (
+              <div className="overflow-x-auto -mx-0.5 px-0.5">
+                <div className="flex gap-1.5 pb-1" style={{ minWidth: 'max-content' }}>
+                  {reviewSchedule.map(({ date, label, count }) => (
+                    <button
+                      key={date}
+                      onClick={() => setSelectedDate(date)}
+                      className={`flex flex-col items-center px-3 py-1.5 rounded-xl border text-xs transition-colors min-w-[52px] ${
+                        selectedDate === date
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : count > 0
+                          ? 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                          : 'bg-gray-50 text-gray-400 border-gray-100'
+                      }`}
+                    >
+                      <span className="font-medium">{label}</span>
+                      <span className={`mt-0.5 font-bold ${
+                        selectedDate === date ? 'text-white' : count > 0 ? 'text-red-500' : 'text-gray-300'
+                      }`}>{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ===== STATUS FILTER (list only) ===== */}
             {activeTab === 'list' && (
               <div className="flex gap-1.5 flex-wrap">
@@ -1019,7 +1066,9 @@ export default function App() {
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
                 <p className="text-gray-400 text-sm">
                   {activeTab === 'review'
-                    ? '今日の復習はありません'
+                    ? selectedDate === new Date().toISOString().split('T')[0]
+                      ? '今日の復習はありません'
+                      : 'この日の復習予定はありません'
                     : '表示できる問題がありません'}
                 </p>
               </div>
