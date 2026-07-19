@@ -3,6 +3,8 @@ import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import type { User } from '@supabase/supabase-js'
 import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
+import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
+import type { Card, Grade } from 'ts-fsrs'
 
 // ==============================
 // TYPES
@@ -41,6 +43,7 @@ interface Review {
   repetitions: number
   lapses: number
   last_reviewed: string | null
+  fsrs_state: number
   tags: string[]
   memo: string
   review_history: ReviewHistoryEntry[]
@@ -597,46 +600,51 @@ const STATUS_LABEL: Record<Status, string> = {
 }
 
 // ==============================
-// FSRS (簡易実装)
+// FSRS (ts-fsrs v5 公式実装)
+// enable_short_term=false で日単位スケジューリング
 // ==============================
-function calcFSRS(current: Partial<Review> | null, status: Status) {
-  const rMap: Record<Status, number> = { C: 1, B: 3, A: 4, '未着手': 3 }
-  const r = rMap[status]
-  let stability   = current?.stability      ?? 0
-  let diff        = current?.difficulty_fsrs ?? 5
-  let reps        = current?.repetitions    ?? 0
-  const lastReviewed = current?.last_reviewed ?? null
-  const today = new Date().toISOString().split('T')[0]
+const fsrsScheduler = new FSRS({ enable_short_term: false })
 
-  if (reps === 0) {
-    const initS: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 2.4, 4: 5.8 }
-    const initD: Record<number, number> = { 1: 7.15, 2: 5.5, 3: 4.0, 4: 2.5 }
-    stability = initS[r]; diff = initD[r]
-  } else {
-    const elapsed = Math.max(0, Math.floor(
-      (new Date(today).getTime() - new Date(lastReviewed!).getTime()) / 86400000
-    ))
-    const retrievability = Math.exp(Math.log(0.9) * elapsed / Math.max(stability, 0.1))
-    diff = Math.min(Math.max(diff + (r === 1 ? 1 : r === 2 ? 0.5 : r === 3 ? -0.2 : -0.5), 1), 10)
-    if (r === 1) {
-      stability = Math.max(0.1, stability * 0.2)
-    } else {
-      const factor = Math.exp(0.1 * (10 - diff)) * (1.1 - retrievability)
-      stability = stability * (1 + factor * (r === 2 ? 0.5 : 1.0) * (r === 4 ? 1.3 : 1.0))
-    }
-  }
+const RATING_MAP: Record<Status, Grade> = {
+  A: Rating.Easy,
+  B: Rating.Good,
+  C: Rating.Again,
+  '未着手': Rating.Good,
+}
 
-  const interval = r === 1 ? 1 : Math.max(1, Math.round(stability))
-  const due = new Date(today)
-  due.setDate(due.getDate() + interval)
-
+function toFSRSCard(review: Partial<Review>): Card {
+  const lastReview = review.last_reviewed ? new Date(review.last_reviewed) : new Date()
+  const due = review.due_date ? new Date(review.due_date) : new Date()
   return {
-    stability,
-    difficulty_fsrs: diff,
-    repetitions: reps + 1,
-    lapses: r === 1 ? (current?.lapses ?? 0) + 1 : (current?.lapses ?? 0),
-    due_date: due.toISOString().split('T')[0],
-    last_reviewed: today,
+    due,
+    stability: review.stability ?? 0,
+    difficulty: review.difficulty_fsrs ?? 5,
+    elapsed_days: Math.max(0, Math.floor((Date.now() - lastReview.getTime()) / 86400000)),
+    scheduled_days: Math.max(0, Math.floor((due.getTime() - lastReview.getTime()) / 86400000)),
+    learning_steps: 0,
+    reps: review.repetitions ?? 0,
+    lapses: review.lapses ?? 0,
+    state: (review.fsrs_state ?? State.New) as State,
+    last_review: lastReview,
+  }
+}
+
+function calcFSRS(current: Partial<Review> | null, status: Status) {
+  if (status === '未着手') return {}
+  const rating = RATING_MAP[status]
+  const card = current && (current.repetitions ?? 0) > 0
+    ? toFSRSCard(current)
+    : createEmptyCard()
+  const now = new Date()
+  const newCard = fsrsScheduler.repeat(card, now)[rating].card
+  return {
+    stability: newCard.stability,
+    difficulty_fsrs: newCard.difficulty,
+    repetitions: newCard.reps,
+    lapses: newCard.lapses,
+    due_date: newCard.due.toISOString().split('T')[0],
+    last_reviewed: now.toISOString().split('T')[0],
+    fsrs_state: newCard.state,
   }
 }
 
@@ -656,7 +664,8 @@ function defaultReview(questionId: string): Review {
     question_id: questionId, status: '未着手',
     stability: 0, difficulty_fsrs: 5,
     due_date: null, repetitions: 0, lapses: 0,
-    last_reviewed: null, tags: [], memo: '',
+    last_reviewed: null, fsrs_state: State.New,
+    tags: [], memo: '',
     review_history: [],
   }
 }
