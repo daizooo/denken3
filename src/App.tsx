@@ -785,14 +785,18 @@ export default function App() {
     let dueDate = current.due_date
     let review_history = [...(current.review_history ?? [])]
     if (editDate && editDate !== current.last_reviewed) {
+      review_history = review_history.map(entry =>
+        entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
+      )
       lastReviewed = editDate
       review_history = review_history.map(entry =>
         entry.date === current.last_reviewed ? { ...entry, date: editDate } : entry
       )
       if (current.stability > 0) {
-        const d = new Date(editDate)
-        d.setDate(d.getDate() + Math.max(1, Math.round(current.stability)))
-        dueDate = d.toISOString().split('T')[0]
+        const [y, m, d] = editDate.split('-').map(Number)
+        const date = new Date(y, m - 1, d)
+        date.setDate(date.getDate() + Math.max(1, Math.round(current.stability)))
+        dueDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
       }
     }
 
