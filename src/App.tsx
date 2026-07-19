@@ -7,7 +7,7 @@ import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
 // ==============================
 // TYPES
 // ==============================
-type Status = 'A' | 'A-' | 'B' | 'C' | 'D' | '未着手'
+type Status = 'A' | 'B' | 'C' | '未着手'
 
 interface MasterQuestion {
   id: string
@@ -575,23 +575,27 @@ const COMMON_TAGS = ['公式忘れ', '計算ミス', '単位ミス', '勘違い'
 
 const STATUS_BG: Record<Status, string> = {
   'A':    'bg-green-100 text-green-800 border-green-300',
-  'A-':   'bg-teal-100 text-teal-800 border-teal-300',
   'B':    'bg-blue-100 text-blue-800 border-blue-300',
-  'C':    'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'D':    'bg-red-100 text-red-800 border-red-300',
+  'C':    'bg-red-100 text-red-800 border-red-300',
   '未着手': 'bg-gray-100 text-gray-800 border-gray-300',
 }
 
 const STATUS_COLOR: Record<Status, string> = {
-  'A': '#22c55e', 'A-': '#14b8a6', 'B': '#3b82f6',
-  'C': '#eab308', 'D': '#ef4444', '未着手': '#9ca3af',
+  'A': '#22c55e', 'B': '#3b82f6', 'C': '#ef4444', '未着手': '#9ca3af',
+}
+
+const STATUS_LABEL: Record<Status, string> = {
+  'A': 'A（答えを見ずに解けた）',
+  'B': 'B（方向性OK・計算ミス）',
+  'C': 'C（答えを見た）',
+  '未着手': '未着手',
 }
 
 // ==============================
 // FSRS (簡易実装)
 // ==============================
 function calcFSRS(current: Partial<Review> | null, status: Status) {
-  const rMap: Record<Status, number> = { D: 1, C: 2, B: 2, 'A-': 3, A: 4, '未着手': 3 }
+  const rMap: Record<Status, number> = { C: 1, B: 3, A: 4, '未着手': 3 }
   const r = rMap[status]
   let stability   = current?.stability      ?? 0
   let diff        = current?.difficulty_fsrs ?? 5
@@ -690,6 +694,7 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
   const [editTags, setEditTags]   = useState<string[]>([])
+  const [editDate, setEditDate]   = useState<string>('')
 
   // ---- Auth ----
   useEffect(() => {
@@ -746,11 +751,29 @@ export default function App() {
     setSaving(false)
   }, [user, reviews])
 
-  // ---- Save memo/tags ----
+  // ---- Save memo/tags/date ----
   const saveDetails = useCallback(async (questionId: string) => {
     if (!user) return
     const current = reviews[questionId] ?? defaultReview(questionId)
-    const updated: Review = { ...current, memo: editMemo, tags: editTags }
+
+    let lastReviewed = current.last_reviewed
+    let dueDate = current.due_date
+    if (editDate && editDate !== current.last_reviewed) {
+      lastReviewed = editDate
+      if (current.stability > 0) {
+        const d = new Date(editDate)
+        d.setDate(d.getDate() + Math.max(1, Math.round(current.stability)))
+        dueDate = d.toISOString().split('T')[0]
+      }
+    }
+
+    const updated: Review = {
+      ...current,
+      memo: editMemo,
+      tags: editTags,
+      last_reviewed: lastReviewed,
+      due_date: dueDate,
+    }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -759,7 +782,7 @@ export default function App() {
     })
     setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo, editTags])
+  }, [user, reviews, editMemo, editTags, editDate])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -791,7 +814,7 @@ export default function App() {
   }, [allQuestions, reviews, activeTab, filterStatus])
 
   const dashData = useMemo(() => {
-    const counts: Record<Status, number> = { A: 0, 'A-': 0, B: 0, C: 0, D: 0, '未着手': 0 }
+    const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
     allQuestions.forEach(q => { counts[reviews[q.id]?.status ?? '未着手']++ })
 
     const pieData = (Object.entries(counts) as [Status, number][])
@@ -942,7 +965,7 @@ export default function App() {
             {/* ===== STATUS FILTER (list only) ===== */}
             {activeTab === 'list' && (
               <div className="flex gap-1.5 flex-wrap">
-                {(['ALL', 'A', 'A-', 'B', 'C', 'D', '未着手'] as const).map(s => (
+                {(['ALL', 'A', 'B', 'C', '未着手'] as const).map(s => (
                   <button key={s}
                     onClick={() => setFilterStatus(s)}
                     className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
@@ -1013,9 +1036,10 @@ export default function App() {
 
                         {/* Status buttons */}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
-                          {(['A', 'A-', 'B', 'C', 'D'] as Status[]).map(s => (
+                          {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
+                              title={STATUS_LABEL[s]}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
                                 review.status === s
                                   ? `${STATUS_BG[s]} scale-105 shadow-sm`
@@ -1031,6 +1055,7 @@ export default function App() {
                                 setEditingId(q.id)
                                 setEditMemo(review.memo)
                                 setEditTags([...review.tags])
+                                setEditDate(review.last_reviewed ?? '')
                               }
                             }}
                             className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
@@ -1040,6 +1065,15 @@ export default function App() {
                         {/* Edit panel */}
                         {isEditing && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
+                            <div>
+                              <p className="text-xs text-gray-500 font-medium mb-1.5">実施日</p>
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={e => setEditDate(e.target.value)}
+                                className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-blue-300 bg-white"
+                              />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">タグ</p>
                               <div className="flex gap-1.5 flex-wrap">
@@ -1113,9 +1147,9 @@ function DashboardView({
       {/* 概要カード */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: '完答(A)', value: data.counts.A, color: 'text-green-600' },
-          { label: '習得中(A-〜B)', value: data.counts['A-'] + data.counts.B, color: 'text-blue-600' },
-          { label: '要復習(C+D)', value: data.counts.C + data.counts.D, color: 'text-red-500' },
+          { label: 'A（完全正答）', value: data.counts.A, color: 'text-green-600' },
+          { label: 'B（方向性OK）', value: data.counts.B, color: 'text-blue-600' },
+          { label: 'C（要学習）', value: data.counts.C, color: 'text-red-500' },
         ].map(item => (
           <div key={item.label} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
             <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
@@ -1166,7 +1200,7 @@ function DashboardView({
         <div className="space-y-2.5">
           {chapters.map(c => {
             const done = c.questions.filter(q =>
-              ['A', 'A-', 'B'].includes(reviews[q.id]?.status ?? '')
+              ['A', 'B'].includes(reviews[q.id]?.status ?? '')
             ).length
             const pct = c.questions.length > 0 ? (done / c.questions.length) * 100 : 0
             const mastered = c.questions.filter(q => reviews[q.id]?.status === 'A').length
