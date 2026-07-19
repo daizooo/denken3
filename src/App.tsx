@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, TrendingUp, Save } from 'lucide-react'
+import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
 
 // ==============================
 // TYPES
@@ -844,9 +844,10 @@ export default function App() {
               <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
               <button
                 onClick={() => supabase.auth.signOut()}
-                className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-lg border border-gray-200 hover:border-red-200"
+                title="ログアウト"
+                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ログアウト
+                <LogOut size={13} />
               </button>
             </div>
           </div>
