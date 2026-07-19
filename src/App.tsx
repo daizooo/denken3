@@ -879,10 +879,17 @@ export default function App() {
   const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
+  const todayStr = new Date().toISOString().split('T')[0]
+  const reviewDueCount = (questions: { id: string }[]) =>
+    questions.filter(q => {
+      const r = reviews[q.id]
+      return selectedDate === todayStr
+        ? r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
+        : r?.due_date === selectedDate
+    }).length
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
-    const today = new Date().toISOString().split('T')[0]
-    return !!(r?.due_date && r.due_date <= today)
+    return !!(r?.due_date && r.due_date <= todayStr)
   }).length
 
   return (
@@ -970,14 +977,10 @@ export default function App() {
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
                 }`}
-              >全章 ({totalQ}問)</button>
+              >全章 ({activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問)</button>
 
               {inputChapters.map(c => {
-                const today = new Date().toISOString().split('T')[0]
-                const dueCount = c.questions.filter(q => {
-                  const r = reviews[q.id]
-                  return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
-                }).length
+                const count = activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length
                 return (
                   <button key={c.code}
                     onClick={() => setChapterCode(c.code)}
@@ -987,10 +990,7 @@ export default function App() {
                         : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
                     }`}
                   >
-                    {c.name} ({c.questions.length})
-                    {activeTab === 'review' && dueCount > 0 && (
-                      <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1 py-px">{dueCount}</span>
-                    )}
+                    {c.name} ({count})
                   </button>
                 )
               })}
