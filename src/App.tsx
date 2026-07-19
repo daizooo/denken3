@@ -869,19 +869,6 @@ export default function App() {
     return { counts, pieData, scheduleData }
   }, [allQuestions, reviews])
 
-  // ---- Render guards ----
-  // reviewタブで復習が0になったらlistに切り替え
-  useEffect(() => {
-    if (!loading && activeTab === 'review') {
-      const today = new Date().toISOString().split('T')[0]
-      const due = allQuestions.filter(q => {
-        const r = reviews[q.id]
-        return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
-      }).length
-      if (due === 0) setActiveTab('list')
-    }
-  }, [loading, activeTab, allQuestions, reviews])
-
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400 text-sm">読み込み中...</p>
@@ -943,16 +930,14 @@ export default function App() {
 
           {/* 表示タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {todayDue > 0 && (
-              <button
-                onClick={() => setActiveTab('review')}
-                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                今日の復習 ({todayDue})
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('review')}
+              className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              今日の復習{todayDue > 0 ? ` (${todayDue})` : ''}
+            </button>
             {(['list', 'dashboard'] as const).map(t => (
               <button key={t}
                 onClick={() => setActiveTab(t)}
