@@ -651,6 +651,14 @@ function formatDue(dateStr: string | null): string {
   return `${diff}日後`
 }
 
+// 復習の緊急度: 予定日 - 今日（日数）。未着手・予定日なしは0（＝本日扱い）
+function dueOffsetDays(review: Review | undefined, today: string): number {
+  if (!review || review.status === '未着手' || !review.due_date) return 0
+  return Math.floor(
+    (new Date(review.due_date).getTime() - new Date(today).getTime()) / 86400000
+  )
+}
+
 function defaultReview(questionId: string): Review {
   return {
     question_id: questionId, status: '未着手',
@@ -701,6 +709,17 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
   const [editDate, setEditDate]   = useState<string>('')
+  // 1日の復習上限（null = 無制限）。localStorageに永続化
+  const [dailyCap, setDailyCap]   = useState<number | null>(() => {
+    if (typeof localStorage === 'undefined') return 20
+    const v = localStorage.getItem('denken_daily_cap')
+    if (v === null) return 20
+    if (v === 'unlimited') return null
+    const n = parseInt(v, 10)
+    return Number.isFinite(n) ? n : 20
+  })
+  // 「もっと解く」で当日に追加表示する問題数（前倒し）
+  const [extraToday, setExtraToday] = useState(0)
 
   // ---- Auth ----
   useEffect(() => {
@@ -743,6 +762,25 @@ export default function App() {
           setReviews(map)
         }
         setLoading(false)
+      })
+  }, [user])
+
+  // ---- Fetch settings（端末間同期）----
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('denken_settings')
+      .select('daily_cap')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return }
+        if (!data) return // 未設定ならローカル値/デフォルトのまま
+        const cap = data.daily_cap === null ? null : Number(data.daily_cap)
+        setDailyCap(cap)
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
+        }
       })
   }, [user])
 
@@ -799,6 +837,24 @@ export default function App() {
     setEditingId(null)
   }, [user, reviews, editMemo, editDate])
 
+  // ---- 1日の上限の変更（ローカル即時反映＋DBで端末間同期）----
+  const changeDailyCap = useCallback((cap: number | null) => {
+    setDailyCap(cap)
+    setExtraToday(0)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
+    }
+    if (user) {
+      supabase
+        .from('denken_settings')
+        .upsert({ user_id: user.id, daily_cap: cap })
+        .then(({ error }) => { if (error) console.error(error) })
+    }
+  }, [user])
+
+  // 科目・章・日付を切り替えたら「もっと解く」の追加分をリセット
+  useEffect(() => { setExtraToday(0) }, [subject, chapterCode, selectedDate])
+
   // ---- Derived data ----
   const currentChapters = useMemo(
     () => CHAPTERS.filter(c => c.subject === subject),
@@ -830,23 +886,55 @@ export default function App() {
     })
   }, [allQuestions, reviews])
 
+  // ---- 今日の復習プラン（1日の上限・優先度付け・前倒し）----
+  const todayPlan = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    const compRank: Record<Status, number> = { C: 0, B: 1, A: 2, '未着手': 3 }
+    // 本日消化すべき問題（未着手＋期限到来）を優先度順に並べる
+    const due = allQuestions
+      .map(q => ({ q, r: reviews[q.id] }))
+      .filter(({ r }) => {
+        const status = r?.status ?? '未着手'
+        return status === '未着手' || (r?.due_date != null && r.due_date <= today)
+      })
+      .sort((a, b) => {
+        const offA = dueOffsetDays(a.r, today)
+        const offB = dueOffsetDays(b.r, today)
+        if (offA !== offB) return offA - offB            // 遅延が大きい順
+        const ca = compRank[a.r?.status ?? '未着手']
+        const cb = compRank[b.r?.status ?? '未着手']
+        if (ca !== cb) return ca - cb                    // 理解度が低い順（C→B→A→未）
+        const ia = a.q.importance ?? 2
+        const ib = b.q.importance ?? 2
+        if (ia !== ib) return ib - ia                    // 重要度が高い順
+        return a.q.number - b.q.number                   // 書籍の並び順
+      })
+    const doneToday = allQuestions.filter(q => reviews[q.id]?.last_reviewed === today).length
+    const cap = dailyCap === null ? Infinity : dailyCap
+    const visibleSlots = Math.max(0, cap + extraToday - doneToday)
+    const visible = due.slice(0, visibleSlots)
+    const deferred = due.length - visible.length
+    const target = dailyCap === null ? doneToday + due.length : dailyCap
+    const donePct = target > 0 ? Math.min(100, Math.round((doneToday / target) * 100)) : 0
+    return { visible, deferred, doneToday, target, donePct, dueTotal: due.length }
+  }, [allQuestions, reviews, dailyCap, extraToday])
+
   const filteredQuestions = useMemo(() => {
     const today = new Date().toISOString().split('T')[0]
+    // 今日の復習は優先度順＋上限を反映したプランを表示
+    if (activeTab === 'review' && selectedDate === today) {
+      return todayPlan.visible.map(x => x.q)
+    }
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
-        if (selectedDate === today) {
-          const isDue = status === '未着手' || (r?.due_date && r.due_date <= today)
-          if (!isDue) return false
-        } else {
-          if (!r?.due_date || r.due_date !== selectedDate) return false
-        }
+        if (!r?.due_date || r.due_date !== selectedDate) return false
       }
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, todayPlan])
 
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
@@ -892,10 +980,10 @@ export default function App() {
   const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
+  const todayStr = new Date().toISOString().split('T')[0]
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
-    const today = new Date().toISOString().split('T')[0]
-    return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
+    return r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
   }).length
 
   return (
@@ -911,7 +999,7 @@ export default function App() {
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
-              <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              <span>{saving ? '保存中...' : `今日 ${todayPlan.doneToday}/${dailyCap === null ? '∞' : dailyCap} 完了`}</span>
               <button
                 onClick={() => supabase.auth.signOut()}
                 title="ログアウト"
@@ -950,7 +1038,7 @@ export default function App() {
                   activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                今日の復習 ({todayDue})
+                今日の復習 ({todayPlan.visible.length})
               </button>
             )}
             {(['list', 'dashboard'] as const).map(t => (
@@ -1045,6 +1133,57 @@ export default function App() {
               </div>
             )}
 
+            {/* ===== 復習プラン（今日・1日の上限/進捗/前倒し） ===== */}
+            {activeTab === 'review' && selectedDate === todayStr && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 space-y-3">
+                {/* 1日の目標 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-gray-500 font-medium mr-1">1日の目標</span>
+                  {[10, 20, 30, 50, null].map(cap => (
+                    <button key={cap ?? 'unlimited'}
+                      onClick={() => changeDailyCap(cap)}
+                      className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                        dailyCap === cap
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
+                      }`}
+                    >{cap === null ? '無制限' : `${cap}問`}</button>
+                  ))}
+                </div>
+
+                {/* 進捗バー */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">
+                      今日 <span className="font-bold text-gray-800">{todayPlan.doneToday}</span>
+                      <span className="text-gray-400"> / {dailyCap === null ? '∞' : todayPlan.target} 問</span>
+                    </span>
+                    {todayPlan.deferred > 0 && (
+                      <span className="text-gray-400">残り {todayPlan.deferred} 問は翌日以降</span>
+                    )}
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                      style={{ width: `${todayPlan.donePct}%` }} />
+                  </div>
+                </div>
+
+                {/* 前倒し（時間があるとき） */}
+                {todayPlan.deferred > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setExtraToday(x => x + 10)}
+                      className="flex-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
+                    >時間があるので もっと解く（+{Math.min(10, todayPlan.deferred)}問）</button>
+                    <button
+                      onClick={() => setExtraToday(x => x + todayPlan.deferred)}
+                      className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5"
+                    >全部表示</button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ===== STATUS FILTER (list only) ===== */}
             {activeTab === 'list' && (
               <div className="flex gap-1.5 flex-wrap">
@@ -1063,14 +1202,34 @@ export default function App() {
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                <p className="text-gray-400 text-sm">
-                  {activeTab === 'review'
-                    ? selectedDate === new Date().toISOString().split('T')[0]
-                      ? '今日の復習はありません'
-                      : 'この日の復習予定はありません'
-                    : '表示できる問題がありません'}
-                </p>
+              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-3">
+                {activeTab === 'review' && selectedDate === todayStr ? (
+                  todayPlan.deferred > 0 ? (
+                    <>
+                      <p className="text-gray-600 text-sm font-medium">本日の目標を達成しました 🎉</p>
+                      <p className="text-gray-400 text-xs">
+                        残り {todayPlan.deferred} 問は翌日以降の予定です。時間があれば続けて進められます。
+                      </p>
+                      <button
+                        onClick={() => setExtraToday(x => x + 10)}
+                        className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-4 py-2 hover:bg-blue-50 transition-colors"
+                      >もっと解く（+{Math.min(10, todayPlan.deferred)}問）</button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-600 text-sm font-medium">今日の復習はすべて完了しました 🎉</p>
+                      <p className="text-gray-400 text-xs">
+                        時間があれば、上の日付から先の復習を前倒しできます。
+                      </p>
+                    </>
+                  )
+                ) : (
+                  <p className="text-gray-400 text-sm">
+                    {activeTab === 'review'
+                      ? 'この日の復習予定はありません'
+                      : '表示できる問題がありません'}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
