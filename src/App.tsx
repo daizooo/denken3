@@ -697,6 +697,21 @@ function formatDue(dateStr: string | null): string {
   return `${diff}日後`
 }
 
+// "2026-07-20" → "7/20"
+function formatMD(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const [, m, d] = dateStr.split('-')
+  return `${parseInt(m)}/${parseInt(d)}`
+}
+
+// 次回復習日の緊急度に応じた文字色
+function dueColorClass(dateStr: string | null): string {
+  const label = formatDue(dateStr)
+  if (label.includes('遅延')) return 'text-red-500'
+  if (label === '今日') return 'text-orange-500'
+  return 'text-emerald-600'
+}
+
 function defaultReview(questionId: string): Review {
   return {
     question_id: questionId, status: '未着手',
@@ -749,6 +764,8 @@ export default function App() {
   const [editMemo, setEditMemo]   = useState('')
   // 各問題の記録用「実施日」。未設定なら今日を使う。
   const [recordDate, setRecordDate] = useState<Record<string, string>>({})
+  // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
+  const [dateOpenId, setDateOpenId] = useState<string | null>(null)
   const todayStr = new Date().toISOString().split('T')[0]
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -1125,14 +1142,6 @@ export default function App() {
                           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
                             {review.status}
                           </span>
-                          {review.due_date && review.status !== '未着手' && (
-                            <span className={`text-xs ${
-                              formatDue(review.due_date).includes('遅延') ? 'text-red-500' :
-                              formatDue(review.due_date) === '今日' ? 'text-orange-500' : 'text-gray-400'
-                            }`}>
-                              {formatDue(review.due_date)}
-                            </span>
-                          )}
                           {'difficulty' in q && (
                             <span className="text-xs text-gray-300">{'★'.repeat(q.difficulty as number)}</span>
                           )}
@@ -1140,6 +1149,28 @@ export default function App() {
 
                         {/* Title */}
                         <p className="text-sm font-medium text-gray-800 leading-snug">{q.title}</p>
+
+                        {/* 日付ステータス（ラベル付き） */}
+                        {review.status === '未着手' ? (
+                          <p className="text-xs text-gray-300 mt-1.5">未学習 · A / B / C で今日の理解度を記録</p>
+                        ) : (
+                          <div className="flex items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs flex-wrap">
+                            {review.last_reviewed && (
+                              <span className="text-gray-400">
+                                学習日 <span className="text-gray-600 font-medium">{formatMD(review.last_reviewed)}</span>
+                              </span>
+                            )}
+                            {review.due_date && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-gray-300">/</span>
+                                <span className="text-gray-400">次回復習</span>
+                                <span className={`font-medium ${dueColorClass(review.due_date)}`}>
+                                  {formatMD(review.due_date)}（{formatDue(review.due_date)}）
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Tags */}
                         {review.tags.length > 0 && (
@@ -1157,16 +1188,8 @@ export default function App() {
                           <p className="text-xs text-gray-400 mt-1 truncate">{review.memo}</p>
                         )}
 
-                        {/* 実施日 + 理解度の記録 */}
+                        {/* 理解度の記録（A/B/Cを押した日が実施日として記録される）*/}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
-                          <input
-                            type="date"
-                            value={dateFor(q.id)}
-                            max={todayStr}
-                            onChange={e => setRecordDate(prev => ({ ...prev, [q.id]: e.target.value }))}
-                            title="実施日（過去の日付も選べます）"
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-blue-300 bg-white"
-                          />
                           {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
@@ -1193,6 +1216,41 @@ export default function App() {
                           )}
                         </div>
 
+                        {/* 実施日（通常は今日。過去に解いた分だけ日付を変更）*/}
+                        <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                          <span className="text-gray-400">実施日</span>
+                          {dateOpenId === q.id ? (
+                            <>
+                              <input
+                                type="date"
+                                value={dateFor(q.id)}
+                                max={todayStr}
+                                autoFocus
+                                onChange={e => setRecordDate(prev => ({ ...prev, [q.id]: e.target.value }))}
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:border-blue-300 bg-white"
+                              />
+                              <button
+                                onClick={() => {
+                                  setRecordDate(prev => { const next = { ...prev }; delete next[q.id]; return next })
+                                  setDateOpenId(null)
+                                }}
+                                className="text-gray-400 hover:text-gray-600"
+                              >今日に戻す</button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setDateOpenId(q.id)}
+                              title="過去に解いた日付で記録したいとき変更します"
+                              className={`inline-flex items-center gap-0.5 ${
+                                dateFor(q.id) === todayStr ? 'text-gray-500' : 'text-blue-600 font-medium'
+                              }`}
+                            >
+                              {dateFor(q.id) === todayStr ? '今日' : formatMD(dateFor(q.id))}
+                              <span className="text-gray-300">▾</span>
+                            </button>
+                          )}
+                        </div>
+
                         {/* Edit panel（メモのみ・全問題タブ）*/}
                         {isEditing && activeTab === 'list' && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
@@ -1212,17 +1270,17 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* 実施日履歴（初回から蓄積・✕で取り消し）*/}
+                        {/* 学習履歴（初回から蓄積・✕で取り消し）*/}
                         {review.review_history.length > 0 && !isEditing && (
-                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                          <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1 items-center">
+                            <span className="text-xs text-gray-400 mr-0.5">履歴</span>
                             {review.review_history.map((entry, idx) => {
                               const label = idx === 0 ? '初回' : `${idx}回目`
-                              const [, m, d] = entry.date.split('-')
                               return (
                                 <span key={idx} className="text-xs text-gray-300 inline-flex items-center">
                                   {idx > 0 && <span className="mr-1">→</span>}
-                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500 inline-flex items-center gap-1`}>
-                                    {label} {parseInt(m)}/{parseInt(d)}
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded inline-flex items-center gap-1`}>
+                                    {label} {formatMD(entry.date)}
                                     <button
                                       onClick={() => deleteEntry(q.id, idx)}
                                       title="この記録を取り消す"
@@ -1232,7 +1290,6 @@ export default function App() {
                                 </span>
                               )
                             })}
-                            <span className="text-xs text-gray-300 ml-1">安定度{review.stability.toFixed(1)}</span>
                           </div>
                         )}
                       </div>
