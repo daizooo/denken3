@@ -765,6 +765,25 @@ export default function App() {
       })
   }, [user])
 
+  // ---- Fetch settings（端末間同期）----
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('denken_settings')
+      .select('daily_cap')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return }
+        if (!data) return // 未設定ならローカル値/デフォルトのまま
+        const cap = data.daily_cap === null ? null : Number(data.daily_cap)
+        setDailyCap(cap)
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
+        }
+      })
+  }, [user])
+
   // ---- Update status ----
   const updateStatus = useCallback(async (questionId: string, status: Status) => {
     if (!user || status === '未着手') return
@@ -818,14 +837,20 @@ export default function App() {
     setEditingId(null)
   }, [user, reviews, editMemo, editDate])
 
-  // ---- 1日の上限の変更（永続化）----
+  // ---- 1日の上限の変更（ローカル即時反映＋DBで端末間同期）----
   const changeDailyCap = useCallback((cap: number | null) => {
     setDailyCap(cap)
     setExtraToday(0)
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
     }
-  }, [])
+    if (user) {
+      supabase
+        .from('denken_settings')
+        .upsert({ user_id: user.id, daily_cap: cap })
+        .then(({ error }) => { if (error) console.error(error) })
+    }
+  }, [user])
 
   // 科目・章・日付を切り替えたら「もっと解く」の追加分をリセット
   useEffect(() => { setExtraToday(0) }, [subject, chapterCode, selectedDate])
