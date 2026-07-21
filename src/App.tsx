@@ -775,6 +775,8 @@ export default function App() {
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
   const [viewerQ, setViewerQ] = useState<{ id: string; title: string } | null>(null)
   const [showImport, setShowImport] = useState(false)
+  // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
+  const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
   const todayStr = new Date().toISOString().split('T')[0]
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -825,6 +827,11 @@ export default function App() {
       })
   }, [user])
 
+  // タブ・対象日を切り替えたら「復習済みで消した」記録はリセットする。
+  useEffect(() => {
+    setReviewedNowIds(new Set())
+  }, [activeTab, selectedDate])
+
   // ---- 共通: 履歴から Review 全体を導出して保存 ----
   const persistReview = useCallback(async (
     current: Review,
@@ -851,8 +858,12 @@ export default function App() {
       ...(current.review_history ?? []),
       { date, status },
     ]
+    // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
+    if (activeTab === 'review') {
+      setReviewedNowIds(prev => new Set(prev).add(questionId))
+    }
     await persistReview(current, history)
-  }, [user, reviews, persistReview, recordDate])
+  }, [user, reviews, persistReview, recordDate, activeTab])
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
   const deleteEntry = useCallback(async (questionId: string, index: number) => {
@@ -916,6 +927,8 @@ export default function App() {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
+        // 記録した瞬間に「復習済み」として消す（次回復習日が更新される前でも即反映）。
+        if (reviewedNowIds.has(q.id)) return false
         if (selectedDate === today) {
           const isDue = r?.due_date && r.due_date <= today
           if (!isDue) return false
@@ -926,7 +939,7 @@ export default function App() {
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds])
 
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
@@ -1205,16 +1218,14 @@ export default function App() {
                         )}
 
                         {/* 理解度の記録（A/B/Cを押した日が実施日として記録される）*/}
+                        {/* 記録済みでも押した状態にはしない（最初からタップして見える紛らわしさを解消）。
+                            記録した理解度は上部のステータスバッジと履歴で確認できる。 */}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
                           {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
                               title={STATUS_LABEL[s]}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
-                                review.status === s
-                                  ? `${STATUS_BG[s]} scale-105 shadow-sm`
-                                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600'
-                              }`}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600 transition-all"
                             >{s}</button>
                           ))}
                           {hasKnownAsset(q.id) && (
