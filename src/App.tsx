@@ -599,14 +599,15 @@ const STATUS_LABEL: Record<Status, string> = {
 // ==============================
 // FSRS (簡易実装)
 // ==============================
-function calcFSRS(current: Partial<Review> | null, status: Status) {
+function calcFSRS(current: Partial<Review> | null, status: Status, reviewDate?: string) {
   const rMap: Record<Status, number> = { C: 1, B: 3, A: 4, '未着手': 3 }
   const r = rMap[status]
   let stability   = current?.stability      ?? 0
   let diff        = current?.difficulty_fsrs ?? 5
   let reps        = current?.repetitions    ?? 0
   const lastReviewed = current?.last_reviewed ?? null
-  const today = new Date().toISOString().split('T')[0]
+  // reviewDate を渡すと過去日として再計算できる（履歴リプレイ用）
+  const today = reviewDate ?? new Date().toISOString().split('T')[0]
 
   if (reps === 0) {
     const initS: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 2.4, 4: 5.8 }
@@ -666,6 +667,27 @@ function defaultReview(questionId: string): Review {
     due_date: null, repetitions: 0, lapses: 0,
     last_reviewed: null, tags: [], memo: '',
     review_history: [],
+  }
+}
+
+// 復習履歴を最初から順にリプレイしてFSRS状態を再構築する。
+// 履歴の1件を削除したあと、更新前の状態（理解度・予定日など）へ正確に巻き戻すために使う。
+// 各エントリは記録当日に last_reviewed が設定されるため、entry.date を実施日として
+// 再計算すれば元の計算列を忠実に再現できる。
+function replayFSRS(history: ReviewHistoryEntry[]) {
+  let acc: Review = defaultReview('')
+  for (const entry of history) {
+    const fsrs = calcFSRS(acc, entry.status, entry.date)
+    acc = { ...acc, status: entry.status, ...fsrs }
+  }
+  return {
+    status: acc.status,
+    stability: acc.stability,
+    difficulty_fsrs: acc.difficulty_fsrs,
+    repetitions: acc.repetitions,
+    lapses: acc.lapses,
+    due_date: acc.due_date,
+    last_reviewed: acc.last_reviewed,
   }
 }
 
@@ -836,6 +858,32 @@ export default function App() {
     setSaving(false)
     setEditingId(null)
   }, [user, reviews, editMemo, editDate])
+
+  // ---- 復習履歴の1件を削除して、その記録前の状態へ巻き戻す ----
+  // 間違えて理解度を更新したときに、残った履歴からFSRSを再計算して
+  // 予定日・理解度・安定度などを更新前の値に戻す。
+  const deleteHistoryEntry = useCallback(async (questionId: string, idx: number) => {
+    if (!user) return
+    const current = reviews[questionId]
+    if (!current) return
+    const newHistory = current.review_history.filter((_, i) => i !== idx)
+    // 履歴が空になったら未着手（初期状態）へ。メモ・タグは残す
+    const restored = newHistory.length === 0
+      ? {
+          status: '未着手' as Status, stability: 0, difficulty_fsrs: 5,
+          due_date: null, repetitions: 0, lapses: 0, last_reviewed: null,
+        }
+      : replayFSRS(newHistory)
+    const updated: Review = { ...current, ...restored, review_history: newHistory }
+
+    setReviews(prev => ({ ...prev, [questionId]: updated }))
+    setSaving(true)
+    const { error } = await supabase.from('denken_reviews').upsert({
+      user_id: user.id, ...updated,
+    })
+    if (error) console.error(error)
+    setSaving(false)
+  }, [user, reviews])
 
   // ---- 1日の上限の変更（ローカル即時反映＋DBで端末間同期）----
   const changeDailyCap = useCallback((cap: number | null) => {
@@ -1340,10 +1388,21 @@ export default function App() {
                               const label = idx === 0 ? '初回' : `${idx}回目`
                               const [, m, d] = entry.date.split('-')
                               return (
-                                <span key={idx} className="text-xs text-gray-300">
+                                <span key={idx} className="text-xs text-gray-300 inline-flex items-center">
                                   {idx > 0 && <span className="mr-1">→</span>}
-                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500`}>
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500 inline-flex items-center gap-1`}>
                                     {label} {parseInt(m)}/{parseInt(d)}
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm(
+                                          `「${label} ${parseInt(m)}/${parseInt(d)}（理解度${entry.status}）」の履歴を削除して、この記録前の状態（予定日・理解度）に戻しますか？`
+                                        )) {
+                                          deleteHistoryEntry(q.id, idx)
+                                        }
+                                      }}
+                                      title="この履歴を削除して記録前の状態に戻す"
+                                      className="text-gray-400 hover:text-red-500 leading-none font-bold"
+                                    >×</button>
                                   </span>
                                 </span>
                               )
