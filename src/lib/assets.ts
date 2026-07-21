@@ -3,6 +3,7 @@
 // - fetchAssets / signedUrl: 閲覧時に DB(denken_question_assets) と 署名付きURL を取得
 import { supabase } from './supabase'
 import { DC_ASSETS } from '../data/dcAssets'
+import { AC1_ASSETS } from '../data/ac1Assets'
 
 export type Region = 'top' | 'bottom' | null
 
@@ -16,8 +17,8 @@ export interface AssetRef {
 /** ファイル名 -> そのファイルが対応する問題（2問同居なら複数） */
 export type AssetMap = Record<string, AssetRef[]>
 
-// 章ごとのマッピングを統合（現状 DC のみ。章を増やしたらここへ足す）
-export const ASSET_MAP: AssetMap = { ...DC_ASSETS }
+// 章ごとのマッピングを統合（章を増やしたらここへ足す）
+export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS }
 
 export const BUCKET = 'denken-problems'
 
