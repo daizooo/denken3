@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
+import { BookOpen, TrendingUp, Save, LogOut, Upload, Image as ImageIcon } from 'lucide-react'
+import { hasKnownAsset } from './lib/assets'
+import ProblemViewer from './components/ProblemViewer'
+import ImportPanel from './components/ImportPanel'
 import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
 import type { Card, Grade } from 'ts-fsrs'
 
@@ -766,6 +769,8 @@ export default function App() {
   const [recordDate, setRecordDate] = useState<Record<string, string>>({})
   // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
+  const [viewerQ, setViewerQ] = useState<{ id: string; title: string } | null>(null)
+  const [showImport, setShowImport] = useState(false)
   const todayStr = new Date().toISOString().split('T')[0]
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -977,9 +982,16 @@ export default function App() {
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
               <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
               <button
+                onClick={() => setShowImport(true)}
+                title="問題画像の取り込み"
+                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Upload size={13} />
+              </button>
+              <button
                 onClick={() => supabase.auth.signOut()}
                 title="ログアウト"
-                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <LogOut size={13} />
               </button>
@@ -1201,6 +1213,14 @@ export default function App() {
                               }`}
                             >{s}</button>
                           ))}
+                          {hasKnownAsset(q.id) && (
+                            <button
+                              onClick={() => setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })}
+                              className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 hover:border-blue-400 px-2 py-1.5 rounded-lg transition-colors"
+                            >
+                              <ImageIcon size={13} /> 問題を見る
+                            </button>
+                          )}
                           {activeTab === 'list' && (
                             <button
                               onClick={() => {
@@ -1302,6 +1322,13 @@ export default function App() {
         )}
 
       </div>
+
+      {viewerQ && (
+        <ProblemViewer questionId={viewerQ.id} title={viewerQ.title} onClose={() => setViewerQ(null)} />
+      )}
+      {showImport && (
+        <ImportPanel userId={user.id} onClose={() => setShowImport(false)} />
+      )}
     </div>
   )
 }
