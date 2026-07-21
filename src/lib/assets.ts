@@ -10,6 +10,7 @@ export interface AssetRef {
   questionId: string
   region: Region
   sort: number
+  answerYPct?: number // 短い問題で解答が左ページ下に始まる場合の縦位置(%)。既定100=標準
 }
 
 /** ファイル名 -> そのファイルが対応する問題（2問同居なら複数） */
@@ -43,6 +44,7 @@ export interface QuestionAsset {
   storage_path: string
   region: Region
   answer_x_pct: number
+  answer_y_pct: number
   sort: number
 }
 
@@ -50,7 +52,7 @@ export interface QuestionAsset {
 export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> {
   const { data, error } = await supabase
     .from('denken_question_assets')
-    .select('storage_path, region, answer_x_pct, sort')
+    .select('storage_path, region, answer_x_pct, answer_y_pct, sort')
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
   if (error) throw error

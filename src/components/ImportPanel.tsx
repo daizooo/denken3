@@ -48,6 +48,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
         storage_path: path,
         region: r.region,
         sort: r.sort,
+        answer_y_pct: r.answerYPct ?? 100,
       }))
       const ins = await supabase
         .from('denken_question_assets')
