@@ -3,12 +3,16 @@ import { X, Eye, EyeOff, ZoomIn, ZoomOut } from 'lucide-react'
 import { fetchAssets, signedUrl, type QuestionAsset, type Region } from '../lib/assets'
 
 // 見開き画像1枚（またはその上/下半分）を、解答マスク付きで表示する。
+// マスクは最大2枚:
+//  - 右ページ（横 answerXPct% より右）を常に隠す
+//  - 短い問題（answerYPct<100）は左ページ下部（縦 answerYPct% より下・左ページ内）も隠す
 function AssetImage({
-  url, region, answerXPct, showAnswer,
-}: { url: string; region: Region; answerXPct: number; showAnswer: boolean }) {
+  url, region, answerXPct, answerYPct, showAnswer,
+}: { url: string; region: Region; answerXPct: number; answerYPct: number; showAnswer: boolean }) {
   // 画像は 2360x1640。region 指定時は上/下半分だけを見せる。
   const ratio = region ? '2360 / 820' : '2360 / 1640'
   const top = region === 'bottom' ? '-100%' : '0'
+  const maskBg = 'rgba(255,255,255,0.98)'
   return (
     <div style={{ position: 'relative', width: '100%', aspectRatio: ratio, overflow: 'hidden', background: '#fff' }}>
       <img
@@ -18,16 +22,27 @@ function AssetImage({
         style={{ position: 'absolute', top, left: 0, width: '100%', display: 'block' }}
       />
       {!showAnswer && (
-        <div
-          style={{
-            position: 'absolute', top: 0, bottom: 0, left: `${answerXPct}%`, right: 0,
-            background: 'rgba(255,255,255,0.98)',
-            borderLeft: '1px dashed #e5e7eb',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <span style={{ color: '#9ca3af', fontSize: 12, writingMode: 'vertical-rl' }}>解答（タップで表示）</span>
-        </div>
+        <>
+          {/* 右ページ（解答） */}
+          <div
+            style={{
+              position: 'absolute', top: 0, bottom: 0, left: `${answerXPct}%`, right: 0,
+              background: maskBg, borderLeft: '1px dashed #e5e7eb',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <span style={{ color: '#9ca3af', fontSize: 12, writingMode: 'vertical-rl' }}>解答（タップで表示）</span>
+          </div>
+          {/* 左ページ下部（短い問題で解答が下に始まる場合） */}
+          {answerYPct < 100 && (
+            <div
+              style={{
+                position: 'absolute', top: `${answerYPct}%`, bottom: 0, left: 0, width: `${answerXPct}%`,
+                background: maskBg, borderTop: '1px dashed #e5e7eb',
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   )
@@ -111,7 +126,7 @@ export default function ProblemViewer({
           {!err && primary.map((a, i) => (
             urls[a.storage_path]
               ? <div key={`p${i}`} className="rounded-xl overflow-hidden shadow-lg mb-3">
-                  <AssetImage url={urls[a.storage_path]} region={a.region} answerXPct={a.answer_x_pct} showAnswer={showAnswer} />
+                  <AssetImage url={urls[a.storage_path]} region={a.region} answerXPct={a.answer_x_pct} answerYPct={a.answer_y_pct} showAnswer={showAnswer} />
                 </div>
               : null
           ))}
