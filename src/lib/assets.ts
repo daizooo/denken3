@@ -4,6 +4,7 @@
 import { supabase } from './supabase'
 import { DC_ASSETS } from '../data/dcAssets'
 import { AC1_ASSETS } from '../data/ac1Assets'
+import { TRANS_ASSETS } from '../data/transAssets'
 
 export type Region = 'top' | 'bottom' | null
 
@@ -18,7 +19,7 @@ export interface AssetRef {
 export type AssetMap = Record<string, AssetRef[]>
 
 // 章ごとのマッピングを統合（章を増やしたらここへ足す）
-export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS }
+export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS, ...TRANS_ASSETS }
 
 export const BUCKET = 'denken-problems'
 
