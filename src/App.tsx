@@ -32,9 +32,25 @@ interface Chapter {
 
 type Subject = '理論' | '電力' | '機械' | '法規'
 
+// 記録直前のFSRS状態のスナップショット。
+// 履歴エントリを取り消したとき、スケジューラで再計算するのではなく
+// この値へ正確に巻き戻すために使う（アルゴリズム変更の影響を受けない）。
+interface ReviewSnapshot {
+  status: Status
+  stability: number
+  difficulty_fsrs: number
+  repetitions: number
+  lapses: number
+  due_date: string | null
+  last_reviewed: string | null
+  fsrs_state: number
+}
+
 interface ReviewHistoryEntry {
   date: string
   status: Status
+  // 記録時に付与。取消時にこの状態へ戻す。旧データには無いのでオプショナル。
+  prev?: ReviewSnapshot
 }
 
 interface Review {
@@ -850,14 +866,9 @@ export default function App() {
     setReviewedNowIds(new Set())
   }, [activeTab, selectedDate])
 
-  // ---- 共通: 履歴から Review 全体を導出して保存 ----
-  const persistReview = useCallback(async (
-    current: Review,
-    history: ReviewHistoryEntry[],
-  ) => {
+  // ---- 共通: Review を1件保存（ローカル即時反映＋DB upsert）----
+  const saveReview = useCallback(async (updated: Review) => {
     if (!user) return
-    const derived = deriveFromHistory(history)
-    const updated: Review = { ...current, ...derived }
     setReviews(prev => ({ ...prev, [updated.question_id]: updated }))
     setSaving(true)
     const { error } = await supabase.from('denken_reviews').upsert({
@@ -867,14 +878,36 @@ export default function App() {
     setSaving(false)
   }, [user])
 
+  // ---- 共通: 履歴から Review 全体を導出して保存 ----
+  const persistReview = useCallback(async (
+    current: Review,
+    history: ReviewHistoryEntry[],
+  ) => {
+    const derived = deriveFromHistory(history)
+    await saveReview({ ...current, ...derived })
+  }, [saveReview])
+
+  // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
+  const snapshotOf = (r: Review): ReviewSnapshot => ({
+    status: r.status,
+    stability: r.stability,
+    difficulty_fsrs: r.difficulty_fsrs,
+    repetitions: r.repetitions,
+    lapses: r.lapses,
+    due_date: r.due_date,
+    last_reviewed: r.last_reviewed,
+    fsrs_state: r.fsrs_state,
+  })
+
   // ---- 実施日 + 理解度を記録（履歴に蓄積）----
   const updateStatus = useCallback(async (questionId: string, status: Status) => {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const date = dateFor(questionId)
+    // 記録直前の状態を prev として保存しておく。取消時にこの状態へ正確に戻せる。
     const history: ReviewHistoryEntry[] = [
       ...(current.review_history ?? []),
-      { date, status },
+      { date, status, prev: snapshotOf(current) },
     ]
     // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
     if (activeTab === 'review') {
@@ -884,13 +917,41 @@ export default function App() {
   }, [user, reviews, persistReview, recordDate, activeTab])
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
+  // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
+  // 末尾（最後に記録した分）で記録直前スナップショットを持つ場合は、
+  // スケジューラで再計算せずその状態へ正確に巻き戻す。
+  // これによりアルゴリズム変更（旧簡易版→ts-fsrs 等）があっても
+  // 「記録前の予定日・理解度」に確実に戻る。
   const deleteEntry = useCallback(async (questionId: string, index: number) => {
     if (!user) return
     const current = reviews[questionId]
     if (!current) return
-    const history = current.review_history.filter((_, i) => i !== index)
-    await persistReview(current, history)
-  }, [user, reviews, persistReview])
+    const history = current.review_history
+    const entry = history[index]
+    const remaining = history.filter((_, i) => i !== index)
+    const isLast = index === history.length - 1
+
+    if (isLast && entry?.prev) {
+      const p = entry.prev
+      await saveReview({
+        ...current,
+        status: p.status,
+        stability: p.stability,
+        difficulty_fsrs: p.difficulty_fsrs,
+        repetitions: p.repetitions,
+        lapses: p.lapses,
+        due_date: p.due_date,
+        last_reviewed: p.last_reviewed,
+        fsrs_state: p.fsrs_state,
+        review_history: remaining,
+        first_reviewed: remaining.length ? remaining[0].date : null,
+      })
+      return
+    }
+
+    // 旧データ（スナップショット無し）や途中エントリの削除は従来どおり再計算。
+    await persistReview(current, remaining)
+  }, [user, reviews, persistReview, saveReview])
 
   // ---- メモを保存 ----
   const saveDetails = useCallback(async (questionId: string) => {
