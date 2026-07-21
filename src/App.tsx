@@ -635,6 +635,10 @@ function addDaysStr(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+// 復習タブの日付タブ数（今日を含む1週間＋1日＝8日分）。
+// これ以降（today+REVIEW_WINDOW_DAYS 以降）の問題は「◯/◯以降」タブにまとめる。
+const REVIEW_WINDOW_DAYS = 8
+
 // timestamptz / date いずれの文字列でも "YYYY-MM-DD" に正規化する
 function toDateStr(v: string | null | undefined): string {
   if (!v) return ''
@@ -921,7 +925,9 @@ export default function App() {
 
   const reviewSchedule = useMemo(() => {
     const today = todayJST()
-    return Array.from({ length: 14 }, (_, i) => {
+    const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
+    // 今日を含む8日分の個別日付タブ
+    const days = Array.from({ length: REVIEW_WINDOW_DAYS }, (_, i) => {
       const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
@@ -929,12 +935,25 @@ export default function App() {
         return reviews[q.id]?.due_date === dStr
       }).length
       const label = i === 0 ? '今日' : i === 1 ? '明日' : formatMD(dStr)
-      return { date: dStr, label, count }
+      return { date: dStr, label, count, isOverflow: false }
     })
+    // それ以降（overflowStart 以降）をまとめる「◯/◯以降」タブ
+    const overflowCount = allQuestions.filter(q => {
+      const r = reviews[q.id]
+      return !!(r?.due_date && r.due_date >= overflowStart)
+    }).length
+    days.push({
+      date: overflowStart,
+      label: `${formatMD(overflowStart)}以降`,
+      count: overflowCount,
+      isOverflow: true,
+    })
+    return days
   }, [allQuestions, reviews])
 
   const filteredQuestions = useMemo(() => {
     const today = todayJST()
+    const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
@@ -944,6 +963,9 @@ export default function App() {
         if (selectedDate === today) {
           const isDue = r?.due_date && r.due_date <= today
           if (!isDue) return false
+        } else if (selectedDate >= overflowStart) {
+          // 「◯/◯以降」タブ: overflowStart 以降の予定をすべて表示
+          if (!(r?.due_date && r.due_date >= overflowStart)) return false
         } else {
           if (!r?.due_date || r.due_date !== selectedDate) return false
         }
@@ -952,6 +974,20 @@ export default function App() {
       return true
     })
   }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds])
+
+  // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
+  // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
+  // 記録した直後（reviewedNowIds が空でない）だけ発火させ、
+  // ユーザーが手動で空の日付タブを見ている場合は移動しない。
+  useEffect(() => {
+    if (activeTab !== 'review') return
+    if (reviewedNowIds.size === 0) return
+    if (filteredQuestions.length > 0) return
+    const idx = reviewSchedule.findIndex(s => s.date === selectedDate)
+    if (idx === -1) return
+    const next = reviewSchedule.slice(idx + 1).find(s => s.count > 0)
+    if (next) setSelectedDate(next.date)
+  }, [activeTab, reviewedNowIds, filteredQuestions, reviewSchedule, selectedDate])
 
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
@@ -983,12 +1019,17 @@ export default function App() {
   const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
+  const overflowStart = addDaysStr(todayStr, REVIEW_WINDOW_DAYS)
   const reviewDueCount = (questions: { id: string }[]) =>
     questions.filter(q => {
       const r = reviews[q.id]
-      return selectedDate === todayStr
-        ? r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
-        : r?.due_date === selectedDate
+      if (selectedDate === todayStr) {
+        return r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
+      }
+      if (selectedDate >= overflowStart) {
+        return !!(r?.due_date && r.due_date >= overflowStart)
+      }
+      return r?.due_date === selectedDate
     }).length
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
@@ -1130,7 +1171,7 @@ export default function App() {
                           : 'bg-gray-50 text-gray-400 border-gray-100'
                       }`}
                     >
-                      <span className="font-medium">{label}</span>
+                      <span className="font-medium whitespace-nowrap">{label}</span>
                       <span className={`mt-0.5 font-bold ${
                         selectedDate === date ? 'text-white' : count > 0 ? 'text-red-500' : 'text-gray-300'
                       }`}>{count}</span>
@@ -1161,9 +1202,11 @@ export default function App() {
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
                 <p className="text-gray-400 text-sm">
                   {activeTab === 'review'
-                    ? selectedDate === todayJST()
-                      ? '今日の復習はありません'
-                      : 'この日の復習予定はありません'
+                    ? reviewedNowIds.size > 0
+                      ? '🎉 この日の復習を完了しました'
+                      : selectedDate === todayJST()
+                        ? '今日の復習はありません'
+                        : 'この日の復習予定はありません'
                     : '表示できる問題がありません'}
                 </p>
               </div>
