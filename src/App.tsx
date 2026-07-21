@@ -691,9 +691,13 @@ function deriveFromHistory(history: ReviewHistoryEntry[]) {
 
 function formatDue(dateStr: string | null): string {
   if (!dateStr) return '未定'
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const due = new Date(dateStr)
-  const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000)
+  // 「今日」と予定日を同じ UTC正午基準で比較する。
+  // ローカル深夜と UTCパースの date 文字列を混ぜると TZ差（例: JST +9h）で
+  // 1日ズレて表示されるため（予定日=今日が「明日」になる等）、両者を揃える。
+  const todayStr = new Date().toISOString().split('T')[0]
+  const today = dateAtUTCNoon(todayStr)
+  const due = dateAtUTCNoon(toDateStr(dateStr))
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000)
   if (diff < 0) return `${Math.abs(diff)}日遅延`
   if (diff === 0) return '今日'
   if (diff === 1) return '明日'
