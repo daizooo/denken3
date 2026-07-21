@@ -621,6 +621,20 @@ function dateAtUTCNoon(dateStr: string): Date {
   return new Date(`${dateStr}T12:00:00Z`)
 }
 
+// 現在の「今日」を JST(UTC+9) 基準の "YYYY-MM-DD" で返す。
+// new Date().toISOString() は UTC基準のため、JSTの深夜〜午前9時は
+// 前日扱いになってしまう。復習日の判定は必ずこの関数を使う。
+function todayJST(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+// "YYYY-MM-DD" に日数を加算して "YYYY-MM-DD" を返す（TZ非依存）
+function addDaysStr(dateStr: string, days: number): string {
+  const d = dateAtUTCNoon(dateStr)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 // timestamptz / date いずれの文字列でも "YYYY-MM-DD" に正規化する
 function toDateStr(v: string | null | undefined): string {
   if (!v) return ''
@@ -648,7 +662,9 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
 function calcFSRS(current: Partial<Review> | null, status: Status, eventDate?: string) {
   if (status === '未着手') return {}
   const rating = RATING_MAP[status]
-  const now = eventDate ? dateAtUTCNoon(eventDate) : new Date()
+  // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
+  const eDate = eventDate ?? todayJST()
+  const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
@@ -659,7 +675,7 @@ function calcFSRS(current: Partial<Review> | null, status: Status, eventDate?: s
     repetitions: newCard.reps,
     lapses: newCard.lapses,
     due_date: newCard.due.toISOString().split('T')[0],
-    last_reviewed: eventDate ?? now.toISOString().split('T')[0],
+    last_reviewed: eDate,
     fsrs_state: newCard.state,
   }
 }
@@ -692,10 +708,8 @@ function deriveFromHistory(history: ReviewHistoryEntry[]) {
 function formatDue(dateStr: string | null): string {
   if (!dateStr) return '未定'
   // 「今日」と予定日を同じ UTC正午基準で比較する。
-  // ローカル深夜と UTCパースの date 文字列を混ぜると TZ差（例: JST +9h）で
-  // 1日ズレて表示されるため（予定日=今日が「明日」になる等）、両者を揃える。
-  const todayStr = new Date().toISOString().split('T')[0]
-  const today = dateAtUTCNoon(todayStr)
+  // 「今日」は JST基準で求める（UTCのままだと JST深夜〜午前9時に前日扱いになる）。
+  const today = dateAtUTCNoon(todayJST())
   const due = dateAtUTCNoon(toDateStr(dateStr))
   const diff = Math.round((due.getTime() - today.getTime()) / 86400000)
   if (diff < 0) return `${Math.abs(diff)}日遅延`
@@ -763,7 +777,7 @@ export default function App() {
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
@@ -777,7 +791,7 @@ export default function App() {
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
   const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
   // ---- Auth ----
@@ -906,23 +920,21 @@ export default function App() {
   }, [currentChapters, chapterCode])
 
   const reviewSchedule = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayJST()
     return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(today)
-      d.setDate(d.getDate() + i)
-      const dStr = d.toISOString().split('T')[0]
+      const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
         if (i === 0) return !!(r?.due_date && r.due_date <= dStr)
         return reviews[q.id]?.due_date === dStr
       }).length
-      const label = i === 0 ? '今日' : i === 1 ? '明日' : `${d.getMonth() + 1}/${d.getDate()}`
+      const label = i === 0 ? '今日' : i === 1 ? '明日' : formatMD(dStr)
       return { date: dStr, label, count }
     })
   }, [allQuestions, reviews])
 
   const filteredQuestions = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayJST()
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
@@ -949,10 +961,9 @@ export default function App() {
       .filter(([, v]) => v > 0)
       .map(([k, v]) => ({ name: k, value: v, color: STATUS_COLOR[k] }))
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayJST()
     const scheduleData = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today); d.setDate(d.getDate() + i)
-      const dStr = d.toISOString().split('T')[0]
+      const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const due = reviews[q.id]?.due_date
         return i === 0 ? due && due <= dStr : due === dStr
@@ -1150,7 +1161,7 @@ export default function App() {
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
                 <p className="text-gray-400 text-sm">
                   {activeTab === 'review'
-                    ? selectedDate === new Date().toISOString().split('T')[0]
+                    ? selectedDate === todayJST()
                       ? '今日の復習はありません'
                       : 'この日の復習予定はありません'
                     : '表示できる問題がありません'}
