@@ -1,5 +1,6 @@
-// 自動生成: DC章の画像→問題マッピング（dc_mapping.json 由来）
+// 自動生成: DC章の画像→問題マッピング（dc_mapping.json + dc_answer_geometry.json 由来）
 // ドロップされたファイル名から紐付け先の問題(question_id)を引く。捨て問画像は含めない。
+// answerYPct: 短い問題で解答が左ページ下に始まる縦位置(%)。無指定は標準(100)。
 import type { AssetMap } from '../lib/assets'
 
 export const DC_ASSETS: AssetMap = {
@@ -32,15 +33,15 @@ export const DC_ASSETS: AssetMap = {
   'newIMG_0309.png': [{ questionId: 'dc_28', region: null, sort: 0 }],
   'newIMG_0310.png': [{ questionId: 'dc_29', region: null, sort: 0 }],
   'newIMG_0311.png': [{ questionId: 'dc_30', region: null, sort: 0 }],
-  'newIMG_0313.png': [{ questionId: 'dc_32', region: null, sort: 0 }],
+  'newIMG_0313.png': [{ questionId: 'dc_32', region: null, sort: 0, answerYPct: 48 }],
   'newIMG_0314.png': [{ questionId: 'dc_33', region: null, sort: 0 }],
-  'newIMG_0315.png': [{ questionId: 'dc_34', region: null, sort: 0 }],
+  'newIMG_0315.png': [{ questionId: 'dc_34', region: null, sort: 0, answerYPct: 56 }],
   'newIMG_0316.png': [{ questionId: 'dc_35', region: null, sort: 0 }],
   'newIMG_0317.png': [{ questionId: 'dc_36', region: null, sort: 0 }],
   'newIMG_0319.png': [{ questionId: 'dc_38', region: null, sort: 0 }],
   'newIMG_0320.png': [{ questionId: 'dc_39', region: null, sort: 0 }],
   'newIMG_0321.png': [{ questionId: 'dc_40', region: null, sort: 0 }],
-  'newIMG_0322.png': [{ questionId: 'dc_41', region: null, sort: 0 }],
+  'newIMG_0322.png': [{ questionId: 'dc_41', region: null, sort: 0, answerYPct: 68 }],
   'newIMG_0323.png': [{ questionId: 'dc_42', region: null, sort: 0 }],
   'newIMG_0324.png': [{ questionId: 'dc_43', region: null, sort: 0 }],
   'newIMG_0325.png': [{ questionId: 'dc_44', region: null, sort: 0 }],
