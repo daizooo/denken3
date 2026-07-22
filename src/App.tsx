@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, TrendingUp, Save, LogOut } from 'lucide-react'
+import { BookOpen, TrendingUp, Save, LogOut, Upload, Image as ImageIcon } from 'lucide-react'
+import { hasKnownAsset } from './lib/assets'
+import ProblemViewer from './components/ProblemViewer'
+import ImportPanel from './components/ImportPanel'
+import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
+import type { Card, Grade } from 'ts-fsrs'
 
 // ==============================
 // TYPES
@@ -27,9 +32,25 @@ interface Chapter {
 
 type Subject = '理論' | '電力' | '機械' | '法規'
 
+// 記録直前のFSRS状態のスナップショット。
+// 履歴エントリを取り消したとき、スケジューラで再計算するのではなく
+// この値へ正確に巻き戻すために使う（アルゴリズム変更の影響を受けない）。
+interface ReviewSnapshot {
+  status: Status
+  stability: number
+  difficulty_fsrs: number
+  repetitions: number
+  lapses: number
+  due_date: string | null
+  last_reviewed: string | null
+  fsrs_state: number
+}
+
 interface ReviewHistoryEntry {
   date: string
   status: Status
+  // 記録時に付与。取消時にこの状態へ戻す。旧データには無いのでオプショナル。
+  prev?: ReviewSnapshot
 }
 
 interface Review {
@@ -41,9 +62,11 @@ interface Review {
   repetitions: number
   lapses: number
   last_reviewed: string | null
+  fsrs_state: number
   tags: string[]
   memo: string
   review_history: ReviewHistoryEntry[]
+  first_reviewed: string | null
 }
 
 // ==============================
@@ -597,66 +620,137 @@ const STATUS_LABEL: Record<Status, string> = {
 }
 
 // ==============================
-// FSRS (簡易実装)
+// FSRS (ts-fsrs v5 公式実装)
+// enable_short_term=false で日単位スケジューリング
 // ==============================
-function calcFSRS(current: Partial<Review> | null, status: Status) {
-  const rMap: Record<Status, number> = { C: 1, B: 3, A: 4, '未着手': 3 }
-  const r = rMap[status]
-  let stability   = current?.stability      ?? 0
-  let diff        = current?.difficulty_fsrs ?? 5
-  let reps        = current?.repetitions    ?? 0
-  const lastReviewed = current?.last_reviewed ?? null
-  const today = new Date().toISOString().split('T')[0]
+const fsrsScheduler = new FSRS({ enable_short_term: false })
 
-  if (reps === 0) {
-    const initS: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 2.4, 4: 5.8 }
-    const initD: Record<number, number> = { 1: 7.15, 2: 5.5, 3: 4.0, 4: 2.5 }
-    stability = initS[r]; diff = initD[r]
-  } else {
-    const elapsed = Math.max(0, Math.floor(
-      (new Date(today).getTime() - new Date(lastReviewed!).getTime()) / 86400000
-    ))
-    const retrievability = Math.exp(Math.log(0.9) * elapsed / Math.max(stability, 0.1))
-    diff = Math.min(Math.max(diff + (r === 1 ? 1 : r === 2 ? 0.5 : r === 3 ? -0.2 : -0.5), 1), 10)
-    if (r === 1) {
-      stability = Math.max(0.1, stability * 0.2)
-    } else {
-      const factor = Math.exp(0.1 * (10 - diff)) * (1.1 - retrievability)
-      stability = stability * (1 + factor * (r === 2 ? 0.5 : 1.0) * (r === 4 ? 1.3 : 1.0))
-    }
-  }
+const RATING_MAP: Record<Status, Grade> = {
+  A: Rating.Easy,
+  B: Rating.Good,
+  C: Rating.Again,
+  '未着手': Rating.Good,
+}
 
-  const interval = r === 1 ? 1 : Math.max(1, Math.round(stability))
-  const due = new Date(today)
-  due.setDate(due.getDate() + interval)
+// "YYYY-MM-DD" を UTC正午の Date に変換（TZによる日付ズレを防ぐ）
+function dateAtUTCNoon(dateStr: string): Date {
+  return new Date(`${dateStr}T12:00:00Z`)
+}
 
+// 現在の「今日」を JST(UTC+9) 基準の "YYYY-MM-DD" で返す。
+// new Date().toISOString() は UTC基準のため、JSTの深夜〜午前9時は
+// 前日扱いになってしまう。復習日の判定は必ずこの関数を使う。
+function todayJST(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+// "YYYY-MM-DD" に日数を加算して "YYYY-MM-DD" を返す（TZ非依存）
+function addDaysStr(dateStr: string, days: number): string {
+  const d = dateAtUTCNoon(dateStr)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+// 復習タブの日付タブ数（今日を含む1週間＋1日＝8日分）。
+// これ以降（today+REVIEW_WINDOW_DAYS 以降）の問題は「◯/◯以降」タブにまとめる。
+const REVIEW_WINDOW_DAYS = 8
+
+// timestamptz / date いずれの文字列でも "YYYY-MM-DD" に正規化する
+function toDateStr(v: string | null | undefined): string {
+  if (!v) return ''
+  return v.slice(0, 10)
+}
+
+function toFSRSCard(review: Partial<Review>, now: Date): Card {
+  const lastReview = review.last_reviewed ? dateAtUTCNoon(toDateStr(review.last_reviewed)) : now
+  const due = review.due_date ? dateAtUTCNoon(toDateStr(review.due_date)) : now
   return {
-    stability,
-    difficulty_fsrs: diff,
-    repetitions: reps + 1,
-    lapses: r === 1 ? (current?.lapses ?? 0) + 1 : (current?.lapses ?? 0),
-    due_date: due.toISOString().split('T')[0],
-    last_reviewed: today,
+    due,
+    stability: review.stability ?? 0,
+    difficulty: review.difficulty_fsrs ?? 5,
+    elapsed_days: Math.max(0, Math.floor((now.getTime() - lastReview.getTime()) / 86400000)),
+    scheduled_days: Math.max(0, Math.floor((due.getTime() - lastReview.getTime()) / 86400000)),
+    learning_steps: 0,
+    reps: review.repetitions ?? 0,
+    lapses: review.lapses ?? 0,
+    state: (review.fsrs_state ?? State.New) as State,
+    last_review: lastReview,
+  }
+}
+
+// eventDate = 実施日（過去日でもよい）。未指定なら今日。
+function calcFSRS(current: Partial<Review> | null, status: Status, eventDate?: string) {
+  if (status === '未着手') return {}
+  const rating = RATING_MAP[status]
+  // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
+  const eDate = eventDate ?? todayJST()
+  const now = dateAtUTCNoon(eDate)
+  const card = current && (current.repetitions ?? 0) > 0
+    ? toFSRSCard(current, now)
+    : createEmptyCard(now)
+  const newCard = fsrsScheduler.repeat(card, now)[rating].card
+  return {
+    stability: newCard.stability,
+    difficulty_fsrs: newCard.difficulty,
+    repetitions: newCard.reps,
+    lapses: newCard.lapses,
+    due_date: newCard.due.toISOString().split('T')[0],
+    last_reviewed: eDate,
+    fsrs_state: newCard.state,
+  }
+}
+
+// review_history を実施日順に再生し、FSRS・初回/実施日・ステータスを一括導出する。
+// 記録・取消のどちらでも履歴と各フィールドが常に一致する。
+function deriveFromHistory(history: ReviewHistoryEntry[]) {
+  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date))
+  let acc: Partial<Review> = {
+    stability: 0, difficulty_fsrs: 5, repetitions: 0, lapses: 0,
+    due_date: null, last_reviewed: null, fsrs_state: State.New,
+  }
+  for (const e of sorted) {
+    acc = { ...acc, ...calcFSRS(acc, e.status, e.date) }
+  }
+  return {
+    stability: acc.stability ?? 0,
+    difficulty_fsrs: acc.difficulty_fsrs ?? 5,
+    repetitions: acc.repetitions ?? 0,
+    lapses: acc.lapses ?? 0,
+    due_date: acc.due_date ?? null,
+    fsrs_state: acc.fsrs_state ?? State.New,
+    review_history: sorted,
+    first_reviewed: sorted.length ? sorted[0].date : null,
+    last_reviewed: sorted.length ? sorted[sorted.length - 1].date : null,
+    status: (sorted.length ? sorted[sorted.length - 1].status : '未着手') as Status,
   }
 }
 
 function formatDue(dateStr: string | null): string {
   if (!dateStr) return '未定'
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const due = new Date(dateStr)
-  const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000)
+  // 「今日」と予定日を同じ UTC正午基準で比較する。
+  // 「今日」は JST基準で求める（UTCのままだと JST深夜〜午前9時に前日扱いになる）。
+  const today = dateAtUTCNoon(todayJST())
+  const due = dateAtUTCNoon(toDateStr(dateStr))
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000)
   if (diff < 0) return `${Math.abs(diff)}日遅延`
   if (diff === 0) return '今日'
   if (diff === 1) return '明日'
   return `${diff}日後`
 }
 
-// 復習の緊急度: 予定日 - 今日（日数）。未着手・予定日なしは0（＝本日扱い）
-function dueOffsetDays(review: Review | undefined, today: string): number {
-  if (!review || review.status === '未着手' || !review.due_date) return 0
-  return Math.floor(
-    (new Date(review.due_date).getTime() - new Date(today).getTime()) / 86400000
-  )
+// "2026-07-20" → "7/20"
+function formatMD(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const [, m, d] = dateStr.split('-')
+  return `${parseInt(m)}/${parseInt(d)}`
+}
+
+// 次回復習日の緊急度に応じた文字色
+function dueColorClass(dateStr: string | null): string {
+  const label = formatDue(dateStr)
+  if (label.includes('遅延')) return 'text-red-500'
+  if (label === '今日') return 'text-orange-500'
+  return 'text-emerald-600'
 }
 
 function defaultReview(questionId: string): Review {
@@ -664,8 +758,9 @@ function defaultReview(questionId: string): Review {
     question_id: questionId, status: '未着手',
     stability: 0, difficulty_fsrs: 5,
     due_date: null, repetitions: 0, lapses: 0,
-    last_reviewed: null, tags: [], memo: '',
-    review_history: [],
+    last_reviewed: null, fsrs_state: State.New,
+    tags: [], memo: '',
+    review_history: [], first_reviewed: null,
   }
 }
 
@@ -702,24 +797,22 @@ export default function App() {
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
-  const [editDate, setEditDate]   = useState<string>('')
-  // 1日の復習上限（null = 無制限）。localStorageに永続化
-  const [dailyCap, setDailyCap]   = useState<number | null>(() => {
-    if (typeof localStorage === 'undefined') return 20
-    const v = localStorage.getItem('denken_daily_cap')
-    if (v === null) return 20
-    if (v === 'unlimited') return null
-    const n = parseInt(v, 10)
-    return Number.isFinite(n) ? n : 20
-  })
-  // 「もっと解く」で当日に追加表示する問題数（前倒し）
-  const [extraToday, setExtraToday] = useState(0)
+  // 各問題の記録用「実施日」。未設定なら今日を使う。
+  const [recordDate, setRecordDate] = useState<Record<string, string>>({})
+  // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
+  const [dateOpenId, setDateOpenId] = useState<string | null>(null)
+  const [viewerQ, setViewerQ] = useState<{ id: string; title: string } | null>(null)
+  const [showImport, setShowImport] = useState(false)
+  // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
+  const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
+  const todayStr = todayJST()
+  const dateFor = (id: string) => recordDate[id] ?? todayStr
 
   // ---- Auth ----
   useEffect(() => {
@@ -757,6 +850,9 @@ export default function App() {
             map[r.question_id] = {
               ...r,
               review_history: Array.isArray(r.review_history) ? r.review_history : [],
+              last_reviewed: r.last_reviewed ? toDateStr(r.last_reviewed) : null,
+              first_reviewed: r.first_reviewed ? toDateStr(r.first_reviewed) : null,
+              due_date: r.due_date ? toDateStr(r.due_date) : null,
             } as Review
           })
           setReviews(map)
@@ -765,36 +861,103 @@ export default function App() {
       })
   }, [user])
 
-  // ---- Fetch settings（端末間同期）----
+  // タブ・対象日を切り替えたら「復習済みで消した」記録はリセットする。
   useEffect(() => {
+    setReviewedNowIds(new Set())
+  }, [activeTab, selectedDate])
+
+  // ---- 共通: Review を1件保存（ローカル即時反映＋DB upsert）----
+  const saveReview = useCallback(async (updated: Review) => {
     if (!user) return
-    supabase
-      .from('denken_settings')
-      .select('daily_cap')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) { console.error(error); return }
-        if (!data) return // 未設定ならローカル値/デフォルトのまま
-        const cap = data.daily_cap === null ? null : Number(data.daily_cap)
-        setDailyCap(cap)
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
-        }
-      })
+    setReviews(prev => ({ ...prev, [updated.question_id]: updated }))
+    setSaving(true)
+    const { error } = await supabase.from('denken_reviews').upsert({
+      user_id: user.id, ...updated,
+    })
+    if (error) console.error(error)
+    setSaving(false)
   }, [user])
 
-  // ---- Update status ----
+  // ---- 共通: 履歴から Review 全体を導出して保存 ----
+  const persistReview = useCallback(async (
+    current: Review,
+    history: ReviewHistoryEntry[],
+  ) => {
+    const derived = deriveFromHistory(history)
+    await saveReview({ ...current, ...derived })
+  }, [saveReview])
+
+  // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
+  const snapshotOf = (r: Review): ReviewSnapshot => ({
+    status: r.status,
+    stability: r.stability,
+    difficulty_fsrs: r.difficulty_fsrs,
+    repetitions: r.repetitions,
+    lapses: r.lapses,
+    due_date: r.due_date,
+    last_reviewed: r.last_reviewed,
+    fsrs_state: r.fsrs_state,
+  })
+
+  // ---- 実施日 + 理解度を記録（履歴に蓄積）----
   const updateStatus = useCallback(async (questionId: string, status: Status) => {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
-    const fsrs = calcFSRS(current, status)
-    const today = new Date().toISOString().split('T')[0]
-    const review_history: ReviewHistoryEntry[] = [
+    const date = dateFor(questionId)
+    // 記録直前の状態を prev として保存しておく。取消時にこの状態へ正確に戻せる。
+    const history: ReviewHistoryEntry[] = [
       ...(current.review_history ?? []),
-      { date: today, status },
+      { date, status, prev: snapshotOf(current) },
     ]
-    const updated: Review = { ...current, status, ...fsrs, review_history }
+    // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
+    if (activeTab === 'review') {
+      setReviewedNowIds(prev => new Set(prev).add(questionId))
+    }
+    await persistReview(current, history)
+  }, [user, reviews, persistReview, recordDate, activeTab])
+
+  // ---- 履歴エントリを取り消し（誤記録の修正用）----
+  // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
+  // 末尾（最後に記録した分）で記録直前スナップショットを持つ場合は、
+  // スケジューラで再計算せずその状態へ正確に巻き戻す。
+  // これによりアルゴリズム変更（旧簡易版→ts-fsrs 等）があっても
+  // 「記録前の予定日・理解度」に確実に戻る。
+  const deleteEntry = useCallback(async (questionId: string, index: number) => {
+    if (!user) return
+    const current = reviews[questionId]
+    if (!current) return
+    const history = current.review_history
+    const entry = history[index]
+    const remaining = history.filter((_, i) => i !== index)
+    const isLast = index === history.length - 1
+
+    if (isLast && entry?.prev) {
+      const p = entry.prev
+      await saveReview({
+        ...current,
+        status: p.status,
+        stability: p.stability,
+        difficulty_fsrs: p.difficulty_fsrs,
+        repetitions: p.repetitions,
+        lapses: p.lapses,
+        due_date: p.due_date,
+        last_reviewed: p.last_reviewed,
+        fsrs_state: p.fsrs_state,
+        review_history: remaining,
+        first_reviewed: remaining.length ? remaining[0].date : null,
+      })
+      return
+    }
+
+    // 旧データ（スナップショット無し）や途中エントリの削除は従来どおり再計算。
+    await persistReview(current, remaining)
+  }, [user, reviews, persistReview, saveReview])
+
+  // ---- メモを保存 ----
+  const saveDetails = useCallback(async (questionId: string) => {
+    if (!user) return
+    const current = reviews[questionId] ?? defaultReview(questionId)
+    const updated: Review = { ...current, memo: editMemo }
 
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
@@ -803,57 +966,8 @@ export default function App() {
     })
     if (error) console.error(error)
     setSaving(false)
-  }, [user, reviews])
-
-  // ---- Save memo/tags/date ----
-  const saveDetails = useCallback(async (questionId: string) => {
-    if (!user) return
-    const current = reviews[questionId] ?? defaultReview(questionId)
-
-    let lastReviewed = current.last_reviewed
-    let dueDate = current.due_date
-    if (editDate && editDate !== current.last_reviewed) {
-      lastReviewed = editDate
-      if (current.stability > 0) {
-        const d = new Date(editDate)
-        d.setDate(d.getDate() + Math.max(1, Math.round(current.stability)))
-        dueDate = d.toISOString().split('T')[0]
-      }
-    }
-
-    const updated: Review = {
-      ...current,
-      memo: editMemo,
-      last_reviewed: lastReviewed,
-      due_date: dueDate,
-    }
-
-    setReviews(prev => ({ ...prev, [questionId]: updated }))
-    setSaving(true)
-    await supabase.from('denken_reviews').upsert({
-      user_id: user.id, ...updated,
-    })
-    setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo, editDate])
-
-  // ---- 1日の上限の変更（ローカル即時反映＋DBで端末間同期）----
-  const changeDailyCap = useCallback((cap: number | null) => {
-    setDailyCap(cap)
-    setExtraToday(0)
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('denken_daily_cap', cap === null ? 'unlimited' : String(cap))
-    }
-    if (user) {
-      supabase
-        .from('denken_settings')
-        .upsert({ user_id: user.id, daily_cap: cap })
-        .then(({ error }) => { if (error) console.error(error) })
-    }
-  }, [user])
-
-  // 科目・章・日付を切り替えたら「もっと解く」の追加分をリセット
-  useEffect(() => { setExtraToday(0) }, [subject, chapterCode, selectedDate])
+  }, [user, reviews, editMemo])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -871,70 +985,70 @@ export default function App() {
   }, [currentChapters, chapterCode])
 
   const reviewSchedule = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(today)
-      d.setDate(d.getDate() + i)
-      const dStr = d.toISOString().split('T')[0]
+    const today = todayJST()
+    const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
+    // 今日を含む8日分の個別日付タブ
+    const days = Array.from({ length: REVIEW_WINDOW_DAYS }, (_, i) => {
+      const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
-        if (i === 0) return r?.status === '未着手' || (r?.due_date && r.due_date <= dStr)
+        if (i === 0) return !!(r?.due_date && r.due_date <= dStr)
         return reviews[q.id]?.due_date === dStr
       }).length
-      const label = i === 0 ? '今日' : i === 1 ? '明日' : `${d.getMonth() + 1}/${d.getDate()}`
-      return { date: dStr, label, count }
+      const label = i === 0 ? '今日' : i === 1 ? '明日' : formatMD(dStr)
+      return { date: dStr, label, count, isOverflow: false }
     })
+    // それ以降（overflowStart 以降）をまとめる「◯/◯以降」タブ
+    const overflowCount = allQuestions.filter(q => {
+      const r = reviews[q.id]
+      return !!(r?.due_date && r.due_date >= overflowStart)
+    }).length
+    days.push({
+      date: overflowStart,
+      label: `${formatMD(overflowStart)}以降`,
+      count: overflowCount,
+      isOverflow: true,
+    })
+    return days
   }, [allQuestions, reviews])
 
-  // ---- 今日の復習プラン（1日の上限・優先度付け・前倒し）----
-  const todayPlan = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    const compRank: Record<Status, number> = { C: 0, B: 1, A: 2, '未着手': 3 }
-    // 本日消化すべき問題（未着手＋期限到来）を優先度順に並べる
-    const due = allQuestions
-      .map(q => ({ q, r: reviews[q.id] }))
-      .filter(({ r }) => {
-        const status = r?.status ?? '未着手'
-        return status === '未着手' || (r?.due_date != null && r.due_date <= today)
-      })
-      .sort((a, b) => {
-        const offA = dueOffsetDays(a.r, today)
-        const offB = dueOffsetDays(b.r, today)
-        if (offA !== offB) return offA - offB            // 遅延が大きい順
-        const ca = compRank[a.r?.status ?? '未着手']
-        const cb = compRank[b.r?.status ?? '未着手']
-        if (ca !== cb) return ca - cb                    // 理解度が低い順（C→B→A→未）
-        const ia = a.q.importance ?? 2
-        const ib = b.q.importance ?? 2
-        if (ia !== ib) return ib - ia                    // 重要度が高い順
-        return a.q.number - b.q.number                   // 書籍の並び順
-      })
-    const doneToday = allQuestions.filter(q => reviews[q.id]?.last_reviewed === today).length
-    const cap = dailyCap === null ? Infinity : dailyCap
-    const visibleSlots = Math.max(0, cap + extraToday - doneToday)
-    const visible = due.slice(0, visibleSlots)
-    const deferred = due.length - visible.length
-    const target = dailyCap === null ? doneToday + due.length : dailyCap
-    const donePct = target > 0 ? Math.min(100, Math.round((doneToday / target) * 100)) : 0
-    return { visible, deferred, doneToday, target, donePct, dueTotal: due.length }
-  }, [allQuestions, reviews, dailyCap, extraToday])
-
   const filteredQuestions = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    // 今日の復習は優先度順＋上限を反映したプランを表示
-    if (activeTab === 'review' && selectedDate === today) {
-      return todayPlan.visible.map(x => x.q)
-    }
+    const today = todayJST()
+    const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
     return allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
-        if (!r?.due_date || r.due_date !== selectedDate) return false
+        // 記録した瞬間に「復習済み」として消す（次回復習日が更新される前でも即反映）。
+        if (reviewedNowIds.has(q.id)) return false
+        if (selectedDate === today) {
+          const isDue = r?.due_date && r.due_date <= today
+          if (!isDue) return false
+        } else if (selectedDate >= overflowStart) {
+          // 「◯/◯以降」タブ: overflowStart 以降の予定をすべて表示
+          if (!(r?.due_date && r.due_date >= overflowStart)) return false
+        } else {
+          if (!r?.due_date || r.due_date !== selectedDate) return false
+        }
       }
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, todayPlan])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds])
+
+  // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
+  // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
+  // 記録した直後（reviewedNowIds が空でない）だけ発火させ、
+  // ユーザーが手動で空の日付タブを見ている場合は移動しない。
+  useEffect(() => {
+    if (activeTab !== 'review') return
+    if (reviewedNowIds.size === 0) return
+    if (filteredQuestions.length > 0) return
+    const idx = reviewSchedule.findIndex(s => s.date === selectedDate)
+    if (idx === -1) return
+    const next = reviewSchedule.slice(idx + 1).find(s => s.count > 0)
+    if (next) setSelectedDate(next.date)
+  }, [activeTab, reviewedNowIds, filteredQuestions, reviewSchedule, selectedDate])
 
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
@@ -944,10 +1058,9 @@ export default function App() {
       .filter(([, v]) => v > 0)
       .map(([k, v]) => ({ name: k, value: v, color: STATUS_COLOR[k] }))
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayJST()
     const scheduleData = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today); d.setDate(d.getDate() + i)
-      const dStr = d.toISOString().split('T')[0]
+      const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const due = reviews[q.id]?.due_date
         return i === 0 ? due && due <= dStr : due === dStr
@@ -956,19 +1069,6 @@ export default function App() {
     })
     return { counts, pieData, scheduleData }
   }, [allQuestions, reviews])
-
-  // ---- Render guards ----
-  // reviewタブで復習が0になったらlistに切り替え
-  useEffect(() => {
-    if (!loading && activeTab === 'review') {
-      const today = new Date().toISOString().split('T')[0]
-      const due = allQuestions.filter(q => {
-        const r = reviews[q.id]
-        return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
-      }).length
-      if (due === 0) setActiveTab('list')
-    }
-  }, [loading, activeTab, allQuestions, reviews])
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -980,10 +1080,21 @@ export default function App() {
   const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
-  const todayStr = new Date().toISOString().split('T')[0]
+  const overflowStart = addDaysStr(todayStr, REVIEW_WINDOW_DAYS)
+  const reviewDueCount = (questions: { id: string }[]) =>
+    questions.filter(q => {
+      const r = reviews[q.id]
+      if (selectedDate === todayStr) {
+        return r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
+      }
+      if (selectedDate >= overflowStart) {
+        return !!(r?.due_date && r.due_date >= overflowStart)
+      }
+      return r?.due_date === selectedDate
+    }).length
   const todayDue = allQuestions.filter(q => {
     const r = reviews[q.id]
-    return r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
+    return !!(r?.due_date && r.due_date <= todayStr)
   }).length
 
   return (
@@ -999,11 +1110,18 @@ export default function App() {
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
-              <span>{saving ? '保存中...' : `今日 ${todayPlan.doneToday}/${dailyCap === null ? '∞' : dailyCap} 完了`}</span>
+              <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              <button
+                onClick={() => setShowImport(true)}
+                title="問題画像の取り込み"
+                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Upload size={13} />
+              </button>
               <button
                 onClick={() => supabase.auth.signOut()}
                 title="ログアウト"
-                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <LogOut size={13} />
               </button>
@@ -1031,16 +1149,14 @@ export default function App() {
 
           {/* 表示タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {todayDue > 0 && (
-              <button
-                onClick={() => setActiveTab('review')}
-                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                今日の復習 ({todayPlan.visible.length})
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('review')}
+              className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              復習{todayDue > 0 ? ` (${todayDue})` : ''}
+            </button>
             {(['list', 'dashboard'] as const).map(t => (
               <button key={t}
                 onClick={() => setActiveTab(t)}
@@ -1073,14 +1189,10 @@ export default function App() {
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
                 }`}
-              >全章 ({totalQ}問)</button>
+              >全章 ({activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問)</button>
 
               {inputChapters.map(c => {
-                const today = new Date().toISOString().split('T')[0]
-                const dueCount = c.questions.filter(q => {
-                  const r = reviews[q.id]
-                  return r?.status === '未着手' || (r?.due_date && r.due_date <= today)
-                }).length
+                const count = activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length
                 return (
                   <button key={c.code}
                     onClick={() => setChapterCode(c.code)}
@@ -1090,10 +1202,7 @@ export default function App() {
                         : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
                     }`}
                   >
-                    {c.name} ({c.questions.length})
-                    {activeTab === 'review' && dueCount > 0 && (
-                      <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1 py-px">{dueCount}</span>
-                    )}
+                    {c.name} ({count})
                   </button>
                 )
               })}
@@ -1123,64 +1232,13 @@ export default function App() {
                           : 'bg-gray-50 text-gray-400 border-gray-100'
                       }`}
                     >
-                      <span className="font-medium">{label}</span>
+                      <span className="font-medium whitespace-nowrap">{label}</span>
                       <span className={`mt-0.5 font-bold ${
                         selectedDate === date ? 'text-white' : count > 0 ? 'text-red-500' : 'text-gray-300'
                       }`}>{count}</span>
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* ===== 復習プラン（今日・1日の上限/進捗/前倒し） ===== */}
-            {activeTab === 'review' && selectedDate === todayStr && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 space-y-3">
-                {/* 1日の目標 */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs text-gray-500 font-medium mr-1">1日の目標</span>
-                  {[10, 20, 30, 50, null].map(cap => (
-                    <button key={cap ?? 'unlimited'}
-                      onClick={() => changeDailyCap(cap)}
-                      className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                        dailyCap === cap
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
-                      }`}
-                    >{cap === null ? '無制限' : `${cap}問`}</button>
-                  ))}
-                </div>
-
-                {/* 進捗バー */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">
-                      今日 <span className="font-bold text-gray-800">{todayPlan.doneToday}</span>
-                      <span className="text-gray-400"> / {dailyCap === null ? '∞' : todayPlan.target} 問</span>
-                    </span>
-                    {todayPlan.deferred > 0 && (
-                      <span className="text-gray-400">残り {todayPlan.deferred} 問は翌日以降</span>
-                    )}
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                      style={{ width: `${todayPlan.donePct}%` }} />
-                  </div>
-                </div>
-
-                {/* 前倒し（時間があるとき） */}
-                {todayPlan.deferred > 0 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setExtraToday(x => x + 10)}
-                      className="flex-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
-                    >時間があるので もっと解く（+{Math.min(10, todayPlan.deferred)}問）</button>
-                    <button
-                      onClick={() => setExtraToday(x => x + todayPlan.deferred)}
-                      className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5"
-                    >全部表示</button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1202,34 +1260,16 @@ export default function App() {
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-3">
-                {activeTab === 'review' && selectedDate === todayStr ? (
-                  todayPlan.deferred > 0 ? (
-                    <>
-                      <p className="text-gray-600 text-sm font-medium">本日の目標を達成しました 🎉</p>
-                      <p className="text-gray-400 text-xs">
-                        残り {todayPlan.deferred} 問は翌日以降の予定です。時間があれば続けて進められます。
-                      </p>
-                      <button
-                        onClick={() => setExtraToday(x => x + 10)}
-                        className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-4 py-2 hover:bg-blue-50 transition-colors"
-                      >もっと解く（+{Math.min(10, todayPlan.deferred)}問）</button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-gray-600 text-sm font-medium">今日の復習はすべて完了しました 🎉</p>
-                      <p className="text-gray-400 text-xs">
-                        時間があれば、上の日付から先の復習を前倒しできます。
-                      </p>
-                    </>
-                  )
-                ) : (
-                  <p className="text-gray-400 text-sm">
-                    {activeTab === 'review'
-                      ? 'この日の復習予定はありません'
-                      : '表示できる問題がありません'}
-                  </p>
-                )}
+              <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+                <p className="text-gray-400 text-sm">
+                  {activeTab === 'review'
+                    ? reviewedNowIds.size > 0
+                      ? '🎉 この日の復習を完了しました'
+                      : selectedDate === todayJST()
+                        ? '今日の復習はありません'
+                        : 'この日の復習予定はありません'
+                    : '表示できる問題がありません'}
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1246,14 +1286,6 @@ export default function App() {
                           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
                             {review.status}
                           </span>
-                          {review.due_date && review.status !== '未着手' && (
-                            <span className={`text-xs ${
-                              formatDue(review.due_date).includes('遅延') ? 'text-red-500' :
-                              formatDue(review.due_date) === '今日' ? 'text-orange-500' : 'text-gray-400'
-                            }`}>
-                              {formatDue(review.due_date)}
-                            </span>
-                          )}
                           {'difficulty' in q && (
                             <span className="text-xs text-gray-300">{'★'.repeat(q.difficulty as number)}</span>
                           )}
@@ -1261,6 +1293,28 @@ export default function App() {
 
                         {/* Title */}
                         <p className="text-sm font-medium text-gray-800 leading-snug">{q.title}</p>
+
+                        {/* 日付ステータス（ラベル付き） */}
+                        {review.status === '未着手' ? (
+                          <p className="text-xs text-gray-300 mt-1.5">未学習 · A / B / C で今日の理解度を記録</p>
+                        ) : (
+                          <div className="flex items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs flex-wrap">
+                            {review.last_reviewed && (
+                              <span className="text-gray-400">
+                                学習日 <span className="text-gray-600 font-medium">{formatMD(review.last_reviewed)}</span>
+                              </span>
+                            )}
+                            {review.due_date && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-gray-300">/</span>
+                                <span className="text-gray-400">次回復習</span>
+                                <span className={`font-medium ${dueColorClass(review.due_date)}`}>
+                                  {formatMD(review.due_date)}（{formatDue(review.due_date)}）
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Tags */}
                         {review.tags.length > 0 && (
@@ -1278,45 +1332,78 @@ export default function App() {
                           <p className="text-xs text-gray-400 mt-1 truncate">{review.memo}</p>
                         )}
 
-                        {/* Status buttons */}
+                        {/* 理解度の記録（A/B/Cを押した日が実施日として記録される）*/}
+                        {/* 記録済みでも押した状態にはしない（最初からタップして見える紛らわしさを解消）。
+                            記録した理解度は上部のステータスバッジと履歴で確認できる。 */}
                         <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
                           {(['A', 'B', 'C'] as Status[]).map(s => (
                             <button key={s}
                               onClick={() => updateStatus(q.id, s)}
                               title={STATUS_LABEL[s]}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
-                                review.status === s
-                                  ? `${STATUS_BG[s]} scale-105 shadow-sm`
-                                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600'
-                              }`}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600 transition-all"
                             >{s}</button>
                           ))}
-                          <button
-                            onClick={() => {
-                              if (isEditing) {
-                                setEditingId(null)
-                              } else {
-                                setEditingId(q.id)
-                                setEditMemo(review.memo)
-                                setEditDate(review.last_reviewed ?? '')
-                              }
-                            }}
-                            className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-                          >{isEditing ? '閉じる' : 'メモ'}</button>
+                          {hasKnownAsset(q.id) && (
+                            <button
+                              onClick={() => setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })}
+                              className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 hover:border-blue-400 px-2 py-1.5 rounded-lg transition-colors"
+                            >
+                              <ImageIcon size={13} /> 問題を見る
+                            </button>
+                          )}
+                          {activeTab === 'list' && (
+                            <button
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditingId(null)
+                                } else {
+                                  setEditingId(q.id)
+                                  setEditMemo(review.memo)
+                                }
+                              }}
+                              className="ml-auto text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                            >{isEditing ? '閉じる' : 'メモ'}</button>
+                          )}
                         </div>
 
-                        {/* Edit panel */}
-                        {isEditing && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
-                            <div>
-                              <p className="text-xs text-gray-500 font-medium mb-1.5">実施日</p>
+                        {/* 実施日（通常は今日。過去に解いた分だけ日付を変更）*/}
+                        <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                          <span className="text-gray-400">実施日</span>
+                          {dateOpenId === q.id ? (
+                            <>
                               <input
                                 type="date"
-                                value={editDate}
-                                onChange={e => setEditDate(e.target.value)}
-                                className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-blue-300 bg-white"
+                                value={dateFor(q.id)}
+                                max={todayStr}
+                                autoFocus
+                                onChange={e => setRecordDate(prev => ({ ...prev, [q.id]: e.target.value }))}
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:border-blue-300 bg-white"
                               />
-                            </div>
+                              <button
+                                onClick={() => {
+                                  setRecordDate(prev => { const next = { ...prev }; delete next[q.id]; return next })
+                                  setDateOpenId(null)
+                                }}
+                                className="text-gray-400 hover:text-gray-600"
+                              >今日に戻す</button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setDateOpenId(q.id)}
+                              title="過去に解いた日付で記録したいとき変更します"
+                              className={`inline-flex items-center gap-0.5 ${
+                                dateFor(q.id) === todayStr ? 'text-gray-500' : 'text-blue-600 font-medium'
+                              }`}
+                            >
+                              {dateFor(q.id) === todayStr ? '今日' : formatMD(dateFor(q.id))}
+                              <span className="text-gray-300">▾</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Edit panel（メモのみ・全問題タブ）*/}
+                        {isEditing && activeTab === 'list' && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-3">
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1.5">メモ</p>
                               <textarea
@@ -1333,22 +1420,26 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* 実施日履歴 */}
+                        {/* 学習履歴（初回から蓄積・✕で取り消し）*/}
                         {review.review_history.length > 0 && !isEditing && (
-                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                          <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1 items-center">
+                            <span className="text-xs text-gray-400 mr-0.5">履歴</span>
                             {review.review_history.map((entry, idx) => {
                               const label = idx === 0 ? '初回' : `${idx}回目`
-                              const [, m, d] = entry.date.split('-')
                               return (
-                                <span key={idx} className="text-xs text-gray-300">
+                                <span key={idx} className="text-xs text-gray-300 inline-flex items-center">
                                   {idx > 0 && <span className="mr-1">→</span>}
-                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded text-gray-500`}>
-                                    {label} {parseInt(m)}/{parseInt(d)}
+                                  <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded inline-flex items-center gap-1`}>
+                                    {label} {formatMD(entry.date)}
+                                    <button
+                                      onClick={() => deleteEntry(q.id, idx)}
+                                      title="この記録を取り消す"
+                                      className="text-gray-400 hover:text-red-500 leading-none"
+                                    >×</button>
                                   </span>
                                 </span>
                               )
                             })}
-                            <span className="text-xs text-gray-300 ml-1">安定度{review.stability.toFixed(1)}</span>
                           </div>
                         )}
                       </div>
@@ -1361,6 +1452,13 @@ export default function App() {
         )}
 
       </div>
+
+      {viewerQ && (
+        <ProblemViewer questionId={viewerQ.id} title={viewerQ.title} onClose={() => setViewerQ(null)} />
+      )}
+      {showImport && (
+        <ImportPanel userId={user.id} onClose={() => setShowImport(false)} />
+      )}
     </div>
   )
 }
