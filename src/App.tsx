@@ -4,12 +4,12 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamPlan, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
+import type { ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
 import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
-import { chapterWeaknessRanking, weeklyLearningCurve } from './lib/analytics'
+import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { startTimer, pauseTimer, resumeTimer, elapsedSeconds, type TimerState } from './lib/timer'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
@@ -26,6 +26,8 @@ export default function App() {
   const [user, setUser]           = useState<User | null>(null)
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
   const [plans, setPlans]         = useState<Record<string, ExamPlan>>({})
+  // 年度別CBTの確定スコア（想定得点の実測補正・§7.7(4)）。分析タブでのみ使う。
+  const [mockSessions, setMockSessions] = useState<MockSession[]>([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('list')
@@ -122,6 +124,26 @@ export default function App() {
           }
         })
         setPlans(map)
+      })
+  }, [user])
+
+  // ---- Fetch mock sessions（年度別CBTの確定スコア・§7.7(4)）----
+  // 想定得点の実測補正に使う。分析タブの推定に必要な最小限のみ取得する。
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('denken_mock_sessions')
+      .select('id, exam_id, subject_id, paper_id, mode, status, started_at, finished_at, score, section_scores')
+      .eq('user_id', user.id)
+      .eq('exam_id', CURRENT_EXAM_ID)
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return }
+        setMockSessions((data ?? []).map(s => ({
+          id: s.id, exam_id: s.exam_id, subject_id: s.subject_id, paper_id: s.paper_id,
+          mode: s.mode, status: s.status, started_at: s.started_at, finished_at: s.finished_at ?? null,
+          remaining_seconds: null, answers: {}, score: s.score ?? null,
+          section_scores: s.section_scores ?? null, memo: '',
+        })))
       })
   }, [user])
 
@@ -294,6 +316,19 @@ export default function App() {
   const learningCurve = useMemo(
     () => weeklyLearningCurve(reviews),
     [reviews]
+  )
+  // 理解度×時間の4象限（§7.7(1)）・本番想定得点（§7.7(4)）。
+  const quadrant = useMemo(
+    () => quadrantMatrix(inputChapters, reviews),
+    [inputChapters, reviews]
+  )
+  const subjectSessions = useMemo(
+    () => mockSessions.filter(s => s.subject_id === subjectIdOf(subject)),
+    [mockSessions, subject]
+  )
+  const scoreEstimate = useMemo(
+    () => estimateScore(currentChapters, reviews, subjectSessions),
+    [currentChapters, reviews, subjectSessions]
   )
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
@@ -543,6 +578,8 @@ export default function App() {
             pace={paceResult}
             weakness={weakness}
             learningCurve={learningCurve}
+            quadrant={quadrant}
+            scoreEstimate={scoreEstimate}
           />
         ) : activeTab === 'mock' ? (
           <MockExamView
