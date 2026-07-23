@@ -2,10 +2,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts'
-import { TrendingUp, CalendarClock, Gauge, AlertTriangle, Target } from 'lucide-react'
+import { TrendingUp, CalendarClock, Gauge, AlertTriangle, Target, Timer, Trophy } from 'lucide-react'
 import type { Chapter, Review, Status } from '../../domain/types'
 import type { PaceResult, PaceVerdict } from '../../lib/pace'
-import type { ChapterWeakness, WeeklyLearningPoint } from '../../lib/analytics'
+import type { ChapterWeakness, WeeklyLearningPoint, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
+import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
 
 const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: string }> = {
@@ -203,8 +204,132 @@ function LearningCurve({ points }: { points: WeeklyLearningPoint[] }) {
   )
 }
 
+// ---- 本番想定得点の推定（§7.7(4)）----
+function ScoreEstimateCard({ est }: { est: ScoreEstimate }) {
+  if (!est.hasData) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1.5">
+          <Trophy size={14} className="text-amber-500" />本番想定得点
+        </h3>
+        <p className="text-xs text-gray-400">問題に着手すると、直近の理解度から現時点の想定得点を推定します。</p>
+      </div>
+    )
+  }
+  const reached = est.passingGap <= 0
+  const top = est.chapters.filter(c => c.impact > 0.5).slice(0, 3)
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+        <Trophy size={14} className="text-amber-500" />本番想定得点
+      </h3>
+      <div className="flex items-end gap-3">
+        <div>
+          <span className={`text-4xl font-extrabold ${reached ? 'text-emerald-600' : 'text-gray-800'}`}>{est.estimate}</span>
+          <span className="text-sm font-bold text-gray-400"> / 100</span>
+        </div>
+        <p className={`text-xs font-medium mb-1 ${reached ? 'text-emerald-600' : 'text-red-500'}`}>
+          {reached ? `合格ライン${est.passingScore}点 到達見込み` : `合格まで あと${est.passingGap}点`}
+        </p>
+      </div>
+      <p className="text-[11px] text-gray-400">
+        直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
+        {est.actual != null && (
+          <span className="text-gray-500">
+            ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
+          </span>
+        )}
+      </p>
+      {top.length > 0 && (
+        <div className="pt-1 border-t border-gray-100">
+          <p className="text-[11px] font-medium text-gray-500 mb-1">得点を伸ばす近道（インパクト順）</p>
+          <ul className="space-y-1">
+            {top.map(c => (
+              <li key={c.code} className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">{c.name}</span>
+                <span className="text-blue-600 font-medium">最大 +{c.impact.toFixed(1)}点</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- 理解度×時間の4象限マトリクス（§7.7(1)）----
+const QUADRANTS = [
+  { key: 'stable',   label: 'A・速い',   note: '安定',           cls: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+  { key: 'overtime', label: 'A・遅い',   note: 'スピード訓練',   cls: 'bg-amber-50 border-amber-200 text-amber-700' },
+  { key: 'hasty',    label: '誤答・速い', note: '早とちり/知識穴', cls: 'bg-orange-50 border-orange-200 text-orange-700' },
+  { key: 'priority', label: '誤答・遅い', note: '最優先弱点',      cls: 'bg-red-50 border-red-200 text-red-700' },
+] as const
+
+function QuadrantCard({ m }: { m: QuadrantMatrix }) {
+  if (m.measuredN === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1.5">
+          <Timer size={14} className="text-indigo-500" />理解度 × 解答時間
+        </h3>
+        <p className="text-xs text-gray-400">
+          解答時間の計測データがまだありません。「問題を見る」から解いてA/B/Cを記録すると、
+          同難易度の中央値と比べた「速い/遅い」で弱点を分類します。
+        </p>
+      </div>
+    )
+  }
+  // 訓練対象（A遅い＋誤答遅い）を ratio 降順で上位提示。
+  const targets = [...m.overtime, ...m.priority].sort((a, b) => b.ratio - a.ratio).slice(0, 5)
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Timer size={14} className="text-indigo-500" />理解度 × 解答時間
+        </h3>
+        <span className="text-[10px] text-gray-400">計測 {m.measuredN}/{m.attemptedN}問</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {QUADRANTS.map(qd => {
+          const items = m[qd.key]
+          return (
+            <div key={qd.key} className={`rounded-xl border p-2.5 ${qd.cls}`}>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] font-semibold">{qd.label}</span>
+                <span className="text-lg font-bold">{items.length}</span>
+              </div>
+              <p className="text-[10px] opacity-80">{qd.note}</p>
+            </div>
+          )
+        })}
+      </div>
+      {targets.length > 0 && (
+        <div className="pt-1 border-t border-gray-100">
+          <p className="text-[11px] font-medium text-gray-500 mb-1">時間超過の訓練対象（遅い順）</p>
+          <ul className="space-y-1">
+            {targets.map(t => (
+              <li key={t.id} className="flex items-center justify-between text-xs">
+                <span className="text-gray-600 truncate">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${t.status === 'A' ? 'bg-amber-400' : 'bg-red-400'}`} />
+                  {t.chapter} 問{t.number}
+                </span>
+                <span className="text-gray-400 whitespace-nowrap ml-2">
+                  {formatDuration(t.seconds)}（中央値比 {t.ratio.toFixed(1)}倍）
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="text-[10px] text-gray-300">
+        「A・遅い」はCBT本番（1問約5分）で失点しやすい隠れ弱点です。直前期の訓練対象に。
+      </p>
+    </div>
+  )
+}
+
 export default function DashboardView({
-  data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve,
+  data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve, quadrant, scoreEstimate,
 }: {
   data: { counts: Record<Status, number>; pieData: any[]; scheduleData: any[] }
   chapters: Chapter[]
@@ -214,6 +339,8 @@ export default function DashboardView({
   pace: PaceResult
   weakness: ChapterWeakness[]
   learningCurve: WeeklyLearningPoint[]
+  quadrant: QuadrantMatrix
+  scoreEstimate: ScoreEstimate
 }) {
   const pct = totalQ > 0 ? Math.round((masteredQ / totalQ) * 100) : 0
 
@@ -222,6 +349,9 @@ export default function DashboardView({
 
       {/* ペース分析（最上部） */}
       <PaceCard pace={pace} />
+
+      {/* 本番想定得点（§7.7(4)） */}
+      <ScoreEstimateCard est={scoreEstimate} />
 
       {/* 概要カード */}
       <div className="grid grid-cols-3 gap-3">
@@ -275,6 +405,9 @@ export default function DashboardView({
 
       {/* 弱点ランキング */}
       <WeaknessRanking rows={weakness} />
+
+      {/* 理解度×時間の4象限（§7.7(1)） */}
+      <QuadrantCard m={quadrant} />
 
       {/* 学習曲線 */}
       <LearningCurve points={learningCurve} />
