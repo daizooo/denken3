@@ -1,16 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, Save, LogOut, Upload } from 'lucide-react'
+import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
-import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS } from './data/registry'
-import { addDaysStr, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
+import type { ExamPlan, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
+import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS, subjectIdOf } from './data/registry'
+import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
+import { analyzePace, applicationReminder } from './lib/pace'
+import { chapterWeaknessRanking, weeklyLearningCurve } from './lib/analytics'
+import { startTimer, pauseTimer, resumeTimer, elapsedSeconds, type TimerState } from './lib/timer'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
+import SettingsView from './features/settings/SettingsView'
 import QuestionCard from './features/questions/QuestionCard'
 
 // ==============================
@@ -20,9 +24,10 @@ import QuestionCard from './features/questions/QuestionCard'
 export default function App() {
   const [user, setUser]           = useState<User | null>(null)
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
+  const [plans, setPlans]         = useState<Record<string, ExamPlan>>({})
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard'>('list')
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'settings'>('list')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
@@ -37,6 +42,9 @@ export default function App() {
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
   const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
+  // 分野別の解答時間計測（§7.6）。「問題を見る」で開始、A/B/C で終了。
+  // 問題IDごとの計測状態。UIの再描画とは無関係なので ref で保持する。
+  const timersRef = useRef<Record<string, TimerState>>({})
   const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -88,6 +96,47 @@ export default function App() {
       })
   }, [user])
 
+  // ---- Fetch exam plans（試験日程・§7.1）----
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('denken_exam_plans')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('exam_id', CURRENT_EXAM_ID)
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return }
+        if (!data) return
+        const map: Record<string, ExamPlan> = {}
+        data.forEach(p => {
+          map[p.subject_id] = {
+            exam_id: p.exam_id,
+            subject_id: p.subject_id,
+            label: p.label ?? '',
+            exam_date: p.exam_date ? toDateStr(p.exam_date) : null,
+            application_start: p.application_start ? toDateStr(p.application_start) : null,
+            application_end: p.application_end ? toDateStr(p.application_end) : null,
+            bunya_target_date: p.bunya_target_date ? toDateStr(p.bunya_target_date) : null,
+            nendo_start_date: p.nendo_start_date ? toDateStr(p.nendo_start_date) : null,
+          }
+        })
+        setPlans(map)
+      })
+  }, [user])
+
+  // タブが非表示の間は解答時間の計測を止める（離席・中断時間を混入させない・§7.6）。
+  useEffect(() => {
+    const onVisibility = () => {
+      const hidden = document.hidden
+      const timers = timersRef.current
+      for (const id of Object.keys(timers)) {
+        timers[id] = hidden ? pauseTimer(timers[id]) : resumeTimer(timers[id])
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   // タブ・対象日を切り替えたら「復習済みで消した」記録はリセットする。
   useEffect(() => {
     setReviewedNowIds(new Set())
@@ -106,13 +155,15 @@ export default function App() {
   }, [user])
 
   // ---- 共通: 履歴から Review 全体を導出して保存 ----
+  // 現在の科目に試験日が設定されていれば、FSRSの復習予定日を試験日クリップする（§7.3）。
   const persistReview = useCallback(async (
     current: Review,
     history: ReviewHistoryEntry[],
   ) => {
-    const derived = deriveFromHistory(history)
+    const examDate = plans[subjectIdOf(subject)]?.exam_date ?? null
+    const derived = deriveFromHistory(history, examDate)
     await saveReview({ ...current, ...derived })
-  }, [saveReview])
+  }, [saveReview, plans, subject])
 
   // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
   const snapshotOf = (r: Review): ReviewSnapshot => ({
@@ -131,17 +182,23 @@ export default function App() {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const date = dateFor(questionId)
+    // 解答時間（分野別・§7.6）: 「問題を見る」で開始した計測があれば秒数を付与する。
+    // 無効（日跨ぎ・30分超・未計測）なら duration_seconds を付けない＝計測前扱い。
+    const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
+    const timer = timersRef.current[questionId]
+    if (timer) {
+      const sec = elapsedSeconds(timer, todayStr)
+      if (sec !== undefined) entry.duration_seconds = sec
+      delete timersRef.current[questionId]
+    }
     // 記録直前の状態を prev として保存しておく。取消時にこの状態へ正確に戻せる。
-    const history: ReviewHistoryEntry[] = [
-      ...(current.review_history ?? []),
-      { date, status, prev: snapshotOf(current) },
-    ]
+    const history: ReviewHistoryEntry[] = [...(current.review_history ?? []), entry]
     // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
     if (activeTab === 'review') {
       setReviewedNowIds(prev => new Set(prev).add(questionId))
     }
     await persistReview(current, history)
-  }, [user, reviews, persistReview, recordDate, activeTab])
+  }, [user, reviews, persistReview, recordDate, activeTab, todayStr])
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
   // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
@@ -201,6 +258,36 @@ export default function App() {
     () => CHAPTERS.filter(c => c.subject === subject),
     [subject]
   )
+
+  // 画像取り込み対象になり得る（問題がある）章。分析・章別進捗の対象。
+  const inputChapters = useMemo(
+    () => currentChapters.filter(c => c.questions.length > 0),
+    [currentChapters]
+  )
+
+  // 現在科目の全問題（章フィルタ非依存）。ペース分析の母数に使う。
+  const subjectQuestions = useMemo(
+    () => currentChapters.flatMap(c => c.questions.map(q => ({ id: q.id }))),
+    [currentChapters]
+  )
+
+  const currentPlan = plans[subjectIdOf(subject)] ?? null
+
+  // 適応型ペース分析（§7.2）・弱点ランキング・学習曲線（§7.7(2)(3)）。
+  const paceResult = useMemo(
+    () => analyzePace(subjectQuestions, reviews, currentPlan, todayStr),
+    [subjectQuestions, reviews, currentPlan, todayStr]
+  )
+  const weakness = useMemo(
+    () => chapterWeaknessRanking(inputChapters, reviews),
+    [inputChapters, reviews]
+  )
+  const learningCurve = useMemo(
+    () => weeklyLearningCurve(reviews),
+    [reviews]
+  )
+  const reminder = applicationReminder(currentPlan, todayStr)
+  const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
 
   const allQuestions = useMemo(() => {
     const chaps = chapterCode === 'ALL'
@@ -304,7 +391,6 @@ export default function App() {
   )
   if (!user) return <LoginScreen />
 
-  const inputChapters = currentChapters.filter(c => c.questions.length > 0)
   const totalQ = allQuestions.length
   const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
   const overflowStart = addDaysStr(todayStr, REVIEW_WINDOW_DAYS)
@@ -334,6 +420,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <BookOpen size={18} className="text-blue-600" />
               <span className="font-bold text-gray-800 text-base">電験3種 過去問マスター</span>
+              {daysToExam !== null && daysToExam >= 0 && (
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  {subject}試験まで あと{daysToExam}日
+                </span>
+              )}
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
@@ -344,6 +435,15 @@ export default function App() {
                 className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <Upload size={13} />
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                title="試験日程の設定"
+                className={`p-1 rounded-md hover:bg-gray-100 transition-colors ${
+                  activeTab === 'settings' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Settings size={13} />
               </button>
               <button
                 onClick={() => supabase.auth.signOut()}
@@ -397,13 +497,38 @@ export default function App() {
           </div>
         </header>
 
-        {activeTab === 'dashboard' ? (
+        {/* ===== 申込リマインドバナー（§7.1）===== */}
+        {reminder.show && (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-xs font-medium ${
+              reminder.urgent
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+          >
+            {reminder.message}
+          </div>
+        )}
+
+        {activeTab === 'settings' ? (
+          <SettingsView
+            userId={user.id}
+            examId={CURRENT_EXAM_ID}
+            subjectId={subjectIdOf(subject)}
+            subjectName={subject}
+            plan={currentPlan}
+            onSaved={p => setPlans(prev => ({ ...prev, [p.subject_id]: p }))}
+          />
+        ) : activeTab === 'dashboard' ? (
           <DashboardView
             data={dashData}
             chapters={inputChapters}
             reviews={reviews}
             totalQ={totalQ}
             masteredQ={masteredQ}
+            pace={paceResult}
+            weakness={weakness}
+            learningCurve={learningCurve}
           />
         ) : (
           <>
@@ -524,7 +649,11 @@ export default function App() {
                       }}
                       onSaveMemo={() => saveDetails(q.id)}
                       onRecordStatus={s => updateStatus(q.id, s)}
-                      onOpenViewer={() => setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })}
+                      onOpenViewer={() => {
+                        // 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
+                        timersRef.current[q.id] = startTimer(todayStr)
+                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })
+                      }}
                       dateValue={dateFor(q.id)}
                       dateOpen={dateOpenId === q.id}
                       onOpenDate={() => setDateOpenId(q.id)}

@@ -23,6 +23,13 @@ export function addDaysStr(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+// from → to の日数差（to - from）。同日=0・未来=正・過去=負（TZ非依存）
+export function diffDays(from: string, to: string): number {
+  return Math.round(
+    (dateAtUTCNoon(toDateStr(to)).getTime() - dateAtUTCNoon(toDateStr(from)).getTime()) / 86400000,
+  )
+}
+
 // timestamptz / date いずれの文字列でも "YYYY-MM-DD" に正規化する
 export function toDateStr(v: string | null | undefined): string {
   if (!v) return ''
