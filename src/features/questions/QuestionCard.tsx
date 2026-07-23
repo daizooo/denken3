@@ -2,6 +2,7 @@ import { Image as ImageIcon } from 'lucide-react'
 import type { MasterQuestion, Review, Status } from '../../domain/types'
 import { hasKnownAsset } from '../../lib/assets'
 import { dueColorClass, formatDue, formatMD } from '../../lib/date'
+import { formatDuration } from '../../lib/timer'
 import { STATUS_BG, STATUS_LABEL } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
@@ -178,6 +179,11 @@ export default function QuestionCard({
                   {idx > 0 && <span className="mr-1">→</span>}
                   <span className={`${STATUS_BG[entry.status]} px-1 py-0.5 rounded inline-flex items-center gap-1`}>
                     {label} {formatMD(entry.date)}
+                    {entry.duration_seconds !== undefined && (
+                      <span className="text-gray-400" title="解答にかかった時間">
+                        ⏱{formatDuration(entry.duration_seconds)}
+                      </span>
+                    )}
                     <button
                       onClick={() => onDeleteEntry(idx)}
                       title="この記録を取り消す"

@@ -1,6 +1,6 @@
 // マスターデータの唯一の入口（registry）。
 // 資格・科目・章を追加するときは各 data ファイルを編集し、ここから辿れるようにする。
-import type { Chapter, ExamDefinition, ExamId, Subject } from '../domain/types'
+import type { Chapter, ExamDefinition, ExamId, Subject, SubjectDefinition } from '../domain/types'
 import { DENKEN3_EXAM } from './denken3'
 
 // 全資格。将来 電験2種・エネ管等を配列に追加する。
@@ -21,3 +21,12 @@ function examById(id: ExamId): ExamDefinition {
 // 現在の資格の全章（科目横断でフラット化）。
 export const CHAPTERS: Chapter[] = examById(CURRENT_EXAM_ID)
   .subjects.flatMap(s => s.chapters)
+
+// 現在の資格の科目定義一覧（試験日程・ペース分析の subject_id 引き当てに使う）。
+export const SUBJECT_DEFS: SubjectDefinition[] = examById(CURRENT_EXAM_ID).subjects
+
+// 科目表示名（'理論'）→ subject_id（'riron'）。
+// 定義が未整備の科目（電力・機械・法規）は表示名をそのまま id として扱う（フォールバック）。
+export function subjectIdOf(name: Subject): string {
+  return SUBJECT_DEFS.find(s => s.name === name)?.id ?? name
+}
