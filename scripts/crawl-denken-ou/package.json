@@ -1,0 +1,16 @@
+{
+  "name": "crawl-denken-ou",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "電験王クローラー（年度別過去問・理論）。私的学習利用。アプリ本体とは独立。",
+  "scripts": {
+    "calibrate": "node crawl.mjs --calibrate",
+    "dry-run": "node crawl.mjs --dry-run --all",
+    "crawl": "node crawl.mjs",
+    "crawl:all": "node crawl.mjs --all"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
