@@ -5,7 +5,7 @@ import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
 import type { ExamPlan, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
-import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS, subjectIdOf } from './data/registry'
+import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
@@ -15,6 +15,7 @@ import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
+import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 
 // ==============================
@@ -27,7 +28,7 @@ export default function App() {
   const [plans, setPlans]         = useState<Record<string, ExamPlan>>({})
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'settings'>('list')
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('list')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
@@ -272,6 +273,14 @@ export default function App() {
   )
 
   const currentPlan = plans[subjectIdOf(subject)] ?? null
+  const currentPapers = useMemo(() => papersForSubject(subject), [subject])
+
+  // 年度別（CBT模試）の誤答→分野別復習の前倒し（§7.4(3)）。
+  // 該当する分野別問題の due_date を今日にして、今日の復習へ引き上げる。
+  const boostReview = useCallback((sourceQuestionId: string) => {
+    const current = reviews[sourceQuestionId] ?? defaultReview(sourceQuestionId)
+    saveReview({ ...current, due_date: todayStr })
+  }, [reviews, saveReview, todayStr])
 
   // 適応型ペース分析（§7.2）・弱点ランキング・学習曲線（§7.7(2)(3)）。
   const paceResult = useMemo(
@@ -484,16 +493,21 @@ export default function App() {
             >
               復習{todayDue > 0 ? ` (${todayDue})` : ''}
             </button>
-            {(['list', 'dashboard'] as const).map(t => (
-              <button key={t}
-                onClick={() => setActiveTab(t)}
-                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === t ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {t === 'list' ? '全問題' : '分析'}
-              </button>
-            ))}
+            {(['list', 'dashboard', 'mock'] as const).map(t => {
+              // 年度別タブは、ペーパー定義が無い科目では表示しない（§7.4）。
+              if (t === 'mock' && currentPapers.length === 0) return null
+              const label = t === 'list' ? '全問題' : t === 'dashboard' ? '分析' : '年度別'
+              return (
+                <button key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                    activeTab === t ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </header>
 
@@ -529,6 +543,14 @@ export default function App() {
             pace={paceResult}
             weakness={weakness}
             learningCurve={learningCurve}
+          />
+        ) : activeTab === 'mock' ? (
+          <MockExamView
+            userId={user.id}
+            examId={CURRENT_EXAM_ID}
+            subjectId={subjectIdOf(subject)}
+            papers={currentPapers}
+            onBoostReview={boostReview}
           />
         ) : (
           <>
