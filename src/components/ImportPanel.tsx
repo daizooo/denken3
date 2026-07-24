@@ -2,11 +2,17 @@ import { useMemo, useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath } from '../lib/assets'
+import { PAPERS } from '../data/registry'
+import { paperImagePath } from '../lib/mock'
 
 // 一度きりの取り込みツール。
 // GoogleDriveから各単元フォルダの画像をローカルへ落とし、ここへドラッグするだけ。
 // ログイン中の本人セッションで非公開ストレージへ直接アップロードするため、鍵の受け渡しは不要。
+// 「分野別」＝ファイル名から問題へ自動紐付け（denken_question_assets に登録）。
+// 「年度別」＝選択した回のフォルダへファイル名そのままアップロード（CBT模試・§7.4(4)）。
 export default function ImportPanel({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [mode, setMode] = useState<'bunya' | 'nendo'>('bunya')
+  const [paperId, setPaperId] = useState<string>(PAPERS[0]?.id ?? '')
   const [log, setLog] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -14,6 +20,41 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
 
   const knownFiles = useMemo(() => Object.keys(ASSET_MAP).length, [])
   const add = (m: string) => setLog(l => [...l, m])
+
+  // 年度別: 選択中ペーパーの想定ファイル名（imageFile / explanationFile）。
+  const paperFiles = useMemo(() => {
+    const p = PAPERS.find(x => x.id === paperId)
+    if (!p) return new Set<string>()
+    const s = new Set<string>()
+    for (const q of p.questions) { s.add(q.imageFile); if (q.explanationFile) s.add(q.explanationFile) }
+    return s
+  }, [paperId])
+
+  // 年度別ペーパーの画像を {user}/papers/{paperId}/{filename} へアップロード。
+  async function handlePaperFiles(fileList: FileList | null) {
+    if (!fileList || busy || !paperId) return
+    const all = Array.from(fileList)
+    // ペーパー定義に含まれるファイル名のみ対象（想定外の取り違え防止）。定義が無い（雛形前）なら全て受け入れる。
+    const targets = paperFiles.size > 0 ? all.filter(f => paperFiles.has(f.name)) : all
+    const skipped = all.length - targets.length
+    if (targets.length === 0) {
+      setLog([`対象の画像が見つかりませんでした（${all.length}件はこの回の定義に無いためスキップ）。`])
+      return
+    }
+    setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
+    let uploaded = 0, failed = 0, done = 0
+    for (const f of targets) {
+      const up = await supabase.storage.from(BUCKET).upload(
+        paperImagePath(userId, paperId, f.name), f,
+        { upsert: true, contentType: f.type || 'image/png' },
+      )
+      if (up.error) { add(`✗ ${f.name}: ${up.error.message}`); failed++ }
+      else uploaded++
+      done++; setProgress({ done, total: targets.length })
+    }
+    add(`完了: 画像 ${uploaded} 枚アップロード${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
+    setBusy(false)
+  }
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || busy) return
@@ -73,18 +114,51 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
         </div>
 
         <div className="p-4 space-y-3">
-          <p className="text-xs text-gray-500 leading-relaxed">
-            GoogleDriveの各単元フォルダの画像をパソコンに保存し、下のエリアへドラッグ（または選択）してください。
-            ファイル名から自動で問題に紐付け、あなた専用の非公開ストレージへ保存します。
-            捨て問など対象外のファイルは自動でスキップされます。
-            <br />
-            <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気・電気計測・電子理論・電子回路）</span>
-          </p>
+          {/* 取り込みモード */}
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            {(['bunya', 'nendo'] as const).map(m => (
+              <button key={m}
+                onClick={() => { setMode(m); setLog([]); setProgress(null) }}
+                className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
+                  mode === m ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >{m === 'bunya' ? '分野別' : '年度別（CBT模試）'}</button>
+            ))}
+          </div>
+
+          {mode === 'bunya' ? (
+            <p className="text-xs text-gray-500 leading-relaxed">
+              GoogleDriveの各単元フォルダの画像をパソコンに保存し、下のエリアへドラッグ（または選択）してください。
+              ファイル名から自動で問題に紐付け、あなた専用の非公開ストレージへ保存します。
+              捨て問など対象外のファイルは自動でスキップされます。
+              <br />
+              <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気・電気計測・電子理論・電子回路）</span>
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                電験王から切り出した問題・解説画像を回ごとに取り込みます。ファイル名は各回の定義に合わせてください
+                （例: <code className="text-gray-600">a01.png</code> / 解説 <code className="text-gray-600">a01_exp.png</code>）。
+              </p>
+              <select
+                value={paperId}
+                onChange={e => setPaperId(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+              >
+                {PAPERS.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}（{p.id}）{p.draft ? ' ※雛形' : ''}</option>
+                ))}
+              </select>
+              {paperFiles.size > 0 && (
+                <p className="text-xs text-gray-400">この回の想定ファイル数: {paperFiles.size} 枚（問題＋解説）</p>
+              )}
+            </div>
+          )}
 
           <div
             onClick={() => inputRef.current?.click()}
             onDragOver={e => e.preventDefault()}
-            onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files) }}
+            onDrop={e => { e.preventDefault(); (mode === 'bunya' ? handleFiles : handlePaperFiles)(e.dataTransfer.files) }}
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
               busy ? 'border-gray-200 bg-gray-50' : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50/40'
             }`}
@@ -97,7 +171,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
               accept="image/png,image/jpeg"
               multiple
               className="hidden"
-              onChange={e => handleFiles(e.target.files)}
+              onChange={e => (mode === 'bunya' ? handleFiles : handlePaperFiles)(e.target.files)}
             />
           </div>
 

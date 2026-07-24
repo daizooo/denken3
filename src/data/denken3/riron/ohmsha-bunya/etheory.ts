@@ -1,0 +1,51 @@
+// 電子理論（オーム社 分野別過去問・理論）
+import type { MasterQuestion } from '../../../../domain/types'
+
+export const ETHEORY_QUESTIONS: MasterQuestion[] = [
+  { id: 'etheory_1',  number: 1,  title: '電界中の電子（H15-A11）',                        difficulty: 1, importance: 3 },
+  { id: 'etheory_2',  number: 2,  title: '電界中の電子（H9-A9/R6上-A12）',                 difficulty: 1, importance: 3 },
+  { id: 'etheory_3',  number: 3,  title: '電界中の電子（H23-A12/R5下-A12）',               difficulty: 1, importance: 3 },
+  { id: 'etheory_4',  number: 4,  title: '電界中の電子（R1-A12）',                         difficulty: 2, importance: 3 },
+  // 問5 捨て問（電界中の電子）
+  { id: 'etheory_6',  number: 6,  title: '磁界中の電子（H16-A11）',                        difficulty: 1, importance: 3 },
+  { id: 'etheory_7',  number: 7,  title: '磁界中の電子（H28-A12）',                        difficulty: 1, importance: 3 },
+  { id: 'etheory_8',  number: 8,  title: '電界中の電子／磁界中の電子（H21-A12）',           difficulty: 1, importance: 3 },
+  // 問9 捨て問（電界中の電子／磁界中の電子）
+  { id: 'etheory_10', number: 10, title: '電界中の電子／磁界中の電子（R3-A12）',            difficulty: 1, importance: 3 },
+  { id: 'etheory_11', number: 11, title: '磁界中の電子（R4下-A12）',                       difficulty: 2, importance: 3 },
+  { id: 'etheory_12', number: 12, title: '磁界中の電子（H19-A13）',                        difficulty: 1, importance: 3 },
+  { id: 'etheory_13', number: 13, title: '磁界中の電子（H24-A12）',                        difficulty: 1, importance: 3 },
+  { id: 'etheory_14', number: 14, title: '磁界中の電子（H30-A12）',                        difficulty: 2, importance: 3 },
+  { id: 'etheory_15', number: 15, title: '電子放出（H13-A7）',                             difficulty: 1, importance: 3 },
+  { id: 'etheory_16', number: 16, title: '電子放出（H22-A12）',                            difficulty: 1, importance: 3 },
+  { id: 'etheory_17', number: 17, title: '電子放出（H20-A12/R4上-A12）',                   difficulty: 1, importance: 3 },
+  { id: 'etheory_18', number: 18, title: '電子放出（H18-A12/R7上-A12）',                   difficulty: 1, importance: 3 },
+  { id: 'etheory_19', number: 19, title: '箔検電器 ほか（R2-A12）',                        difficulty: 3, importance: 2 },
+  // 問20 捨て問（紫外線ランプ）
+  { id: 'etheory_21', number: 21, title: '熱電効果（H17-A11/R5上-A12）',                  difficulty: 1, importance: 2 },
+  { id: 'etheory_22', number: 22, title: '熱電効果（R3-A5）',                             difficulty: 1, importance: 2 },
+  { id: 'etheory_23', number: 23, title: '熱電効果 ほか（R2-A14）',                       difficulty: 1, importance: 2 },
+  { id: 'etheory_24', number: 24, title: '半導体（H10-A1）',                              difficulty: 1, importance: 3 },
+  { id: 'etheory_25', number: 25, title: '半導体（H18-A11）',                             difficulty: 1, importance: 3 },
+  { id: 'etheory_26', number: 26, title: '半導体（H25-A11）',                             difficulty: 1, importance: 3 },
+  { id: 'etheory_27', number: 27, title: '半導体（H21-A11）',                             difficulty: 1, importance: 3 },
+  { id: 'etheory_28', number: 28, title: '半導体（H28-A11）',                             difficulty: 1, importance: 3 },
+  { id: 'etheory_29', number: 29, title: '半導体（R3-A11）',                              difficulty: 1, importance: 3 },
+  { id: 'etheory_30', number: 30, title: '半導体素子（H17-A10）',                         difficulty: 1, importance: 3 },
+  { id: 'etheory_31', number: 31, title: '半導体素子（H30-A11）',                         difficulty: 1, importance: 3 },
+  { id: 'etheory_32', number: 32, title: '半導体素子（pn接合）（H26-A12）',                difficulty: 2, importance: 3 },
+  { id: 'etheory_33', number: 33, title: '半導体素子（LED）（H13-A6）',                   difficulty: 2, importance: 3 },
+  { id: 'etheory_34', number: 34, title: '半導体素子（pn接合）（H29-A11）',                difficulty: 2, importance: 3 },
+  { id: 'etheory_35', number: 35, title: '半導体素子（pn接合）（H14-A10）',                difficulty: 1, importance: 3 },
+  { id: 'etheory_36', number: 36, title: 'FET（H11-A3/R5下-A11）',                       difficulty: 1, importance: 3 },
+  { id: 'etheory_37', number: 37, title: 'FET（H16-A10/R6下-A11）',                      difficulty: 1, importance: 3 },
+  { id: 'etheory_38', number: 38, title: 'FET ほか（H15-A10/R6上-A11）',                 difficulty: 2, importance: 3 },
+  { id: 'etheory_39', number: 39, title: 'FET（R4上-A11）',                              difficulty: 2, importance: 3 },
+  { id: 'etheory_40', number: 40, title: 'FET（H23-A11）',                               difficulty: 2, importance: 3 },
+  { id: 'etheory_41', number: 41, title: '太陽電池（H20-A11）',                           difficulty: 1, importance: 2 },
+  { id: 'etheory_42', number: 42, title: '太陽電池（R1-A11）',                            difficulty: 1, importance: 2 },
+  { id: 'etheory_43', number: 43, title: 'ダイオード（H19-A11/R4下-A11）',                difficulty: 1, importance: 2 },
+  { id: 'etheory_44', number: 44, title: 'ダイオード（R2-A11）',                          difficulty: 2, importance: 2 },
+  // 問45 捨て問（ダイオード）
+  { id: 'etheory_46', number: 46, title: 'ホール素子（H22-A11/R5上-A11/R7上-A11）',      difficulty: 2, importance: 2 },
+]
