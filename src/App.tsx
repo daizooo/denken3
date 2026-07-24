@@ -4,8 +4,8 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
-import { CHAPTERS, CURRENT_EXAM_ID, SUBJECTS, papersForSubject, subjectIdOf } from './data/registry'
+import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
+import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
@@ -32,7 +32,9 @@ export default function App() {
   const [saving, setSaving]       = useState(false)
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('list')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
-  const [subject, setSubject]     = useState<Subject>('理論')
+  // 対象資格（registry駆動・§7.8）。登録が1つの間は DEFAULT_EXAM_ID で固定。
+  const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
+  const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -50,6 +52,12 @@ export default function App() {
   const timersRef = useRef<Record<string, TimerState>>({})
   const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
+
+  // registry駆動の派生データ（§7.8）。資格切替（examId 変更）に追従する。
+  const exam = useMemo(() => getExam(examId), [examId])
+  const subjects = useMemo(() => subjectNamesOf(examId), [examId])
+  const chapters = useMemo(() => chaptersOf(examId), [examId])
+  const passingScore = exam.passingScore
 
   // ---- Auth ----
   useEffect(() => {
@@ -79,7 +87,7 @@ export default function App() {
       .from('denken_reviews')
       .select('*')
       .eq('user_id', user.id)
-      .eq('exam_id', CURRENT_EXAM_ID)
+      .eq('exam_id', examId)
       .then(({ data, error }) => {
         if (error) console.error(error)
         if (data) {
@@ -97,7 +105,7 @@ export default function App() {
         }
         setLoading(false)
       })
-  }, [user])
+  }, [user, examId])
 
   // ---- Fetch exam plans（試験日程・§7.1）----
   useEffect(() => {
@@ -106,7 +114,7 @@ export default function App() {
       .from('denken_exam_plans')
       .select('*')
       .eq('user_id', user.id)
-      .eq('exam_id', CURRENT_EXAM_ID)
+      .eq('exam_id', examId)
       .then(({ data, error }) => {
         if (error) { console.error(error); return }
         if (!data) return
@@ -125,7 +133,7 @@ export default function App() {
         })
         setPlans(map)
       })
-  }, [user])
+  }, [user, examId])
 
   // ---- Fetch mock sessions（年度別CBTの確定スコア・§7.7(4)）----
   // 想定得点の実測補正に使う。分析タブの推定に必要な最小限のみ取得する。
@@ -135,7 +143,7 @@ export default function App() {
       .from('denken_mock_sessions')
       .select('id, exam_id, subject_id, paper_id, mode, status, started_at, finished_at, score, section_scores')
       .eq('user_id', user.id)
-      .eq('exam_id', CURRENT_EXAM_ID)
+      .eq('exam_id', examId)
       .then(({ data, error }) => {
         if (error) { console.error(error); return }
         setMockSessions((data ?? []).map(s => ({
@@ -145,7 +153,7 @@ export default function App() {
           section_scores: s.section_scores ?? null, memo: '',
         })))
       })
-  }, [user])
+  }, [user, examId])
 
   // タブが非表示の間は解答時間の計測を止める（離席・中断時間を混入させない・§7.6）。
   useEffect(() => {
@@ -165,17 +173,23 @@ export default function App() {
     setReviewedNowIds(new Set())
   }, [activeTab, selectedDate])
 
+  // 資格を切り替えたら、その資格の先頭科目に戻し章フィルタもリセットする（§7.8）。
+  useEffect(() => {
+    setSubject(subjectNamesOf(examId)[0])
+    setChapterCode('ALL')
+  }, [examId])
+
   // ---- 共通: Review を1件保存（ローカル即時反映＋DB upsert）----
   const saveReview = useCallback(async (updated: Review) => {
     if (!user) return
     setReviews(prev => ({ ...prev, [updated.question_id]: updated }))
     setSaving(true)
     const { error } = await supabase.from('denken_reviews').upsert({
-      user_id: user.id, exam_id: CURRENT_EXAM_ID, ...updated,
+      user_id: user.id, exam_id: examId, ...updated,
     })
     if (error) console.error(error)
     setSaving(false)
-  }, [user])
+  }, [user, examId])
 
   // ---- 共通: 履歴から Review 全体を導出して保存 ----
   // 現在の科目に試験日が設定されていれば、FSRSの復習予定日を試験日クリップする（§7.3）。
@@ -183,10 +197,10 @@ export default function App() {
     current: Review,
     history: ReviewHistoryEntry[],
   ) => {
-    const examDate = plans[subjectIdOf(subject)]?.exam_date ?? null
+    const examDate = plans[subjectIdOf(examId, subject)]?.exam_date ?? null
     const derived = deriveFromHistory(history, examDate)
     await saveReview({ ...current, ...derived })
-  }, [saveReview, plans, subject])
+  }, [saveReview, plans, examId, subject])
 
   // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
   const snapshotOf = (r: Review): ReviewSnapshot => ({
@@ -269,17 +283,17 @@ export default function App() {
     setReviews(prev => ({ ...prev, [questionId]: updated }))
     setSaving(true)
     const { error } = await supabase.from('denken_reviews').upsert({
-      user_id: user.id, exam_id: CURRENT_EXAM_ID, ...updated,
+      user_id: user.id, exam_id: examId, ...updated,
     })
     if (error) console.error(error)
     setSaving(false)
     setEditingId(null)
-  }, [user, reviews, editMemo])
+  }, [user, examId, reviews, editMemo])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
-    () => CHAPTERS.filter(c => c.subject === subject),
-    [subject]
+    () => chapters.filter(c => c.subject === subject),
+    [chapters, subject]
   )
 
   // 画像取り込み対象になり得る（問題がある）章。分析・章別進捗の対象。
@@ -294,8 +308,8 @@ export default function App() {
     [currentChapters]
   )
 
-  const currentPlan = plans[subjectIdOf(subject)] ?? null
-  const currentPapers = useMemo(() => papersForSubject(subject), [subject])
+  const currentPlan = plans[subjectIdOf(examId, subject)] ?? null
+  const currentPapers = useMemo(() => papersForSubject(examId, subject), [examId, subject])
 
   // 年度別（CBT模試）の誤答→分野別復習の前倒し（§7.4(3)）。
   // 該当する分野別問題の due_date を今日にして、今日の復習へ引き上げる。
@@ -323,12 +337,12 @@ export default function App() {
     [inputChapters, reviews]
   )
   const subjectSessions = useMemo(
-    () => mockSessions.filter(s => s.subject_id === subjectIdOf(subject)),
-    [mockSessions, subject]
+    () => mockSessions.filter(s => s.subject_id === subjectIdOf(examId, subject)),
+    [mockSessions, examId, subject]
   )
   const scoreEstimate = useMemo(
-    () => estimateScore(currentChapters, reviews, subjectSessions),
-    [currentChapters, reviews, subjectSessions]
+    () => estimateScore(currentChapters, reviews, subjectSessions, passingScore),
+    [currentChapters, reviews, subjectSessions, passingScore]
   )
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
@@ -463,7 +477,21 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen size={18} className="text-blue-600" />
-              <span className="font-bold text-gray-800 text-base">電験3種 過去問マスター</span>
+              {/* 資格切替（§7.8）。登録が2つ以上になったらセレクタを表示、1つの間は名称のみ。 */}
+              {EXAMS.length >= 2 ? (
+                <select
+                  value={examId}
+                  onChange={e => setExamId(e.target.value)}
+                  className="font-bold text-gray-800 text-base bg-transparent border-none focus:outline-none cursor-pointer"
+                  title="資格の切り替え"
+                >
+                  {EXAMS.map(ex => (
+                    <option key={ex.id} value={ex.id}>{ex.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="font-bold text-gray-800 text-base">{exam.name} 過去問マスター</span>
+              )}
               {daysToExam !== null && daysToExam >= 0 && (
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
                   {subject}試験まで あと{daysToExam}日
@@ -501,8 +529,8 @@ export default function App() {
 
           {/* 科目タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {SUBJECTS.map(s => {
-              const count = CHAPTERS.filter(c => c.subject === s)
+            {subjects.map(s => {
+              const count = chapters.filter(c => c.subject === s)
                 .reduce((sum, c) => sum + c.questions.length, 0)
               return (
                 <button key={s}
@@ -562,8 +590,8 @@ export default function App() {
         {activeTab === 'settings' ? (
           <SettingsView
             userId={user.id}
-            examId={CURRENT_EXAM_ID}
-            subjectId={subjectIdOf(subject)}
+            examId={examId}
+            subjectId={subjectIdOf(examId, subject)}
             subjectName={subject}
             plan={currentPlan}
             onSaved={p => setPlans(prev => ({ ...prev, [p.subject_id]: p }))}
@@ -584,9 +612,10 @@ export default function App() {
         ) : activeTab === 'mock' ? (
           <MockExamView
             userId={user.id}
-            examId={CURRENT_EXAM_ID}
-            subjectId={subjectIdOf(subject)}
+            examId={examId}
+            subjectId={subjectIdOf(examId, subject)}
             papers={currentPapers}
+            passingScore={passingScore}
             onBoostReview={boostReview}
           />
         ) : (
