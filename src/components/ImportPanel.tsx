@@ -132,7 +132,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
               ファイル名から自動で問題に紐付け、あなた専用の非公開ストレージへ保存します。
               捨て問など対象外のファイルは自動でスキップされます。
               <br />
-              <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気）</span>
+              <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気・電気計測・電子理論・電子回路）</span>
             </p>
           ) : (
             <div className="space-y-2">

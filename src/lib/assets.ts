@@ -8,6 +8,9 @@ import { TRANS_ASSETS } from '../data/transAssets'
 import { AC3_ASSETS } from '../data/ac3Assets'
 import { ELEC_ASSETS } from '../data/elecAssets'
 import { MAG_ASSETS } from '../data/magAssets'
+import { MEAS_ASSETS } from '../data/measAssets'
+import { ETHEORY_ASSETS } from '../data/etheoryAssets'
+import { ECIRCUIT_ASSETS } from '../data/ecircuitAssets'
 
 export type Region = 'top' | 'bottom' | null
 
@@ -22,7 +25,7 @@ export interface AssetRef {
 export type AssetMap = Record<string, AssetRef[]>
 
 // 章ごとのマッピングを統合（章を増やしたらここへ足す）
-export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS, ...TRANS_ASSETS, ...AC3_ASSETS, ...ELEC_ASSETS, ...MAG_ASSETS }
+export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS, ...TRANS_ASSETS, ...AC3_ASSETS, ...ELEC_ASSETS, ...MAG_ASSETS, ...MEAS_ASSETS, ...ETHEORY_ASSETS, ...ECIRCUIT_ASSETS }
 
 export const BUCKET = 'denken-problems'
 
