@@ -4,8 +4,8 @@
 // マスターデータは DB 化せず src/data/ に TS として分離し、この型で表現する。
 // ==============================
 
-// 学習資格。将来 'denken2' | 'enekan' | 'denko2' 等を追加する。
-export type ExamId = 'denken3'
+// 学習資格。既知のIDは補完のために列挙しつつ、`(string & {})` で将来のIDも許容する。
+export type ExamId = 'denken3' | 'denken2' | 'enekan' | (string & {})
 
 export type Subject = '理論' | '電力' | '機械' | '法規'
 
@@ -34,9 +34,17 @@ export interface SubjectDefinition {
   papers?: PaperDefinition[]  // 年度別（CBT模試）ペーパー。未収録の科目は undefined。
 }
 
+// 資格ごとの試験制度の差異（§7.8）。UIの分岐やモデルの拡張点はここに集約する。
+export interface ExamFeatures {
+  subjectPass: boolean  // 科目合格制度（電験3種・2種一次: true）
+  twoStage: boolean     // 一次/二次の二段階（電験2種: true）
+}
+
 export interface ExamDefinition {
   id: ExamId
   name: string          // '電験3種'
+  passingScore: number  // 60（移行判定・合格ライン・想定得点推定の既定値）
+  features: ExamFeatures
   subjects: SubjectDefinition[]
 }
 
