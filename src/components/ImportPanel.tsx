@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath } from '../lib/assets'
 import { PAPERS } from '../data/registry'
 import { paperImagePath } from '../lib/mock'
+import type { PaperQuestion } from '../domain/types'
 
 // 一度きりの取り込みツール。
 // GoogleDriveから各単元フォルダの画像をローカルへ落とし、ここへドラッグするだけ。
@@ -21,16 +22,18 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   const knownFiles = useMemo(() => Object.keys(ASSET_MAP).length, [])
   const add = (m: string) => setLog(l => [...l, m])
 
-  // 年度別: 選択中ペーパーの想定ファイル名（imageFile / explanationFile）。
+  // 年度別: 選択中ペーパーの想定ファイル名（imageFile）→ 対応する問題。
   const paperFiles = useMemo(() => {
     const p = PAPERS.find(x => x.id === paperId)
-    if (!p) return new Set<string>()
-    const s = new Set<string>()
-    for (const q of p.questions) { s.add(q.imageFile); if (q.explanationFile) s.add(q.explanationFile) }
-    return s
+    if (!p) return new Map<string, PaperQuestion>()
+    const m = new Map<string, PaperQuestion>()
+    for (const q of p.questions) m.set(q.imageFile, q)
+    return m
   }, [paperId])
 
-  // 年度別ペーパーの画像を {user}/papers/{paperId}/{filename} へアップロード。
+  // 年度別ペーパーの画像を {user}/papers/{paperId}/{filename} へアップロードし、
+  // 単体復習（既存 denken_question_assets 基盤の再利用・§11.2）用にも登録する。
+  // 画像は物理クロップなし（問題→解説→解答が縦に並ぶ1問1枚）。CBT解答中は answerYPct で下部をマスクする。
   async function handlePaperFiles(fileList: FileList | null) {
     if (!fileList || busy || !paperId) return
     const all = Array.from(fileList)
@@ -42,17 +45,30 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
       return
     }
     setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
-    let uploaded = 0, failed = 0, done = 0
+    let uploaded = 0, rows = 0, failed = 0, done = 0
     for (const f of targets) {
+      const path = paperImagePath(userId, paperId, f.name)
       const up = await supabase.storage.from(BUCKET).upload(
-        paperImagePath(userId, paperId, f.name), f,
-        { upsert: true, contentType: f.type || 'image/png' },
+        path, f, { upsert: true, contentType: f.type || 'image/png' },
       )
-      if (up.error) { add(`✗ ${f.name}: ${up.error.message}`); failed++ }
-      else uploaded++
+      if (up.error) {
+        add(`✗ ${f.name}: ${up.error.message}`); failed++
+        done++; setProgress({ done, total: targets.length }); continue
+      }
+      uploaded++
+
+      const q = paperFiles.get(f.name)
+      if (q) {
+        const ins = await supabase.from('denken_question_assets').upsert(
+          { user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100, answer_y_pct: q.answerYPct },
+          { onConflict: 'user_id,question_id,storage_path,sort' },
+        )
+        if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
+        else rows++
+      }
       done++; setProgress({ done, total: targets.length })
     }
-    add(`完了: 画像 ${uploaded} 枚アップロード${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
+    add(`完了: 画像 ${uploaded} 枚アップロード / 単体復習用登録 ${rows} 件${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
     setBusy(false)
   }
 
@@ -137,8 +153,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 leading-relaxed">
-                電験王から切り出した問題・解説画像を回ごとに取り込みます。ファイル名は各回の定義に合わせてください
-                （例: <code className="text-gray-600">a01.png</code> / 解説 <code className="text-gray-600">a01_exp.png</code>）。
+                電験王ページを1問1枚でキャプチャした元画像（問題・ワンポイント解説・解答が縦に並んだまま）を
+                回ごとに取り込みます。ファイル名は各回の定義に合わせてください（例: <code className="text-gray-600">a01.png</code>）。
               </p>
               <select
                 value={paperId}
@@ -150,7 +166,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
                 ))}
               </select>
               {paperFiles.size > 0 && (
-                <p className="text-xs text-gray-400">この回の想定ファイル数: {paperFiles.size} 枚（問題＋解説）</p>
+                <p className="text-xs text-gray-400">この回の想定ファイル数: {paperFiles.size} 枚</p>
               )}
             </div>
           )}
