@@ -18,6 +18,10 @@ import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 
+// 復習タブの並び順に使う理解度の優先度（小さいほど優先＝上に表示）。
+// 未着手・苦手(C)ほど先に、習得済み(A)ほど後に並べる。
+const STATUS_PRIORITY: Record<Status, number> = { '未着手': 0, C: 1, B: 2, A: 3 }
+
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
 // マスターデータは src/data/、FSRS・日付は src/lib/、UIは src/features/ に分離。
@@ -30,7 +34,8 @@ export default function App() {
   const [mockSessions, setMockSessions] = useState<MockSession[]>([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('list')
+  // スタート画面は常に復習タブを表示する。
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('review')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   const [subject, setSubject]     = useState<Subject>('理論')
   const [chapterCode, setChapterCode] = useState('ALL')
@@ -373,7 +378,7 @@ export default function App() {
   const filteredQuestions = useMemo(() => {
     const today = todayJST()
     const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
-    return allQuestions.filter(q => {
+    const filtered = allQuestions.filter(q => {
       const r = reviews[q.id]
       const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
@@ -391,6 +396,23 @@ export default function App() {
       }
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
+    })
+    // 復習タブは優先順位が高い問題を上に並べる。
+    // 優先度: ①より延滞している（次回復習日が早い）②理解度が低い（未着手→C→B→A）
+    //         ③重要度が高い ④難易度が高い、の順で評価する。
+    if (activeTab !== 'review') return filtered
+    return [...filtered].sort((a, b) => {
+      const ra = reviews[a.id], rb = reviews[b.id]
+      const da = ra?.due_date ?? '9999-12-31'
+      const db = rb?.due_date ?? '9999-12-31'
+      if (da !== db) return da < db ? -1 : 1
+      const sa = STATUS_PRIORITY[ra?.status ?? '未着手']
+      const sb = STATUS_PRIORITY[rb?.status ?? '未着手']
+      if (sa !== sb) return sa - sb
+      const ia = a.importance ?? 2, ib = b.importance ?? 2
+      if (ia !== ib) return ib - ia
+      if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
+      return 0
     })
   }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds])
 
@@ -708,8 +730,14 @@ export default function App() {
                       }}
                       onSaveMemo={() => saveDetails(q.id)}
                       onRecordStatus={s => updateStatus(q.id, s)}
-                      onOpenViewer={() => {
-                        // 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
+                      onViewProblem={() => {
+                        // 「問題を見る」= 確認のみ。タイマーは動かさない。
+                        // 計測中の状態が残っていると解答時間に混ざるので破棄する。
+                        delete timersRef.current[q.id]
+                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })
+                      }}
+                      onSolveProblem={() => {
+                        // 「問題を解く」= 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
                         timersRef.current[q.id] = startTimer(todayStr)
                         setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })
                       }}

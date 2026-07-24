@@ -1,4 +1,4 @@
-import { Image as ImageIcon } from 'lucide-react'
+import { Image as ImageIcon, PencilLine } from 'lucide-react'
 import type { MasterQuestion, Review, Status } from '../../domain/types'
 import { hasKnownAsset } from '../../lib/assets'
 import { dueColorClass, formatDue, formatMD } from '../../lib/date'
@@ -13,7 +13,7 @@ export interface QuestionWithChapter extends MasterQuestion {
 export default function QuestionCard({
   q, review, activeTab, todayStr,
   isEditing, editMemo, onEditMemoChange, onToggleEdit, onSaveMemo,
-  onRecordStatus, onOpenViewer,
+  onRecordStatus, onViewProblem, onSolveProblem,
   dateValue, dateOpen, onOpenDate, onDateChange, onResetDate,
   onDeleteEntry,
 }: {
@@ -27,7 +27,10 @@ export default function QuestionCard({
   onToggleEdit: () => void
   onSaveMemo: () => void
   onRecordStatus: (status: Status) => void
-  onOpenViewer: () => void
+  // 問題を確認するだけ（タイマー計測なし）
+  onViewProblem: () => void
+  // 問題を解く（解答時間の計測を開始する）
+  onSolveProblem: () => void
   dateValue: string
   dateOpen: boolean
   onOpenDate: () => void
@@ -102,12 +105,24 @@ export default function QuestionCard({
             >{s}</button>
           ))}
           {hasKnownAsset(q.id) && (
-            <button
-              onClick={onOpenViewer}
-              className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 hover:border-blue-400 px-2 py-1.5 rounded-lg transition-colors"
-            >
-              <ImageIcon size={13} /> 問題を見る
-            </button>
+            <>
+              {/* 確認のみ。タイマーは動かさない（解答時間に混ぜない）。 */}
+              <button
+                onClick={onViewProblem}
+                title="タイマー計測なしで問題を確認します"
+                className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 hover:border-gray-400 px-2 py-1.5 rounded-lg transition-colors"
+              >
+                <ImageIcon size={13} /> 問題を見る
+              </button>
+              {/* 解答時間の計測を開始してから問題を開く（§7.6）。 */}
+              <button
+                onClick={onSolveProblem}
+                title="解答時間を計測して問題を解きます"
+                className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 hover:border-blue-400 px-2 py-1.5 rounded-lg transition-colors"
+              >
+                <PencilLine size={13} /> 問題を解く
+              </button>
+            </>
           )}
           {activeTab === 'list' && (
             <button
