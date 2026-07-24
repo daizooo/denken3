@@ -19,8 +19,8 @@ import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 
 // 復習タブの並び順に使う理解度の優先度（小さいほど優先＝上に表示）。
-// 未着手・苦手(C)ほど先に、習得済み(A)ほど後に並べる。
-const STATUS_PRIORITY: Record<Status, number> = { '未着手': 0, C: 1, B: 2, A: 3 }
+// 未着手・苦手(C)ほど先に、習得済み(A)・完璧(S)ほど後に並べる。
+const STATUS_PRIORITY: Record<Status, number> = { '未着手': 0, C: 1, B: 2, A: 3, S: 4 }
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -323,6 +323,15 @@ export default function App() {
     saveReview({ ...current, due_date: todayStr })
   }, [reviews, saveReview, todayStr])
 
+  // S（復習不要）にした問題を、いつでも復習に戻す。
+  // 学習履歴・FSRS状態はそのままに、次回復習日を今日へ設定して復習キューへ戻すだけ。
+  // 再び A・B・C で採点すれば、温存された stability からスケジューリングが再開する。
+  const reactivateReview = useCallback((questionId: string) => {
+    const current = reviews[questionId]
+    if (!current) return
+    saveReview({ ...current, due_date: todayStr })
+  }, [reviews, saveReview, todayStr])
+
   // 適応型ペース分析（§7.2）・弱点ランキング・学習曲線（§7.7(2)(3)）。
   const paceResult = useMemo(
     () => analyzePace(subjectQuestions, reviews, currentPlan, todayStr),
@@ -445,7 +454,7 @@ export default function App() {
   }, [activeTab, reviewedNowIds, filteredQuestions, reviewSchedule, selectedDate])
 
   const dashData = useMemo(() => {
-    const counts: Record<Status, number> = { A: 0, B: 0, C: 0, '未着手': 0 }
+    const counts: Record<Status, number> = { S: 0, A: 0, B: 0, C: 0, '未着手': 0 }
     allQuestions.forEach(q => { counts[reviews[q.id]?.status ?? '未着手']++ })
 
     const pieData = (Object.entries(counts) as [Status, number][])
@@ -472,7 +481,10 @@ export default function App() {
   if (!user) return <LoginScreen />
 
   const totalQ = allQuestions.length
-  const masteredQ = allQuestions.filter(q => reviews[q.id]?.status === 'A').length
+  const masteredQ = allQuestions.filter(q => {
+    const s = reviews[q.id]?.status
+    return s === 'A' || s === 'S'
+  }).length
   const overflowStart = addDaysStr(todayStr, REVIEW_WINDOW_DAYS)
   const reviewDueCount = (questions: { id: string }[]) =>
     questions.filter(q => {
@@ -707,7 +719,7 @@ export default function App() {
             {/* ===== STATUS FILTER (list only) ===== */}
             {activeTab === 'list' && (
               <div className="flex gap-1.5 flex-wrap">
-                {(['ALL', 'A', 'B', 'C', '未着手'] as const).map(s => (
+                {(['ALL', 'S', 'A', 'B', 'C', '未着手'] as const).map(s => (
                   <button key={s}
                     onClick={() => setFilterStatus(s)}
                     className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
@@ -759,6 +771,7 @@ export default function App() {
                       }}
                       onSaveMemo={() => saveDetails(q.id)}
                       onRecordStatus={s => updateStatus(q.id, s)}
+                      onReactivate={() => reactivateReview(q.id)}
                       onViewProblem={() => {
                         // 「問題を見る」= 確認のみ。タイマーは動かさない。
                         // 計測中の状態が残っていると解答時間に混ざるので破棄する。

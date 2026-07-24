@@ -9,7 +9,8 @@ export type ExamId = 'denken3' | 'denken2' | 'enekan' | (string & {})
 
 export type Subject = '理論' | '電力' | '機械' | '法規'
 
-export type Status = 'A' | 'B' | 'C' | '未着手'
+// S = 完璧に理解した（復習不要）。復習キューから外すが、いつでも復習に戻せる（due_date を再設定するだけ）。
+export type Status = 'S' | 'A' | 'B' | 'C' | '未着手'
 
 export interface MasterQuestion {
   id: string
