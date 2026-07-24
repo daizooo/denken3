@@ -23,7 +23,8 @@ export interface ChapterWeakness {
 }
 
 function isCorrect(status: Status | undefined): boolean {
-  return status === 'A'
+  // S（完璧に理解・復習不要）は A 以上の習得とみなす。
+  return status === 'A' || status === 'S'
 }
 
 // 章別の弱点スコアランキング（§7.7(2)）。着手済み問題が1問以上ある章のみ対象。
@@ -112,7 +113,7 @@ export function weeklyLearningCurve(reviews: Record<string, Review>): WeeklyLear
       if (e.status === '未着手') return
       const wk = weekStart(e.date)
       const b = buckets.get(wk) ?? { freshOk: 0, freshN: 0, revOk: 0, revN: 0 }
-      const ok = e.status === 'A' ? 1 : 0
+      const ok = e.status === 'A' || e.status === 'S' ? 1 : 0
       if (idx === 0) { b.freshN++; b.freshOk += ok }
       else { b.revN++; b.revOk += ok }
       buckets.set(wk, b)
@@ -206,7 +207,7 @@ export function quadrantMatrix(
     const med = medians[m.q.difficulty]
     const ratio = med && med > 0 ? m.seconds / med : 1
     const slow = ratio > 1 // 中央値超で「遅い」
-    const correct = m.status === 'A'
+    const correct = m.status === 'A' || m.status === 'S'
     const item: QuadrantItem = {
       id: m.q.id, chapter: m.chapter, number: m.q.number, title: m.q.title,
       status: m.status, seconds: m.seconds, ratio, difficulty: m.q.difficulty,
@@ -233,7 +234,8 @@ export function quadrantMatrix(
 // オーム社原本の問題数（totalCount）を出題比率の代理とする。収録後に差し替える。
 
 // 5択のため未学習（未着手・未収録分）は当て推量の 0.2 をベースラインにする。
-const PROB: Record<Status, number> = { A: 0.92, B: 0.6, C: 0.25, '未着手': 0.2 }
+// S（完璧に理解・復習不要）は A と同等の正答確率とみなす（インパクトの上限 PROB.A を超えないよう合わせる）。
+const PROB: Record<Status, number> = { S: 0.92, A: 0.92, B: 0.6, C: 0.25, '未着手': 0.2 }
 const BASELINE = 0.2
 
 export interface ChapterImpact {

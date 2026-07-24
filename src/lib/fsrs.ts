@@ -11,6 +11,8 @@ const RATING_MAP: Record<Status, Grade> = {
   A: Rating.Easy,
   B: Rating.Good,
   C: Rating.Again,
+  // S・未着手 はスケジューラを回さない（calcFSRS で早期リターン）。便宜上の既定値。
+  S: Rating.Easy,
   '未着手': Rating.Good,
 }
 
@@ -59,9 +61,13 @@ export function calcFSRS(
   examDate?: string | null,
 ) {
   if (status === '未着手') return {}
-  const rating = RATING_MAP[status]
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
   const eDate = eventDate ?? todayJST()
+  // S（完璧に理解・復習不要）: 復習予定日を消して復習キューから外す。
+  // stability 等の FSRS 値は現状のまま温存するので、後で復習に戻す（due_date 再設定）／
+  // A・B・C で再採点したときに、それまでの学習履歴を失わずスケジューリングを再開できる。
+  if (status === 'S') return { due_date: null, last_reviewed: eDate }
+  const rating = RATING_MAP[status]
   const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)

@@ -310,7 +310,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
             {targets.map(t => (
               <li key={t.id} className="flex items-center justify-between text-xs">
                 <span className="text-gray-600 truncate">
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${t.status === 'A' ? 'bg-amber-400' : 'bg-red-400'}`} />
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${t.status === 'A' || t.status === 'S' ? 'bg-amber-400' : 'bg-red-400'}`} />
                   {t.chapter} 問{t.number}
                 </span>
                 <span className="text-gray-400 whitespace-nowrap ml-2">
@@ -354,8 +354,9 @@ export default function DashboardView({
       <ScoreEstimateCard est={scoreEstimate} />
 
       {/* 概要カード */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
+          { label: 'S（復習不要）', value: data.counts.S, color: 'text-purple-600' },
           { label: 'A（完全正答）', value: data.counts.A, color: 'text-green-600' },
           { label: 'B（方向性OK）', value: data.counts.B, color: 'text-blue-600' },
           { label: 'C（要学習）', value: data.counts.C, color: 'text-red-500' },
@@ -418,10 +419,13 @@ export default function DashboardView({
         <div className="space-y-2.5">
           {chapters.map(c => {
             const done = c.questions.filter(q =>
-              ['A', 'B'].includes(reviews[q.id]?.status ?? '')
+              ['S', 'A', 'B'].includes(reviews[q.id]?.status ?? '')
             ).length
             const pct = c.questions.length > 0 ? (done / c.questions.length) * 100 : 0
-            const mastered = c.questions.filter(q => reviews[q.id]?.status === 'A').length
+            const mastered = c.questions.filter(q => {
+              const s = reviews[q.id]?.status
+              return s === 'A' || s === 'S'
+            }).length
 
             return (
               <div key={c.code}>
