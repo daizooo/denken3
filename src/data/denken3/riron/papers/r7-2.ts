@@ -2,8 +2,10 @@
 // 正答・questionStartPct・answerYPct は電験王キャプチャ画像から確認済み
 // （2026-07-25収録・再検出・2026-07-25 4回目: ピクセル行のインク密度を走査し、
 //  【難易度】直後〜文章開始の空白／最終選択肢〜【ワンポイント解説】直前の空白を
-//  それぞれ検出。整数%では空白が1%未満になる問題があったため小数%で確定し、
-//  全18問を実際に該当範囲で切り出して目視確認済み）。
+//  それぞれ検出。整数%では空白が1%未満になる問題があったため小数%で確定。
+//  2026-07-25 5回目: 全18問を実際に questionStartPct〜answerYPct の範囲で切り出し、
+//  1枚ずつ「上端=難易度直後から始まっているか」「下端=解説見出しの直前で終わっているか」
+//  を目視確認。b16 は難易度行が残っていたため questionStartPct を補正した）。
 // questionStartPct: 【難易度】行の直後（【問題】見出し・難易度行は表示しない）。
 // answerYPct: 【ワンポイント解説】見出しの直前（見出し自体も一切表示しない）。
 // CBT解答中は questionStartPct 〜 answerYPct の範囲のみを表示する。
@@ -37,7 +39,7 @@ export const R7_2: PaperDefinition = {
       parts: [{ label: '(a)', correct: 3, points: 5 }, { label: '(b)', correct: 3, points: 5 }],
     },
     {
-      id: 'r7-2_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 11.87, answerYPct: 24.17, topic: '電気回路',
+      id: 'r7-2_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 12.56, answerYPct: 24.17, topic: '電気回路',
       parts: [{ label: '(a)', correct: 3, points: 5 }, { label: '(b)', correct: 4, points: 5 }],
     },
     {
