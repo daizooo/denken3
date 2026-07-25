@@ -120,9 +120,13 @@ export interface PaperQuestion {
   id: string                         // 'r8-1_a05'（paperId_セクション+番号）
   section: 'A' | 'B'
   number: number                     // 表示上の問番号（A: 1..14 / B: 15..18）
-  // 問題・ワンポイント解説・解答が縦に並んだ1問1枚の元画像（paperフォルダ内、物理クロップなし）。
+  // タイトル・シェアボタン・動画埋め込み・目次…問題文…ワンポイント解説…解答…関連記事、
+  // が縦に並んだ1問1枚の元画像（paperフォルダ内、物理クロップなし）。
   // 実際のStorageパスは paperImagePath(userId, paperId, imageFile) で解決する。
   imageFile: string                  // 'a05.png'
+  // 【問題】見出しが始まる縦位置(%)。表示は常にこの位置から始め、上部のタイトル・共有ボタン・
+  // 動画・目次を切り捨てる（スクロール量を減らすため）。既定0=切り捨てなし。
+  questionStartPct: number
   // 解説が始まる縦位置(%)。CBT解答中はこの位置より下をマスクして隠し、結果画面では解除する（§11.2）。
   // 既定100=分割なし（検出不能時に安全側へ倒し、目視確認を促すためのプレースホルダ）。
   answerYPct: number
