@@ -120,10 +120,12 @@ export interface PaperQuestion {
   id: string                         // 'r8-1_a05'（paperId_セクション+番号）
   section: 'A' | 'B'
   number: number                     // 表示上の問番号（A: 1..14 / B: 15..18）
-  // 問題文・図・選択肢を含む切り出し画像のファイル名（paperフォルダ内）。
+  // 問題・ワンポイント解説・解答が縦に並んだ1問1枚の元画像（paperフォルダ内、物理クロップなし）。
   // 実際のStorageパスは paperImagePath(userId, paperId, imageFile) で解決する。
   imageFile: string                  // 'a05.png'
-  explanationFile?: string           // 'a05_exp.png'（結果画面でのみ表示）
+  // 解説が始まる縦位置(%)。CBT解答中はこの位置より下をマスクして隠し、結果画面では解除する（§11.2）。
+  // 既定100=分割なし（検出不能時に安全側へ倒し、目視確認を促すためのプレースホルダ）。
+  answerYPct: number
   explanationUrl?: string            // 取得元（電験王）該当ページURL（外部参照用）
   selectable?: boolean               // B問題の選択問題（問17/18 の択一等）。同一paper内の selectable 群から1問を選ぶ
   parts: PaperQuestionPart[]         // A問題は1要素。B問題は (a)(b) の2要素
