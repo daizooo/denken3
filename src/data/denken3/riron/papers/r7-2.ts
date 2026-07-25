@@ -1,8 +1,7 @@
 // 令和7年度 下期 理論（R7下）。
 // 正答・answerYPct は電験王キャプチャ画像から確認済み（2026-07-25収録）。
-// draft は true のまま: 画像本体はまだ非公開Storageへアップロードされていない
-// （ImportPanelの「年度別」モードから利用者本人のセッションでアップロードする必要がある・§11.2）。
-// アップロード後、アプリ上で数問マスク位置を目視確認してから draft を外すこと。
+// 画像18枚はImportPanel（年度別モード）でアップロード済み・denken_question_assetsにも登録済み。
+// draft を外して収録済みとする。フリーモードでマスク位置に問題があれば answerYPct を調整すること。
 import type { ExamId, PaperDefinition } from '../../../../domain/types'
 
 export const R7_2: PaperDefinition = {
@@ -44,5 +43,4 @@ export const R7_2: PaperDefinition = {
       parts: [{ label: '(a)', correct: 5, points: 5 }, { label: '(b)', correct: 2, points: 5 }],
     },
   ],
-  draft: true, // 画像アップロード後、目視確認のうえで外す
 }
