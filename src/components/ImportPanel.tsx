@@ -23,22 +23,39 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   const add = (m: string) => setLog(l => [...l, m])
 
   // 年度別: 選択中ペーパーの想定ファイル名（imageFile）→ 対応する問題。
+  // 番号(問N)からの逆引き用マップも用意する（GoogleDriveの元ファイル名対応・下記 resolvePaperQuestion）。
+  const paper = useMemo(() => PAPERS.find(x => x.id === paperId), [paperId])
   const paperFiles = useMemo(() => {
-    const p = PAPERS.find(x => x.id === paperId)
-    if (!p) return new Map<string, PaperQuestion>()
     const m = new Map<string, PaperQuestion>()
-    for (const q of p.questions) m.set(q.imageFile, q)
+    for (const q of paper?.questions ?? []) m.set(q.imageFile, q)
     return m
-  }, [paperId])
+  }, [paper])
+  const paperByNumber = useMemo(() => {
+    const m = new Map<number, PaperQuestion>()
+    for (const q of paper?.questions ?? []) m.set(q.number, q)
+    return m
+  }, [paper])
+
+  // ファイル名から問題を特定する。まず imageFile（a01.png 等）の完全一致を試し、
+  // 見つからなければファイル名中の「問N」表記、それも無ければ拡張子直前の数字から逆引きする
+  // （電験王キャプチャをGoogleDrive経由でそのまま持ってきた場合の元ファイル名に対応するため）。
+  function resolvePaperQuestion(filename: string): PaperQuestion | undefined {
+    const exact = paperFiles.get(filename)
+    if (exact) return exact
+    const m = filename.match(/問\s*(\d+)/) ?? filename.match(/(\d+)(?=\.[^.]+$)/)
+    return m ? paperByNumber.get(Number(m[1])) : undefined
+  }
 
   // 年度別ペーパーの画像を {user}/papers/{paperId}/{filename} へアップロードし、
   // 単体復習（既存 denken_question_assets 基盤の再利用・§11.2）用にも登録する。
   // 画像は物理クロップなし（問題→解説→解答が縦に並ぶ1問1枚）。CBT解答中は answerYPct で下部をマスクする。
+  // 保存先ファイル名はペーパー定義上の正規名（imageFile）に統一する（元ファイル名が別でも表示側と一致させるため）。
   async function handlePaperFiles(fileList: FileList | null) {
     if (!fileList || busy || !paperId) return
     const all = Array.from(fileList)
-    // ペーパー定義に含まれるファイル名のみ対象（想定外の取り違え防止）。定義が無い（雛形前）なら全て受け入れる。
-    const targets = paperFiles.size > 0 ? all.filter(f => paperFiles.has(f.name)) : all
+    const resolved = all.map(f => ({ file: f, q: resolvePaperQuestion(f.name) }))
+    // ペーパー定義に紐付くファイルのみ対象（想定外の取り違え防止）。定義が無い（雛形前）なら全て受け入れる。
+    const targets = paperFiles.size > 0 ? resolved.filter(r => r.q) : resolved
     const skipped = all.length - targets.length
     if (targets.length === 0) {
       setLog([`対象の画像が見つかりませんでした（${all.length}件はこの回の定義に無いためスキップ）。`])
@@ -46,8 +63,9 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     }
     setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
     let uploaded = 0, rows = 0, failed = 0, done = 0
-    for (const f of targets) {
-      const path = paperImagePath(userId, paperId, f.name)
+    for (const { file: f, q } of targets) {
+      const targetName = q?.imageFile ?? f.name
+      const path = paperImagePath(userId, paperId, targetName)
       const up = await supabase.storage.from(BUCKET).upload(
         path, f, { upsert: true, contentType: f.type || 'image/png' },
       )
@@ -56,8 +74,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
         done++; setProgress({ done, total: targets.length }); continue
       }
       uploaded++
+      if (targetName !== f.name) add(`${f.name} → ${targetName} として保存`)
 
-      const q = paperFiles.get(f.name)
       if (q) {
         const ins = await supabase.from('denken_question_assets').upsert(
           { user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100, answer_y_pct: q.answerYPct },
@@ -154,7 +172,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
             <div className="space-y-2">
               <p className="text-xs text-gray-500 leading-relaxed">
                 電験王ページを1問1枚でキャプチャした元画像（問題・ワンポイント解説・解答が縦に並んだまま）を
-                回ごとに取り込みます。ファイル名は各回の定義に合わせてください（例: <code className="text-gray-600">a01.png</code>）。
+                回ごとに取り込みます。ファイル名は各回の定義（例: <code className="text-gray-600">a01.png</code>）に合わせるのが確実ですが、
+                「<code className="text-gray-600">…問1.png</code>」のように問題番号を含むファイル名（GoogleDriveの元ファイル名など）でも自動認識します。
               </p>
               <select
                 value={paperId}
