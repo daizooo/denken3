@@ -158,7 +158,8 @@ export default function ResultView({
                       </div>
                       <PaperImage
                         userId={userId} paperId={paper.id} filename={q.imageFile}
-                        questionStartPct={q.questionStartPct} answerYPct={q.answerYPct} showAnswer
+                        questionStartPct={q.questionStartPct} answerYPct={q.answerYPct}
+                        explanationEndPct={q.explanationEndPct} showAnswer
                       />
                       {q.explanationUrl && (
                         <a href={q.explanationUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">解説ページ（電験王）</a>
