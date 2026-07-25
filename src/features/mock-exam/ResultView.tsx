@@ -156,7 +156,10 @@ export default function ResultView({
                           </span>
                         ))}
                       </div>
-                      <PaperImage userId={userId} paperId={paper.id} filename={q.imageFile} answerYPct={q.answerYPct} showAnswer />
+                      <PaperImage
+                        userId={userId} paperId={paper.id} filename={q.imageFile}
+                        questionStartPct={q.questionStartPct} answerYPct={q.answerYPct} showAnswer
+                      />
                       {q.explanationUrl && (
                         <a href={q.explanationUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">解説ページ（電験王）</a>
                       )}

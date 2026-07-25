@@ -3,26 +3,30 @@ import { signedUrl } from '../../lib/assets'
 import { paperImagePath } from '../../lib/mock'
 
 // 年度別ペーパーの切り出し画像1枚を、非公開Storageの署名付きURLで表示する。
-// 画像は「問題→ワンポイント解説→解答」が縦に並んだ1問1枚（物理クロップなし・§11.2）。
-// showAnswer=false のとき answerYPct より下をマスクして解説・解答を隠す（CBT解答中）。
+// 画像は「タイトル・共有ボタン・動画・目次→問題→ワンポイント解説→解答→関連記事」が縦に
+// 並んだ1問1枚（物理クロップなし・§11.2）。表示は常に questionStartPct〜endPct の範囲だけを
+// 切り出す（上部の無関係な部分を常に隠し、CBT解答中はさらに answerYPct から下＝解説以降も隠す）。
+// endPct は showAnswer=false のとき answerYPct、true のとき 100（結果画面で解除）。
 // zoom で横幅を拡大（ピンチ/横スクロール前提・§7.4(2)）。
 export default function PaperImage({
-  userId, paperId, filename, answerYPct = 100, showAnswer = true, zoom = false,
+  userId, paperId, filename, questionStartPct = 0, answerYPct = 100, showAnswer = true, zoom = false,
 }: {
   userId: string
   paperId: string
   filename?: string
+  questionStartPct?: number
   answerYPct?: number
   showAnswer?: boolean
   zoom?: boolean
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [err, setErr] = useState(false)
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
   useEffect(() => {
     if (!filename) { setUrl(null); return }
     let alive = true
-    setUrl(null); setErr(false)
+    setUrl(null); setErr(false); setNaturalSize(null)
     signedUrl(paperImagePath(userId, paperId, filename))
       .then(u => { if (alive) setUrl(u) })
       .catch(() => { if (alive) setErr(true) })
@@ -38,27 +42,34 @@ export default function PaperImage({
   if (!url) return (
     <div className="bg-white rounded-xl p-10 text-center text-xs text-gray-400">読み込み中...</div>
   )
-  const masked = !showAnswer && answerYPct < 100
+
+  const endPct = showAnswer ? 100 : answerYPct
+  const startPct = Math.min(questionStartPct, endPct)
+  const span = Math.max(endPct - startPct, 1)
+  // クロップ範囲の縦横比が判明するまでは全体表示（画像読み込み直後の一瞬）。
+  const cropReady = naturalSize != null
+  const aspectRatio = cropReady ? `${naturalSize.w} / ${naturalSize.h * (span / 100)}` : undefined
+  const imgTopPct = -(startPct / span) * 100
+
   return (
     <div className="overflow-auto rounded-xl bg-white shadow-sm">
-      <div style={{ position: 'relative', width: zoom ? '180%' : '100%', maxWidth: zoom ? 'none' : '100%' }}>
+      <div
+        style={{
+          position: 'relative', width: zoom ? '180%' : '100%', maxWidth: zoom ? 'none' : '100%',
+          overflow: 'hidden', aspectRatio,
+        }}
+      >
         <img
           src={url}
           alt=""
           draggable={false}
-          style={{ width: '100%', display: 'block' }}
+          onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          style={{
+            position: cropReady ? 'absolute' : 'static',
+            top: cropReady ? `${imgTopPct}%` : undefined,
+            left: 0, width: '100%', display: 'block',
+          }}
         />
-        {masked && (
-          <div
-            style={{
-              position: 'absolute', top: `${answerYPct}%`, left: 0, right: 0, bottom: 0,
-              background: 'rgba(255,255,255,0.98)', borderTop: '1px dashed #e5e7eb',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <span style={{ color: '#9ca3af', fontSize: 12 }}>解説（採点後に表示）</span>
-          </div>
-        )}
       </div>
     </div>
   )

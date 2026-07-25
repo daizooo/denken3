@@ -6,11 +6,13 @@
 //   → 満点 = A70 + B(必須2問=20点 + 選択1問=10点) = 100点
 //
 // この関数が返すのは draft=true の「雛形」。実データ収録の手順は §11.2(6):
-//   1. 電験王ページを1問1枚でキャプチャ（問題・ワンポイント解説・解答が縦に並ぶ元画像そのまま）
-//   2. OCRツールで各画像の answerYPct（解説が始まる縦位置%）候補を検出 → 目視確認・補正
+//   1. 電験王ページを1問1枚でキャプチャ（タイトル・共有ボタン・動画・目次…問題…ワンポイント解説…
+//      解答…関連記事、が縦に並ぶ元画像そのまま）
+//   2. 各画像の questionStartPct（【問題】が始まる縦位置%）・answerYPct（【ワンポイント解説】が
+//      始まる縦位置%）を検出 → 目視確認・補正。CBT表示は questionStartPct 〜 answerYPct の範囲のみを見せる
 //   3. 取り込みパネル（年度別モード）で {user_id}/papers/{paperId}/a01.png … としてアップロード
 //      （同時に denken_question_assets へ answer_x_pct=100・answer_y_pct=確定値で登録される）
-//   4. 各 part の correct を公式正答表と突き合わせて確定・answerYPct を確定値に更新
+//   4. 各 part の correct を公式正答表と突き合わせて確定・questionStartPct/answerYPct を確定値に更新
 //   5. topic / sourceQuestionId（分野別リンク）を任意で追記
 //   6. draft を外す（validatePaper が満点100・正答1〜5・重複IDを検証する）
 
@@ -34,6 +36,7 @@ export function rironPaperSkeleton(
       section: 'A',
       number: n,
       imageFile: `a${pad2(n)}.png`,
+      questionStartPct: 0,
       answerYPct: 100,
       parts: [{ correct: TODO_CORRECT, points: 5 }],
     })
@@ -46,6 +49,7 @@ export function rironPaperSkeleton(
       section: 'B',
       number: n,
       imageFile: `b${n}.png`,
+      questionStartPct: 0,
       answerYPct: 100,
       selectable: n >= 17,
       parts: [

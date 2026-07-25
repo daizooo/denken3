@@ -190,7 +190,10 @@ export default function CBTRunner({
           </p>
         )}
 
-        <PaperImage userId={userId} paperId={paper.id} filename={q.imageFile} answerYPct={q.answerYPct} showAnswer={false} zoom={zoom} />
+        <PaperImage
+          userId={userId} paperId={paper.id} filename={q.imageFile}
+          questionStartPct={q.questionStartPct} answerYPct={q.answerYPct} showAnswer={false} zoom={zoom}
+        />
 
         {/* 解答操作 */}
         <div className="space-y-2">
