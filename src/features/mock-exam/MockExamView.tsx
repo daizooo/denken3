@@ -44,6 +44,8 @@ export default function MockExamView({
   const [active, setActive] = useState<{ paper: PaperDefinition; session: MockSession } | null>(null)
 
   // ---- セッション取得 ----
+  // フリーモードはDBに一切保存しないため（下記 start/autosave/suspend/finish）、cbtのみを対象にする。
+  // 過去にフリーモードが保存されていた行が残っていても、ここで除外され表示・集計に出ない。
   const reload = useCallback(async () => {
     const { data, error } = await supabase
       .from(TABLE)
@@ -51,6 +53,7 @@ export default function MockExamView({
       .eq('user_id', userId)
       .eq('exam_id', examId)
       .eq('subject_id', subjectId)
+      .eq('mode', 'cbt')
       .order('started_at', { ascending: false })
     if (error) { console.error(error); return }
     setSessions((data ?? []).map(toSession))
@@ -72,12 +75,35 @@ export default function MockExamView({
     return { count: finished.length, best, last: last ? toDateStr(last) : null }
   }
 
+  // 空のローカルセッション（フリーモード用）。DBには一切保存しない —
+  // タイマー・履歴・受験回数などの集計はすべてcbtのみを対象にする（ユーザー要望）。
+  const localFreeSession = (paper: PaperDefinition): MockSession => ({
+    id: `local-${crypto.randomUUID()}`,
+    exam_id: examId,
+    subject_id: subjectId,
+    paper_id: paper.id,
+    mode: 'free',
+    status: 'in_progress',
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    remaining_seconds: null,
+    answers: {},
+    score: null,
+    section_scores: null,
+    memo: '',
+  })
+
   // ---- 新規受験開始 ----
   const start = async (paper: PaperDefinition, mode: MockMode) => {
+    if (mode === 'free') {
+      setActive({ paper, session: localFreeSession(paper) })
+      setPhase('running')
+      return
+    }
     const { data, error } = await supabase.from(TABLE).insert({
       user_id: userId, exam_id: examId, subject_id: subjectId, paper_id: paper.id,
       mode, status: 'in_progress',
-      remaining_seconds: mode === 'cbt' ? paper.timeLimitMin * 60 : null,
+      remaining_seconds: paper.timeLimitMin * 60,
       answers: {},
     }).select().single()
     if (error || !data) { console.error(error); return }
@@ -92,18 +118,20 @@ export default function MockExamView({
     setPhase('running')
   }
 
-  // ---- autosave（解答・残り時間）----
+  // ---- autosave（解答・残り時間）。フリーモードは何もしない ----
   const autosave = useCallback(async (session: MockSession, answers: Record<string, MockAnswer>, remaining: number | null) => {
+    if (session.mode === 'free') return
     await supabase.from(TABLE).update({ answers, remaining_seconds: remaining }).eq('id', session.id)
   }, [])
 
-  // ---- 中断（残り時間を保存して一覧へ）----
+  // ---- 中断（残り時間を保存して一覧へ）。フリーモードは何も保存せず、その場で消える ----
   const suspend = async (session: MockSession, answers: Record<string, MockAnswer>, remaining: number | null) => {
+    if (session.mode === 'free') { setPhase('list'); setActive(null); return }
     await supabase.from(TABLE).update({ answers, remaining_seconds: remaining }).eq('id', session.id)
     setPhase('list'); setActive(null); reload()
   }
 
-  // ---- 採点確定 ----
+  // ---- 採点確定。フリーモードはその場で採点するだけでDBには残さない ----
   const finish = async (paper: PaperDefinition, session: MockSession, answers: Record<string, MockAnswer>, remaining: number | null) => {
     const scored = scorePaper(paper, answers)
     const finishedRow = {
@@ -113,6 +141,11 @@ export default function MockExamView({
       answers,
       score: scored.total,
       section_scores: scored.sectionScores,
+    }
+    if (session.mode === 'free') {
+      setActive({ paper, session: { ...session, ...finishedRow } })
+      setPhase('result')
+      return
     }
     const { data, error } = await supabase.from(TABLE).update(finishedRow).eq('id', session.id).select().single()
     if (error) console.error(error)

@@ -5,7 +5,7 @@ import { isAnswered } from '../../lib/mock'
 import PaperImage from './PaperImage'
 
 // CBT解答画面（§7.4(2)）。本番CBTに準拠した操作で解く。
-// - ヘッダー: 残り時間カウントダウン（フリーは経過時間）・解答済み/全問数
+// - ヘッダー: 残り時間カウントダウン（cbtのみ。フリーはタイマー非表示）・解答済み/全問数
 // - 問題画像を原寸表示（zoomで拡大）、(1)〜(5) 選択、B問題は(a)(b)個別
 // - 問題一覧グリッドから任意ジャンプ・後で見直しフラグ
 // - 選択問題（selectable）は解答した1問だけが採点対象（排他）
@@ -81,8 +81,6 @@ export default function CBTRunner({
           if (next <= 0) { queueMicrotask(() => doFinishRef.current()); return 0 }
           return next
         })
-      } else {
-        setClock(prev => prev + 1)
       }
     }, 1000)
     return () => clearInterval(iv)
@@ -145,11 +143,13 @@ export default function CBTRunner({
     <div className="fixed inset-0 z-40 bg-gray-100 flex flex-col">
       {/* ヘッダー */}
       <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-2 shrink-0">
-        <span className={`font-mono font-bold text-sm px-2 py-1 rounded-lg ${
-          timeLow ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-        }`}>
-          {mode === 'cbt' ? '残 ' : '経過 '}{mm}:{ss}
-        </span>
+        {mode === 'cbt' && (
+          <span className={`font-mono font-bold text-sm px-2 py-1 rounded-lg ${
+            timeLow ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+          }`}>
+            残 {mm}:{ss}
+          </span>
+        )}
         <span className="text-xs text-gray-500">解答 {answeredCount}/{total}</span>
         <div className="flex-1" />
         <button onClick={() => setZoom(z => !z)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100" title={zoom ? '縮小' : '拡大'}>
