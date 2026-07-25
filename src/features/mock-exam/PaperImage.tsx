@@ -6,16 +6,18 @@ import { paperImagePath } from '../../lib/mock'
 // 画像は「タイトル・共有ボタン・動画・目次→問題→ワンポイント解説→解答→関連記事」が縦に
 // 並んだ1問1枚（物理クロップなし・§11.2）。表示は常に questionStartPct〜endPct の範囲だけを
 // 切り出す（上部の無関係な部分を常に隠し、CBT解答中はさらに answerYPct から下＝解説以降も隠す）。
-// endPct は showAnswer=false のとき answerYPct、true のとき 100（結果画面で解除）。
+// endPct は showAnswer=false のとき answerYPct、true のとき explanationEndPct
+// （結果画面で解説・解答は見せるが、末尾の宣伝バナー・共有ボタン・おすすめ記事は隠す）。
 // zoom で横幅を拡大（ピンチ/横スクロール前提・§7.4(2)）。
 export default function PaperImage({
-  userId, paperId, filename, questionStartPct = 0, answerYPct = 100, showAnswer = true, zoom = false,
+  userId, paperId, filename, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
 }: {
   userId: string
   paperId: string
   filename?: string
   questionStartPct?: number
   answerYPct?: number
+  explanationEndPct?: number
   showAnswer?: boolean
   zoom?: boolean
 }) {
@@ -43,7 +45,7 @@ export default function PaperImage({
     <div className="bg-white rounded-xl p-10 text-center text-xs text-gray-400">読み込み中...</div>
   )
 
-  const endPct = showAnswer ? 100 : answerYPct
+  const endPct = showAnswer ? explanationEndPct : answerYPct
   const startPct = Math.min(questionStartPct, endPct)
   const span = Math.max(endPct - startPct, 1)
   // クロップ範囲の縦横比が判明するまでは全体表示（画像読み込み直後の一瞬）。

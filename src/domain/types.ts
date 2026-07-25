@@ -132,6 +132,10 @@ export interface PaperQuestion {
   // より下をマスクして隠し、結果画面では解除する（§11.2）。既定100=分割なし（検出不能時に安全側へ
   // 倒し、目視確認を促すためのプレースホルダ）。小数可（questionStartPct と同様の理由）。
   answerYPct: number
+  // 解説・解答の実質的な内容が終わる位置（%）。関連記事の宣伝バナー・タグ・共有ボタン・
+  // おすすめ記事リンクなど、電験王ページ末尾の定型フッターが始まる直前で切る。
+  // 結果画面（showAnswer=true）ではこの位置までを表示する。既定100=切り捨てなし。
+  explanationEndPct: number
   explanationUrl?: string            // 取得元（電験王）該当ページURL（外部参照用）
   selectable?: boolean               // B問題の選択問題（問17/18 の択一等）。同一paper内の selectable 群から1問を選ぶ
   parts: PaperQuestionPart[]         // A問題は1要素。B問題は (a)(b) の2要素
