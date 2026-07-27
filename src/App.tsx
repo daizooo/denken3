@@ -421,17 +421,17 @@ export default function App() {
       return true
     })
     // 復習タブは優先順位が高い問題を上に並べる。
-    // 優先度: ①より延滞している（次回復習日が早い）②理解度が低い（未着手→C→B→A）
+    // 優先度: ①理解度が低い（未着手→C→B→A）②より延滞している（次回復習日が早い）
     //         ③重要度が高い ④難易度が高い、の順で評価する。
     if (activeTab !== 'review') return filtered
     return [...filtered].sort((a, b) => {
       const ra = reviews[a.id], rb = reviews[b.id]
-      const da = ra?.due_date ?? '9999-12-31'
-      const db = rb?.due_date ?? '9999-12-31'
-      if (da !== db) return da < db ? -1 : 1
       const sa = STATUS_PRIORITY[ra?.status ?? '未着手']
       const sb = STATUS_PRIORITY[rb?.status ?? '未着手']
       if (sa !== sb) return sa - sb
+      const da = ra?.due_date ?? '9999-12-31'
+      const db = rb?.due_date ?? '9999-12-31'
+      if (da !== db) return da < db ? -1 : 1
       const ia = a.importance ?? 2, ib = b.importance ?? 2
       if (ia !== ib) return ib - ia
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
