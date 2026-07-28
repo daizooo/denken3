@@ -12,6 +12,8 @@ import { analyzePace, applicationReminder } from './lib/pace'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { startTimer, pauseTimer, resumeTimer, elapsedSeconds, type TimerState } from './lib/timer'
 import { STATUS_COLOR } from './features/shared/status'
+import { useStealth } from './features/stealth/context'
+import { DISGUISE_APP_TITLE } from './features/stealth/config'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
@@ -27,6 +29,9 @@ const STATUS_PRIORITY: Record<Status, number> = { '未着手': 0, C: 1, B: 2, A:
 // マスターデータは src/data/、FSRS・日付は src/lib/、UIは src/features/ に分離。
 // ==============================
 export default function App() {
+  // 擬装モード（会社モード）。ONの間はヘッダーの資格名や試験カウントダウンなど、
+  // 一目で「電験の学習アプリ」と分かる要素を無害な文言に差し替える。
+  const stealth = useStealth()
   const [user, setUser]           = useState<User | null>(null)
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
   const [plans, setPlans]         = useState<Record<string, ExamPlan>>({})
@@ -512,7 +517,9 @@ export default function App() {
             <div className="flex items-center gap-2">
               <BookOpen size={18} className="text-blue-600" />
               {/* 資格切替（§7.8）。登録が2つ以上になったらセレクタを表示、1つの間は名称のみ。 */}
-              {EXAMS.length >= 2 ? (
+              {stealth.enabled ? (
+                <span className="font-bold text-gray-800 text-base">{DISGUISE_APP_TITLE}</span>
+              ) : EXAMS.length >= 2 ? (
                 <select
                   value={examId}
                   onChange={e => setExamId(e.target.value)}
@@ -526,7 +533,8 @@ export default function App() {
               ) : (
                 <span className="font-bold text-gray-800 text-base">{exam.name} 過去問マスター</span>
               )}
-              {daysToExam !== null && daysToExam >= 0 && (
+              {/* 試験カウントダウンは「一目で資格試験」と分かる要素なので擬装中は隠す */}
+              {!stealth.enabled && daysToExam !== null && daysToExam >= 0 && (
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
                   {subject}試験まで あと{daysToExam}日
                 </span>
@@ -534,7 +542,8 @@ export default function App() {
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
-              <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              {/* 擬装中は「復習◯問」も出さず、文書ソフトらしい無害な文言にする */}
+              <span>{saving ? '保存中...' : stealth.enabled ? '自動保存しました' : `今日の復習 ${todayDue}問`}</span>
               <button
                 onClick={() => setShowImport(true)}
                 title="問題画像の取り込み"

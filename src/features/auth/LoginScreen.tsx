@@ -1,13 +1,26 @@
-import { BookOpen } from 'lucide-react'
+import { BookOpen, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useStealth } from '../stealth/context'
 
 export default function LoginScreen() {
+  // 擬装モード中は、ログイン画面も「電験の学習アプリ」と分からない無害な体裁にする。
+  const stealth = useStealth()
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center space-y-4 w-72">
-        <BookOpen size={36} className="mx-auto text-blue-600" />
-        <h1 className="text-lg font-bold text-gray-800">電験3種 過去問マスター</h1>
-        <p className="text-xs text-gray-500">2027/2 理論CBT 合格まで</p>
+        {stealth.enabled ? (
+          <>
+            <FileText size={36} className="mx-auto text-gray-500" />
+            <h1 className="text-lg font-bold text-gray-800">ドキュメント</h1>
+            <p className="text-xs text-gray-500">アカウントでサインイン</p>
+          </>
+        ) : (
+          <>
+            <BookOpen size={36} className="mx-auto text-blue-600" />
+            <h1 className="text-lg font-bold text-gray-800">電験3種 過去問マスター</h1>
+            <p className="text-xs text-gray-500">2027/2 理論CBT 合格まで</p>
+          </>
+        )}
         <button
           onClick={() => supabase.auth.signInWithOAuth({
             provider: 'google',

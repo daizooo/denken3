@@ -7,3 +7,11 @@ body {
 #root {
   min-height: 100svh;
 }
+
+/* ステルス（擬装）モードの地味スキン。
+   彩度を大きく落とし、青ブランドの「学習アプリらしさ」を消して
+   社内ツール/文書ソフトのような無彩色寄りの見た目にする。
+   パニックカバー（PanicOverlay）はこの div の外側なので影響を受けない。 */
+.stealth-skin {
+  filter: saturate(0.18) contrast(0.98);
+}
