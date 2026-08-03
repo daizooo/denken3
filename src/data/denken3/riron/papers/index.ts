@@ -12,8 +12,9 @@ import { R7_1 } from './r7-1'
 import { R6_2 } from './r6-2'
 import { R6_1 } from './r6-1'
 import { R5_2 } from './r5-2'
+import { R5_1 } from './r5-1'
 
-export const RIRON_PAPERS: PaperDefinition[] = [R8_1, R7_2, R7_1, R6_2, R6_1, R5_2]
+export const RIRON_PAPERS: PaperDefinition[] = [R8_1, R7_2, R7_1, R6_2, R6_1, R5_2, R5_1]
 
 for (const paper of RIRON_PAPERS) {
   const errors = validatePaper(paper)
