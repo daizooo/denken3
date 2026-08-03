@@ -8,9 +8,9 @@
 // answerYPct: 【ワンポイント解説】見出しの直前（見出し自体も一切表示しない）。
 // explanationEndPct: 解説・解答の本文が終わる位置（宣伝バナー等の定型フッターの直前）。
 // CBT解答中は questionStartPct〜answerYPct、結果画面は questionStartPct〜explanationEndPct を表示する。
-// 正答・pct・topic は確定済み。残るは画像18枚の投入のみ: ImportPanel（年度別モード→r7-1）で
-// Google Drive「令和7年上期/理論」の18枚をアップロードすると denken_question_assets へ
-// answer_y_pct=answerYPct で登録される。投入完了後に draft を外す（validatePaper が満点100を検証）。
+// 画像18枚はImportPanel（年度別モード）でアップロード済み・denken_question_assetsにも
+// answer_y_pct=answerYPct で登録済み（2026-08-03）。収録完了のため draft は付けない
+// （validatePaper が満点100点・正答1〜5・重複IDを検証する）。
 import type { ExamId, PaperDefinition } from '../../../../domain/types'
 
 export const R7_1: PaperDefinition = {
@@ -52,5 +52,4 @@ export const R7_1: PaperDefinition = {
       parts: [{ label: '(a)', correct: 3, points: 5 }, { label: '(b)', correct: 1, points: 5 }],
     },
   ],
-  draft: true, // 正答・pct確定済み。画像18枚の投入後に false にする
 }
