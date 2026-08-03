@@ -111,6 +111,17 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
   }
 }
 
+// 現在の想起確率 R（0..1）。復習キューの価値・リスク帯の算定に使う（reviewPlan.ts）。
+// FSRS の忘却曲線から「今この瞬間まだ正解できる確率」を求める。
+// 対象外（未学習=repetitions 0／S 等で due_date 無し）は null を返す。
+export function retrievability(review: Partial<Review> | null | undefined, today?: string): number | null {
+  if (!review || (review.repetitions ?? 0) <= 0) return null
+  if (!review.due_date) return null
+  const now = dateAtUTCNoon(today ?? todayJST())
+  const r = fsrsScheduler.get_retrievability(toFSRSCard(review, now), now, false)
+  return typeof r === 'number' ? r : null
+}
+
 export function defaultReview(questionId: string): Review {
   return {
     question_id: questionId, status: '未着手',
