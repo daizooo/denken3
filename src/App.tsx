@@ -532,7 +532,10 @@ export default function App() {
                   ))}
                 </select>
               ) : (
-                <span className="font-bold text-gray-800 text-base">ElectricPro</span>
+                <span className="flex items-baseline gap-1.5">
+                  <span className="font-bold text-gray-800 text-base">ElectricPro</span>
+                  <span className="text-xs font-medium text-gray-500">{exam.name}</span>
+                </span>
               )}
               {daysToExam !== null && daysToExam >= 0 && (
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
