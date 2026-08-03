@@ -532,7 +532,7 @@ export default function App() {
                   ))}
                 </select>
               ) : (
-                <span className="font-bold text-gray-800 text-base">{exam.name} 過去問マスター</span>
+                <span className="font-bold text-gray-800 text-base">ElectricPro</span>
               )}
               {daysToExam !== null && daysToExam >= 0 && (
                 <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
