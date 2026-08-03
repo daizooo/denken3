@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
 import { supabase } from './lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
@@ -10,6 +10,7 @@ import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
+import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import { startTimer, pauseTimer, resumeTimer, elapsedSeconds, type TimerState } from './lib/timer'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
@@ -17,10 +18,6 @@ import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
-
-// 復習タブの並び順に使う理解度の優先度（小さいほど優先＝上に表示）。
-// 未着手・苦手(C)ほど先に、習得済み(A)・完璧(S)ほど後に並べる。
-const STATUS_PRIORITY: Record<Status, number> = { '未着手': 0, C: 1, B: 2, A: 3, S: 4 }
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -420,24 +417,35 @@ export default function App() {
       if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
-    // 復習タブは優先順位が高い問題を上に並べる。
-    // 優先度: ①理解度が低い（未着手→C→B→A）②より延滞している（次回復習日が早い）
-    //         ③重要度が高い ④難易度が高い、の順で評価する。
+    // 復習タブは「価値順」で並べる（reviewPlan.ts）。
+    // 価値＝〔重要度〕×〔忘却リスク 1-R〕×〔理解度〕。頻出・重要で、いま忘れかけていて、
+    // 理解度の低い問題ほど先に。同点は重要度→難易度で割る。
     if (activeTab !== 'review') return filtered
+    // 価値スコアは事前計算（比較の中で R を再計算しない）。
+    const scoreOf = new Map<string, number>()
+    for (const q of filtered) scoreOf.set(q.id, reviewValue(q, reviews[q.id], todayStr).score)
     return [...filtered].sort((a, b) => {
-      const ra = reviews[a.id], rb = reviews[b.id]
-      const sa = STATUS_PRIORITY[ra?.status ?? '未着手']
-      const sb = STATUS_PRIORITY[rb?.status ?? '未着手']
-      if (sa !== sb) return sa - sb
-      const da = ra?.due_date ?? '9999-12-31'
-      const db = rb?.due_date ?? '9999-12-31'
-      if (da !== db) return da < db ? -1 : 1
+      const va = scoreOf.get(a.id) ?? 0, vb = scoreOf.get(b.id) ?? 0
+      if (va !== vb) return vb - va
       const ia = a.importance ?? 2, ib = b.importance ?? 2
       if (ia !== ib) return ib - ia
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
-  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds])
+  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds, todayStr])
+
+  // 今日の復習の「推奨ライン」（reviewPlan.ts）。上限で切るのではなく、価値順に並んだ
+  // 今日の due 全体を「今日はここまで」で線引きするための位置。1日全体の概念なので、
+  // チャプター/状態フィルタに依らず、科目内の today due 全体に対して算出する。
+  const todayReviewPlan = useMemo(() => {
+    const candidates = allQuestions
+      .filter(q => {
+        const r = reviews[q.id]
+        return !!(r?.due_date && r.due_date <= todayStr)
+      })
+      .map(q => ({ question: q, review: reviews[q.id] }))
+    return planDailyReviews(candidates, todayStr, currentPlan?.exam_date ?? null)
+  }, [allQuestions, reviews, todayStr, currentPlan])
 
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
   // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
@@ -534,7 +542,13 @@ export default function App() {
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
-              <span>{saving ? '保存中...' : `今日の復習 ${todayDue}問`}</span>
+              <span>
+                {saving
+                  ? '保存中...'
+                  : todayReviewPlan && todayReviewPlan.recommendedCount < todayDue
+                    ? `今日の推奨 ${todayReviewPlan.recommendedCount}問（期限 ${todayDue}）`
+                    : `今日の復習 ${todayDue}問`}
+              </span>
               <button
                 onClick={() => setShowImport(true)}
                 title="問題画像の取り込み"
@@ -708,7 +722,7 @@ export default function App() {
                     >
                       <span className="font-medium whitespace-nowrap">{label}</span>
                       <span className={`mt-0.5 font-bold ${
-                        selectedDate === date ? 'text-white' : count > 0 ? 'text-red-500' : 'text-gray-300'
+                        selectedDate === date ? 'text-white' : count > 0 ? 'text-gray-600' : 'text-gray-300'
                       }`}>{count}</span>
                     </button>
                   ))}
@@ -747,13 +761,31 @@ export default function App() {
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredQuestions.map(q => {
+                {filteredQuestions.map((q, idx) => {
                   const review = reviews[q.id] ?? defaultReview(q.id)
                   const isEditing = editingId === q.id
+                  // 今日の推奨ラインの区切り（reviewPlan.ts）。ここから下は"遅延"ではなく順番待ち。
+                  // 1日全体の概念なので、今日タブ・全章・全状態を表示中のときだけ線を引く。
+                  const showLine =
+                    activeTab === 'review' &&
+                    selectedDate === todayStr &&
+                    chapterCode === 'ALL' &&
+                    filterStatus === 'ALL' &&
+                    idx === todayReviewPlan.recommendedCount &&
+                    todayReviewPlan.recommendedCount < filteredQuestions.length
 
                   return (
+                    <Fragment key={q.id}>
+                    {showLine && (
+                      <div className="flex items-center gap-2 py-1 select-none">
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                          ここまでが今日の推奨 · 以降は順番待ち（遅れではありません）
+                        </span>
+                        <div className="flex-1 h-px bg-gray-200" />
+                      </div>
+                    )}
                     <QuestionCard
-                      key={q.id}
                       q={q}
                       review={review}
                       activeTab={activeTab}
@@ -791,8 +823,9 @@ export default function App() {
                         setRecordDate(prev => { const next = { ...prev }; delete next[q.id]; return next })
                         setDateOpenId(null)
                       }}
-                      onDeleteEntry={idx => deleteEntry(q.id, idx)}
+                      onDeleteEntry={i => deleteEntry(q.id, i)}
                     />
+                    </Fragment>
                   )
                 })}
               </div>

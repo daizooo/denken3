@@ -1,8 +1,9 @@
 import { Image as ImageIcon, PencilLine } from 'lucide-react'
 import type { MasterQuestion, Review, Status } from '../../domain/types'
 import { hasKnownAsset } from '../../lib/assets'
-import { dueColorClass, formatDue, formatMD } from '../../lib/date'
+import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
+import { reviewValue, bandMeta } from '../../lib/reviewPlan'
 import { STATUS_BG, STATUS_LABEL } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
@@ -69,15 +70,22 @@ export default function QuestionCard({
                 学習日 <span className="text-gray-600 font-medium">{formatMD(review.last_reviewed)}</span>
               </span>
             )}
-            {review.due_date && (
-              <span className="flex items-center gap-1">
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-400">次回復習</span>
-                <span className={`font-medium ${dueColorClass(review.due_date)}`}>
-                  {formatMD(review.due_date)}（{formatDue(review.due_date)}）
+            {review.due_date && (() => {
+              // 「N日遅延」の赤表示はやめ、忘却リスク帯（優先度）で示す（reviewPlan.ts）。
+              // 遅れは失敗ではなく、FSRS が経過を織り込むので順番の問題に過ぎない。
+              const bm = bandMeta(reviewValue(q, review, todayStr).band)
+              return (
+                <span className="flex items-center gap-1">
+                  <span className="text-gray-300">/</span>
+                  <span className="text-gray-400">次回復習</span>
+                  <span className="font-medium text-gray-600">{formatMD(review.due_date)}</span>
+                  <span className={`inline-flex items-center gap-1 ${bm.cls}`}>
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${bm.dot}`} />
+                    {bm.label}
+                  </span>
                 </span>
-              </span>
-            )}
+              )
+            })()}
           </div>
         )}
 
