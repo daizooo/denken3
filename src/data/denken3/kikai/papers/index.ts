@@ -8,9 +8,10 @@ import type { PaperDefinition } from '../../../../domain/types'
 import { validatePaper } from '../../../../lib/mock'
 import { R7_2 } from './r7-2'
 import { R7_1 } from './r7-1'
+import { R6_2 } from './r6-2'
 import { R6_1 } from './r6-1'
 
-export const KIKAI_PAPERS: PaperDefinition[] = [R7_2, R7_1, R6_1]
+export const KIKAI_PAPERS: PaperDefinition[] = [R7_2, R7_1, R6_2, R6_1]
 
 for (const paper of KIKAI_PAPERS) {
   const errors = validatePaper(paper)
