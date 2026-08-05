@@ -191,7 +191,7 @@ export default function CBTRunner({
         )}
 
         <PaperImage
-          userId={userId} paperId={paper.id} filename={q.imageFile}
+          userId={userId} subjectId={paper.subjectId} paperId={paper.id} filename={q.imageFile}
           questionStartPct={q.questionStartPct} answerYPct={q.answerYPct} showAnswer={false} zoom={zoom}
         />
 

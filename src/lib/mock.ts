@@ -8,9 +8,17 @@ import type {
 
 // ---- Storageパス規約（§5.3・§7.4(4)）----
 // 問題/解説画像は既存の非公開バケット（denken-problems）に
-//   {user_id}/papers/{paperId}/{filename}
+//   {user_id}/papers/{subjectId}/{paperId}/{filename}
 // で格納する（分野別問題画像と同じ仕組み・署名URL閲覧）。
-export function paperImagePath(userId: string, paperId: string, filename: string): string {
+// paperId（例 'r7-2'）は科目をまたいで重複するため、必ず subjectId で修飾する
+// （理論と電力の令和7年度下期が同じパスへ上書きされるのを防ぐ）。
+export function paperImagePath(userId: string, subjectId: string, paperId: string, filename: string): string {
+  return `${userId}/papers/${subjectId}/${paperId}/${filename}`
+}
+
+// subjectId 導入前の旧パス（理論のみで運用していた頃に取り込んだ画像の格納先）。
+// 表示側で新パスに画像が無いときのフォールバック参照にのみ使う（既存の理論画像を失わないため）。
+export function legacyPaperImagePath(userId: string, paperId: string, filename: string): string {
   return `${userId}/papers/${paperId}/${filename}`
 }
 
