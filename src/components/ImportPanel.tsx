@@ -2,18 +2,28 @@ import { useMemo, useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath } from '../lib/assets'
-import { PAPERS } from '../data/registry'
+import { DEFAULT_EXAM_ID, subjectDefsOf } from '../data/registry'
 import { paperImagePath } from '../lib/mock'
-import type { PaperQuestion } from '../domain/types'
+import type { PaperDefinition, PaperQuestion } from '../domain/types'
 
 // 一度きりの取り込みツール。
 // GoogleDriveから各単元フォルダの画像をローカルへ落とし、ここへドラッグするだけ。
 // ログイン中の本人セッションで非公開ストレージへ直接アップロードするため、鍵の受け渡しは不要。
 // 「分野別」＝ファイル名から問題へ自動紐付け（denken_question_assets に登録）。
 // 「年度別」＝選択した回のフォルダへファイル名そのままアップロード（CBT模試・§7.4(4)）。
+// ペーパーの一意キー（科目跨ぎで paperId が重複するため subjectId で修飾する）。
+// 例: 理論と電力の 'r7-2' を区別するため 'riron/r7-2' / 'denryoku/r7-2' とする。
+const paperKey = (p: PaperDefinition) => `${p.subjectId}/${p.id}`
+
 export default function ImportPanel({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [mode, setMode] = useState<'bunya' | 'nendo'>('bunya')
-  const [paperId, setPaperId] = useState<string>(PAPERS[0]?.id ?? '')
+  // 年度別モードで選択中のペーパー。科目別に一覧を出し、subjectId+paperId の複合キーで保持する
+  // （id だけだと科目跨ぎで衝突し、理論のペーパーに固定されてしまう）。
+  const subjectDefs = useMemo(() => subjectDefsOf(DEFAULT_EXAM_ID), [])
+  const [paperSel, setPaperSel] = useState<string>(() => {
+    const first = subjectDefs.flatMap(s => s.papers ?? [])[0]
+    return first ? paperKey(first) : ''
+  })
   const [log, setLog] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -24,7 +34,10 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
 
   // 年度別: 選択中ペーパーの想定ファイル名（imageFile）→ 対応する問題。
   // 番号(問N)からの逆引き用マップも用意する（GoogleDriveの元ファイル名対応・下記 resolvePaperQuestion）。
-  const paper = useMemo(() => PAPERS.find(x => x.id === paperId), [paperId])
+  const paper = useMemo(
+    () => subjectDefs.flatMap(s => s.papers ?? []).find(p => paperKey(p) === paperSel),
+    [subjectDefs, paperSel],
+  )
   const paperFiles = useMemo(() => {
     const m = new Map<string, PaperQuestion>()
     for (const q of paper?.questions ?? []) m.set(q.imageFile, q)
@@ -46,12 +59,12 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     return m ? paperByNumber.get(Number(m[1])) : undefined
   }
 
-  // 年度別ペーパーの画像を {user}/papers/{paperId}/{filename} へアップロードし、
+  // 年度別ペーパーの画像を {user}/papers/{subjectId}/{paperId}/{filename} へアップロードし、
   // 単体復習（既存 denken_question_assets 基盤の再利用・§11.2）用にも登録する。
   // 画像は物理クロップなし（問題→解説→解答が縦に並ぶ1問1枚）。CBT解答中は answerYPct で下部をマスクする。
   // 保存先ファイル名はペーパー定義上の正規名（imageFile）に統一する（元ファイル名が別でも表示側と一致させるため）。
   async function handlePaperFiles(fileList: FileList | null) {
-    if (!fileList || busy || !paperId) return
+    if (!fileList || busy || !paper) return
     const all = Array.from(fileList)
     const resolved = all.map(f => ({ file: f, q: resolvePaperQuestion(f.name) }))
     // ペーパー定義に紐付くファイルのみ対象（想定外の取り違え防止）。定義が無い（雛形前）なら全て受け入れる。
@@ -65,7 +78,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     let uploaded = 0, rows = 0, failed = 0, done = 0
     for (const { file: f, q } of targets) {
       const targetName = q?.imageFile ?? f.name
-      const path = paperImagePath(userId, paperId, targetName)
+      const path = paperImagePath(userId, paper.subjectId, paper.id, targetName)
       const up = await supabase.storage.from(BUCKET).upload(
         path, f, { upsert: true, contentType: f.type || 'image/png' },
       )
@@ -175,17 +188,28 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
                 回ごとに取り込みます。ファイル名は各回の定義（例: <code className="text-gray-600">a01.png</code>）に合わせるのが確実ですが、
                 「<code className="text-gray-600">…問1.png</code>」のように問題番号を含むファイル名（GoogleDriveの元ファイル名など）でも自動認識します。
               </p>
+              {/* 科目ごとにグループ化して並べる。同じ回名（例: 令和7年度 下期）が科目を跨いで並ぶため、
+                  科目見出し（理論／電力／機械／法規）で区別できるようにする。 */}
               <select
-                value={paperId}
-                onChange={e => setPaperId(e.target.value)}
+                value={paperSel}
+                onChange={e => setPaperSel(e.target.value)}
                 className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
               >
-                {PAPERS.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}（{p.id}）{p.draft ? ' ※雛形' : ''}</option>
+                {subjectDefs.map(s => (s.papers && s.papers.length > 0) && (
+                  <optgroup key={s.id} label={s.name}>
+                    {s.papers.map(p => (
+                      <option key={paperKey(p)} value={paperKey(p)}>
+                        {p.name}（{p.id}）{p.draft ? ' ※雛形' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
-              {paperFiles.size > 0 && (
-                <p className="text-xs text-gray-400">この回の想定ファイル数: {paperFiles.size} 枚</p>
+              {paper && (
+                <p className="text-xs text-gray-400">
+                  取り込み先: {subjectDefs.find(s => s.id === paper.subjectId)?.name ?? paper.subjectId} ／ {paper.name}
+                  {paperFiles.size > 0 && ` ・想定ファイル数 ${paperFiles.size} 枚`}
+                </p>
               )}
             </div>
           )}

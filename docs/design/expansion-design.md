@@ -201,7 +201,9 @@ src/
 │        │  └─ index.ts            # PAPERS: PaperDefinition[]
 │        └─ index.ts               # SubjectDefinition
 （年度別の問題/解説画像は既存の非公開Storageバケット基盤を流用して格納する。
- パス規約: `{user_id}/papers/{paperId}/a01.png` / `a01_exp.png` — §7.4(4)・§9参照）
+ パス規約: `{user_id}/papers/{subjectId}/{paperId}/a01.png` / `a01_exp.png` — §7.4(4)・§9参照。
+ paperId は科目跨ぎで重複するため subjectId で修飾する。旧パス `{user_id}/papers/{paperId}/…`
+ に取り込み済みの理論画像は表示側でフォールバック参照する）
 ├─ lib/
 │  ├─ supabase.ts                  # 既存
 │  ├─ fsrs.ts                      # calcFSRS を移設＋試験日クリップ対応

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { signedUrl } from '../../lib/assets'
-import { paperImagePath } from '../../lib/mock'
+import { legacyPaperImagePath, paperImagePath } from '../../lib/mock'
 
 // 年度別ペーパーの切り出し画像1枚を、非公開Storageの署名付きURLで表示する。
 // 画像は「タイトル・共有ボタン・動画・目次→問題→ワンポイント解説→解答→関連記事」が縦に
@@ -10,9 +10,10 @@ import { paperImagePath } from '../../lib/mock'
 // （結果画面で解説・解答は見せるが、末尾の宣伝バナー・共有ボタン・おすすめ記事は隠す）。
 // zoom で横幅を拡大（ピンチ/横スクロール前提・§7.4(2)）。
 export default function PaperImage({
-  userId, paperId, filename, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
+  userId, subjectId, paperId, filename, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
 }: {
   userId: string
+  subjectId: string
   paperId: string
   filename?: string
   questionStartPct?: number
@@ -29,11 +30,13 @@ export default function PaperImage({
     if (!filename) { setUrl(null); return }
     let alive = true
     setUrl(null); setErr(false); setNaturalSize(null)
-    signedUrl(paperImagePath(userId, paperId, filename))
+    // まず科目修飾の新パスを引き、無ければ旧パス（subjectId 導入前の理論画像）へフォールバックする。
+    signedUrl(paperImagePath(userId, subjectId, paperId, filename))
+      .catch(() => signedUrl(legacyPaperImagePath(userId, paperId, filename)))
       .then(u => { if (alive) setUrl(u) })
       .catch(() => { if (alive) setErr(true) })
     return () => { alive = false }
-  }, [userId, paperId, filename])
+  }, [userId, subjectId, paperId, filename])
 
   if (!filename) return null
   if (err) return (
