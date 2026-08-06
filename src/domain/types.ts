@@ -12,12 +12,19 @@ export type Subject = '理論' | '電力' | '機械' | '法規'
 // S = 完璧に理解した（復習不要）。復習キューから外すが、いつでも復習に戻せる（due_date を再設定するだけ）。
 export type Status = 'S' | 'A' | 'B' | 'C' | '未着手'
 
+// 学習場所の振り分け軸（会社=暗記・概念 / 自宅=計算）。出典（電験王）の問題区分に対応する。
+//   'calc'   … 計算問題（立式が必要。回路図の精読・紙での式展開が要る）→ 自宅向け
+//   'memory' … 暗記・概念問題（論説・空欄穴埋・選択。立式せず頭で解ける）→ 会社向け
+// 未設定は「未分類」（会社モードのフィルタには出さない安全側の扱い）。
+export type StudyMode = 'calc' | 'memory'
+
 export interface MasterQuestion {
   id: string
   number: number
   title: string
   difficulty: 1 | 2 | 3
   importance?: 1 | 2 | 3
+  studyMode?: StudyMode
 }
 
 export interface Chapter {
@@ -140,6 +147,7 @@ export interface PaperQuestion {
   selectable?: boolean               // B問題の選択問題（問17/18 の択一等）。同一paper内の selectable 群から1問を選ぶ
   parts: PaperQuestionPart[]         // A問題は1要素。B問題は (a)(b) の2要素
   topic?: string                     // 'RLC共振' 等（分野集計用）
+  studyMode?: StudyMode              // 会社/自宅の振り分け（計算 / 暗記・概念）。電験王の問題区分に対応（§MasterQuestion 参照）
   sourceQuestionId?: string          // 分野別の既存問題ID（例 'ac1_54'）任意。誤答の復習前倒しに使う
 }
 
