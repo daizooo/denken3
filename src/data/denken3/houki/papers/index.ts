@@ -6,10 +6,11 @@
 // （＝ vite build / 開発サーバ起動時に即座に検出される）。draft は雛形のため対象外。
 import type { PaperDefinition } from '../../../../domain/types'
 import { validatePaper } from '../../../../lib/mock'
+import { R6_1 } from './r6-1'
 import { R7_1 } from './r7-1'
 import { R7_2 } from './r7-2'
 
-export const HOUKI_PAPERS: PaperDefinition[] = [R7_2, R7_1]
+export const HOUKI_PAPERS: PaperDefinition[] = [R7_2, R7_1, R6_1]
 
 for (const paper of HOUKI_PAPERS) {
   const errors = validatePaper(paper)
