@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath } from '../lib/assets'
@@ -28,9 +28,36 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 年度別: 各ペーパーへ既に画像がアップロード済みか（paperKey → 保存枚数）。
+  // どの年度が済んでいてどれが未着手か一覧で分かるようにするため、Storageの実ファイルを数える。
+  const [uploadedCounts, setUploadedCounts] = useState<Record<string, number>>({})
+  const [statusLoading, setStatusLoading] = useState(false)
 
   const knownFiles = useMemo(() => Object.keys(ASSET_MAP).length, [])
   const add = (m: string) => setLog(l => [...l, m])
+
+  // 全ペーパーのアップロード済み枚数をStorageから集計する。
+  // 科目ごとに papers/{subjectId} を一覧し、各回フォルダ配下の実ファイル数を数える
+  // （フォルダが無い＝未アップロードなので 0 として扱う）。
+  const refreshStatus = useCallback(async () => {
+    setStatusLoading(true)
+    const counts: Record<string, number> = {}
+    for (const s of subjectDefs) {
+      for (const p of s.papers ?? []) {
+        const prefix = paperImagePath(userId, s.id, p.id, '').replace(/\/$/, '')
+        const { data } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
+        // フォルダ以外の実ファイル（id !== null）のみを数える。
+        counts[paperKey(p)] = (data ?? []).filter(e => e.id !== null).length
+      }
+    }
+    setUploadedCounts(counts)
+    setStatusLoading(false)
+  }, [subjectDefs, userId])
+
+  // パネルを開いた時と、年度別モードへ切り替えた時に最新の状況を取得する。
+  useEffect(() => {
+    if (mode === 'nendo') void refreshStatus()
+  }, [mode, refreshStatus])
 
   // 年度別: 選択中ペーパーの想定ファイル名（imageFile）→ 対応する問題。
   // 番号(問N)からの逆引き用マップも用意する（GoogleDriveの元ファイル名対応・下記 resolvePaperQuestion）。
@@ -76,31 +103,40 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     }
     setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
     let uploaded = 0, rows = 0, failed = 0, done = 0
-    for (const { file: f, q } of targets) {
-      const targetName = q?.imageFile ?? f.name
-      const path = paperImagePath(userId, paper.subjectId, paper.id, targetName)
-      const up = await supabase.storage.from(BUCKET).upload(
-        path, f, { upsert: true, contentType: f.type || 'image/png' },
-      )
-      if (up.error) {
-        add(`✗ ${f.name}: ${up.error.message}`); failed++
-        done++; setProgress({ done, total: targets.length }); continue
-      }
-      uploaded++
-      if (targetName !== f.name) add(`${f.name} → ${targetName} として保存`)
-
-      if (q) {
-        const ins = await supabase.from('denken_question_assets').upsert(
-          { user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100, answer_y_pct: q.answerYPct },
-          { onConflict: 'user_id,question_id,storage_path,sort' },
+    // 途中で例外が飛んでも busy を必ず false へ戻す（さもないと以降のアップロードが
+    // 「取り込み中」のまま二度と開始できなくなる＝別の年度を選んでも反応しない不具合になる）。
+    try {
+      for (const { file: f, q } of targets) {
+        const targetName = q?.imageFile ?? f.name
+        const path = paperImagePath(userId, paper.subjectId, paper.id, targetName)
+        const up = await supabase.storage.from(BUCKET).upload(
+          path, f, { upsert: true, contentType: f.type || 'image/png' },
         )
-        if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
-        else rows++
+        if (up.error) {
+          add(`✗ ${f.name}: ${up.error.message}`); failed++
+          done++; setProgress({ done, total: targets.length }); continue
+        }
+        uploaded++
+        if (targetName !== f.name) add(`${f.name} → ${targetName} として保存`)
+
+        if (q) {
+          const ins = await supabase.from('denken_question_assets').upsert(
+            { user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100, answer_y_pct: q.answerYPct },
+            { onConflict: 'user_id,question_id,storage_path,sort' },
+          )
+          if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
+          else rows++
+        }
+        done++; setProgress({ done, total: targets.length })
       }
-      done++; setProgress({ done, total: targets.length })
+      add(`完了: 画像 ${uploaded} 枚アップロード / 単体復習用登録 ${rows} 件${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
+    } catch (e) {
+      add(`✗ 取り込み中にエラーが発生しました: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+      // アップロード結果を状況表示（済/未の一覧・選択中の枚数）へ即時反映する。
+      void refreshStatus()
     }
-    add(`完了: 画像 ${uploaded} 枚アップロード / 単体復習用登録 ${rows} 件${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
-    setBusy(false)
   }
 
   async function handleFiles(fileList: FileList | null) {
@@ -115,40 +151,45 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
     let uploaded = 0, rows = 0, failed = 0, done = 0
 
-    for (const f of targets) {
-      const refs = ASSET_MAP[f.name]
-      const chapter = chapterOf(refs[0].questionId)
-      const path = storagePath(userId, chapter, f.name)
+    // 年度別と同様、例外時も busy を必ず戻して次の取り込みを可能にする。
+    try {
+      for (const f of targets) {
+        const refs = ASSET_MAP[f.name]
+        const chapter = chapterOf(refs[0].questionId)
+        const path = storagePath(userId, chapter, f.name)
 
-      const up = await supabase.storage.from(BUCKET).upload(path, f, {
-        upsert: true,
-        contentType: f.type || 'image/png',
-      })
-      if (up.error) {
-        add(`✗ ${f.name}: ${up.error.message}`); failed++
-        done++; setProgress({ done, total: targets.length }); continue
+        const up = await supabase.storage.from(BUCKET).upload(path, f, {
+          upsert: true,
+          contentType: f.type || 'image/png',
+        })
+        if (up.error) {
+          add(`✗ ${f.name}: ${up.error.message}`); failed++
+          done++; setProgress({ done, total: targets.length }); continue
+        }
+        uploaded++
+
+        const insertRows = refs.map(r => ({
+          user_id: userId,
+          question_id: r.questionId,
+          storage_path: path,
+          region: r.region,
+          sort: r.sort,
+          answer_y_pct: r.answerYPct ?? 100,
+        }))
+        const ins = await supabase
+          .from('denken_question_assets')
+          .upsert(insertRows, { onConflict: 'user_id,question_id,storage_path,sort' })
+        if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
+        else rows += insertRows.length
+
+        done++; setProgress({ done, total: targets.length })
       }
-      uploaded++
-
-      const insertRows = refs.map(r => ({
-        user_id: userId,
-        question_id: r.questionId,
-        storage_path: path,
-        region: r.region,
-        sort: r.sort,
-        answer_y_pct: r.answerYPct ?? 100,
-      }))
-      const ins = await supabase
-        .from('denken_question_assets')
-        .upsert(insertRows, { onConflict: 'user_id,question_id,storage_path,sort' })
-      if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
-      else rows += insertRows.length
-
-      done++; setProgress({ done, total: targets.length })
+      add(`完了: 画像 ${uploaded} 枚アップロード / 問題 ${rows} 件登録${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
+    } catch (e) {
+      add(`✗ 取り込み中にエラーが発生しました: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
     }
-
-    add(`完了: 画像 ${uploaded} 枚アップロード / 問題 ${rows} 件登録${failed ? ` / 失敗 ${failed}` : ''}${skipped ? ` / 対象外スキップ ${skipped}` : ''}`)
-    setBusy(false)
   }
 
   return (
@@ -188,29 +229,59 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
                 回ごとに取り込みます。ファイル名は各回の定義（例: <code className="text-gray-600">a01.png</code>）に合わせるのが確実ですが、
                 「<code className="text-gray-600">…問1.png</code>」のように問題番号を含むファイル名（GoogleDriveの元ファイル名など）でも自動認識します。
               </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500">取り込む回を選択</p>
+                <button
+                  type="button"
+                  onClick={() => void refreshStatus()}
+                  disabled={statusLoading}
+                  className="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-300"
+                >{statusLoading ? '確認中…' : '状況を更新'}</button>
+              </div>
               {/* 科目ごとにグループ化して並べる。同じ回名（例: 令和7年度 下期）が科目を跨いで並ぶため、
-                  科目見出し（理論／電力／機械／法規）で区別できるようにする。 */}
+                  科目見出し（理論／電力／機械／法規）で区別できるようにする。
+                  各回の頭に ✅（アップ済み）/ ⬜（未アップ）を付け、どの年度が済んでいるか一目で分かるようにする。 */}
               <select
                 value={paperSel}
-                onChange={e => setPaperSel(e.target.value)}
+                // 年度を切り替えたら前回の完了ログ・進捗バーを消す
+                // （残っていると「まだ処理中では」と誤解され、次の取り込みが進んでいないように見えるため）。
+                onChange={e => { setPaperSel(e.target.value); setLog([]); setProgress(null) }}
                 className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
               >
                 {subjectDefs.map(s => (s.papers && s.papers.length > 0) && (
                   <optgroup key={s.id} label={s.name}>
-                    {s.papers.map(p => (
-                      <option key={paperKey(p)} value={paperKey(p)}>
-                        {p.name}（{p.id}）{p.draft ? ' ※雛形' : ''}
-                      </option>
-                    ))}
+                    {s.papers.map(p => {
+                      const n = uploadedCounts[paperKey(p)] ?? 0
+                      return (
+                        <option key={paperKey(p)} value={paperKey(p)}>
+                          {n > 0 ? '✅' : '⬜'} {p.name}（{p.id}）{p.draft ? ' ※雛形' : ''}{n > 0 ? ` ・${n}枚` : ''}
+                        </option>
+                      )
+                    })}
                   </optgroup>
                 ))}
               </select>
-              {paper && (
-                <p className="text-xs text-gray-400">
-                  取り込み先: {subjectDefs.find(s => s.id === paper.subjectId)?.name ?? paper.subjectId} ／ {paper.name}
-                  {paperFiles.size > 0 && ` ・想定ファイル数 ${paperFiles.size} 枚`}
-                </p>
-              )}
+              {paper && (() => {
+                const uploaded = uploadedCounts[paperKey(paper)] ?? 0
+                const expected = paperFiles.size
+                const complete = expected > 0 && uploaded >= expected
+                return (
+                  <p className="text-xs text-gray-400">
+                    取り込み先: {subjectDefs.find(s => s.id === paper.subjectId)?.name ?? paper.subjectId} ／ {paper.name}
+                    {expected > 0 && ` ・想定ファイル数 ${expected} 枚`}
+                    <br />
+                    <span className={complete ? 'text-green-600 font-medium' : uploaded > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'}>
+                      {statusLoading
+                        ? 'アップロード状況を確認中…'
+                        : uploaded === 0
+                          ? '未アップロード'
+                          : complete
+                            ? `アップロード済み（${uploaded}枚）`
+                            : `一部のみ（${uploaded}${expected > 0 ? ` / ${expected}` : ''}枚）`}
+                    </span>
+                  </p>
+                )
+              })()}
             </div>
           )}
 
@@ -230,7 +301,9 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
               accept="image/png,image/jpeg"
               multiple
               className="hidden"
-              onChange={e => (mode === 'bunya' ? handleFiles : handlePaperFiles)(e.target.files)}
+              // 取り込み後に value を空へ戻す。こうしないと同じファイルを選び直しても
+              // onChange が発火せず、別の年度で再取り込みできなくなる。
+              onChange={e => { void (mode === 'bunya' ? handleFiles : handlePaperFiles)(e.target.files); e.target.value = '' }}
             />
           </div>
 
