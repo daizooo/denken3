@@ -2,13 +2,13 @@
 import type { MasterQuestion } from '../../../../domain/types'
 
 export const ELEC_QUESTIONS: MasterQuestion[] = [
-  { id: 'elec_1',  number: 1,  title: '基本概念：クーロン力・電界・電気力線・コンデンサの総合', difficulty: 1, studyMode: 'calc' },
-  { id: 'elec_2',  number: 2,  title: '静電誘導と電気力線・電束の基本',                         difficulty: 1, studyMode: 'calc' },
-  { id: 'elec_3',  number: 3,  title: '点電荷の電位・電界と電気力線・静電容量',                 difficulty: 1, studyMode: 'calc' },
-  { id: 'elec_4',  number: 4,  title: '静電誘導と静電遮へいの性質',                             difficulty: 1, studyMode: 'calc' },
-  { id: 'elec_5',  number: 5,  title: '仕事と静電エネルギーの基本',                             difficulty: 1, studyMode: 'calc' },
+  { id: 'elec_1',  number: 1,  title: '基本概念：クーロン力・電界・電気力線・コンデンサの総合', difficulty: 1, studyMode: 'memory' },
+  { id: 'elec_2',  number: 2,  title: '静電誘導と電気力線・電束の基本',                         difficulty: 1, studyMode: 'memory' },
+  { id: 'elec_3',  number: 3,  title: '点電荷の電位・電界と電気力線・静電容量',                 difficulty: 1, studyMode: 'memory' },
+  { id: 'elec_4',  number: 4,  title: '静電誘導と静電遮へいの性質',                             difficulty: 1, studyMode: 'memory' },
+  { id: 'elec_5',  number: 5,  title: '仕事と静電エネルギーの基本',                             difficulty: 1, studyMode: 'memory' },
   { id: 'elec_6',  number: 6,  title: '仕事と静電エネルギー（応用）',                           difficulty: 2, studyMode: 'calc' },
-  { id: 'elec_7',  number: 7,  title: 'クーロンの法則：2点間の静電力',                         difficulty: 1, studyMode: 'calc' },
+  { id: 'elec_7',  number: 7,  title: 'クーロンの法則：2点間の静電力',                         difficulty: 1, studyMode: 'memory' },
   { id: 'elec_8',  number: 8,  title: 'クーロンの法則：力の計算',                               difficulty: 1, studyMode: 'calc' },
   { id: 'elec_9',  number: 9,  title: 'クーロンの法則：3点配置の合力',                         difficulty: 1, studyMode: 'calc' },
   { id: 'elec_10', number: 10, title: 'クーロンの法則：3電荷の力の釣合い',                     difficulty: 2, studyMode: 'calc' },
