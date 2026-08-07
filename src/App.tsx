@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, Subject } from './domain/types'
+import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, StudyMode, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
@@ -18,6 +18,7 @@ import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
+import FilterBar, { type ModeKey } from './features/questions/FilterBar'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -38,7 +39,11 @@ export default function App() {
   const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
-  const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL')
+  // 問題の絞り込み（学習場所 × 理解度）。軸間AND・軸内OR。空集合＝その軸は絞り込みなし。
+  // セッション内のみの状態（永続化しない）。
+  const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
+  const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
+  const [filterOpen, setFilterOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
   // 各問題の記録用「実施日」。未設定なら今日を使う。
@@ -329,6 +334,26 @@ export default function App() {
     saveReview({ ...current, due_date: todayStr })
   }, [reviews, saveReview, todayStr])
 
+  // ---- 絞り込み（学習場所 × 理解度）のトグル ----
+  const toggleFilterMode = useCallback((m: ModeKey) => {
+    setFilterModes(prev => {
+      const next = new Set(prev)
+      if (next.has(m)) next.delete(m); else next.add(m)
+      return next
+    })
+  }, [])
+  const toggleFilterStatus = useCallback((s: Status) => {
+    setFilterStatuses(prev => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s); else next.add(s)
+      return next
+    })
+  }, [])
+  const clearFilters = useCallback(() => {
+    setFilterModes(new Set())
+    setFilterStatuses(new Set())
+  }, [])
+
   // 適応型ペース分析（§7.2）・弱点ランキング・学習曲線（§7.7(2)(3)）。
   const paceResult = useMemo(
     () => analyzePace(subjectQuestions, reviews, currentPlan, todayStr),
@@ -395,12 +420,13 @@ export default function App() {
     return days
   }, [allQuestions, reviews])
 
-  const filteredQuestions = useMemo(() => {
+  // 絞り込み前の母数（タブ・日付・復習キューのロジックだけを適用）。
+  // 学習場所×理解度の絞り込みと、そのチップ件数（ファセット）は、この母数から導く。
+  const baseQuestions = useMemo(() => {
     const today = todayJST()
     const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
-    const filtered = allQuestions.filter(q => {
+    return allQuestions.filter(q => {
       const r = reviews[q.id]
-      const status = r?.status ?? '未着手'
       if (activeTab === 'review') {
         // 記録した瞬間に「復習済み」として消す（次回復習日が更新される前でも即反映）。
         if (reviewedNowIds.has(q.id)) return false
@@ -414,9 +440,35 @@ export default function App() {
           if (!r?.due_date || r.due_date !== selectedDate) return false
         }
       }
-      if (filterStatus !== 'ALL' && status !== filterStatus) return false
       return true
     })
+  }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds])
+
+  // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
+  const matchMode = useCallback(
+    (q: { studyMode?: StudyMode }) => filterModes.size === 0 || filterModes.has(q.studyMode ?? 'unset'),
+    [filterModes]
+  )
+  const matchStatus = useCallback(
+    (id: string) => filterStatuses.size === 0 || filterStatuses.has(reviews[id]?.status ?? '未着手'),
+    [filterStatuses, reviews]
+  )
+
+  // チップの件数（ファセット）。各軸の件数は「他方の軸の選択」を尊重して数える。
+  const filterCounts = useMemo(() => {
+    const modeCounts = { calc: 0, memory: 0, unset: 0 } as Record<ModeKey, number>
+    const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
+    for (const q of baseQuestions) {
+      const mk: ModeKey = q.studyMode ?? 'unset'
+      const st: Status = reviews[q.id]?.status ?? '未着手'
+      if (matchStatus(q.id)) modeCounts[mk]++
+      if (matchMode(q)) statusCounts[st]++
+    }
+    return { modeCounts, statusCounts }
+  }, [baseQuestions, reviews, matchMode, matchStatus])
+
+  const filteredQuestions = useMemo(() => {
+    const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
     // 復習タブは「価値順」で並べる（reviewPlan.ts）。
     // 価値＝〔重要度〕×〔忘却リスク 1-R〕×〔理解度〕。頻出・重要で、いま忘れかけていて、
     // 理解度の低い問題ほど先に。同点は重要度→難易度で割る。
@@ -432,7 +484,7 @@ export default function App() {
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
-  }, [allQuestions, reviews, activeTab, filterStatus, selectedDate, reviewedNowIds, todayStr])
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr])
 
   // 今日の復習の「推奨ライン」（reviewPlan.ts）。上限で切るのではなく、価値順に並んだ
   // 今日の due 全体を「今日はここまで」で線引きするための位置。1日全体の概念なので、
@@ -733,34 +785,41 @@ export default function App() {
               </div>
             )}
 
-            {/* ===== STATUS FILTER (list only) ===== */}
-            {activeTab === 'list' && (
-              <div className="flex gap-1.5 flex-wrap">
-                {(['ALL', 'S', 'A', 'B', 'C', '未着手'] as const).map(s => (
-                  <button key={s}
-                    onClick={() => setFilterStatus(s)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                      filterStatus === s
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-500 border-gray-200'
-                    }`}
-                  >{s === 'ALL' ? 'すべて' : s}</button>
-                ))}
-              </div>
-            )}
+            {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
+            <FilterBar
+              modes={filterModes}
+              statuses={filterStatuses}
+              onToggleMode={toggleFilterMode}
+              onToggleStatus={toggleFilterStatus}
+              onClear={clearFilters}
+              modeCounts={filterCounts.modeCounts}
+              statusCounts={filterCounts.statusCounts}
+              open={filterOpen}
+              onToggleOpen={() => setFilterOpen(o => !o)}
+            />
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                <p className="text-gray-400 text-sm">
-                  {activeTab === 'review'
-                    ? reviewedNowIds.size > 0
-                      ? '🎉 この日の復習を完了しました'
-                      : selectedDate === todayJST()
-                        ? '今日の復習はありません'
-                        : 'この日の復習予定はありません'
-                    : '表示できる問題がありません'}
-                </p>
+                {(filterModes.size > 0 || filterStatuses.size > 0) && baseQuestions.length > 0 ? (
+                  <>
+                    <p className="text-gray-400 text-sm">絞り込み条件に一致する問題がありません</p>
+                    <button
+                      onClick={clearFilters}
+                      className="mt-2 text-xs text-blue-600 hover:text-blue-700"
+                    >絞り込みをクリア</button>
+                  </>
+                ) : (
+                  <p className="text-gray-400 text-sm">
+                    {activeTab === 'review'
+                      ? reviewedNowIds.size > 0
+                        ? '🎉 この日の復習を完了しました'
+                        : selectedDate === todayJST()
+                          ? '今日の復習はありません'
+                          : 'この日の復習予定はありません'
+                      : '表示できる問題がありません'}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -773,7 +832,8 @@ export default function App() {
                     activeTab === 'review' &&
                     selectedDate === todayStr &&
                     chapterCode === 'ALL' &&
-                    filterStatus === 'ALL' &&
+                    filterModes.size === 0 &&
+                    filterStatuses.size === 0 &&
                     idx === todayReviewPlan.recommendedCount &&
                     todayReviewPlan.recommendedCount < filteredQuestions.length
 
