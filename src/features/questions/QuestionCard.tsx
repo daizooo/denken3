@@ -50,8 +50,17 @@ export default function QuestionCard({
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
             {review.status}
           </span>
+          {/* 難易度・重要度を「どちらか分からない」を防ぐため、ラベル付きで2つ並べる（問題画像と同じ）。
+              分野別（MasterQuestion）は難易度・重要度をどちらも示す。尺度は現行の3段階のまま。 */}
           {'difficulty' in q && (
-            <span className="text-xs text-gray-300">{'★'.repeat(q.difficulty as number)}</span>
+            <span className="text-xs text-gray-400 inline-flex items-center gap-0.5" title={`難易度 ${q.difficulty}/3`}>
+              難<span className="text-amber-400">{'★'.repeat(q.difficulty as number)}</span>
+            </span>
+          )}
+          {q.importance != null && (
+            <span className="text-xs text-gray-400 inline-flex items-center gap-0.5" title={`重要度 ${q.importance}/3`}>
+              重<span className="text-rose-400">{'★'.repeat(q.importance)}</span>
+            </span>
           )}
         </div>
 
