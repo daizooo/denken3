@@ -4,7 +4,7 @@ import { hasKnownAsset } from '../../lib/assets'
 import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
-import { STATUS_BG, STATUS_LABEL } from '../shared/status'
+import { STATUS_BG, STATUS_LABEL, STUDYMODE_BADGE } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
   chapterName: string
@@ -46,6 +46,15 @@ export default function QuestionCard({
       <div className="p-3.5">
         {/* Meta */}
         <div className="flex items-center gap-2 mb-1">
+          {/* 学習場所（自宅=計算／会社=暗記）を見出しの先頭に表示。絞り込みを開かなくても一目で分かる。 */}
+          {q.studyMode && (
+            <span
+              className={`text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${STUDYMODE_BADGE[q.studyMode].cls}`}
+              title={STUDYMODE_BADGE[q.studyMode].title}
+            >
+              {STUDYMODE_BADGE[q.studyMode].label}
+            </span>
+          )}
           <span className="text-xs text-gray-400">{q.chapterName} 問{q.number}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
             {review.status}
