@@ -24,7 +24,7 @@ export const R6_2: PaperDefinition = {
   name: '令和6年度 下期',
   timeLimitMin: 90,
   questions: [
-    { id: 'r6-2_a01', section: 'A', number: 1, imageFile: 'a01.png', questionStartPct: 17.61, answerYPct: 28.84, explanationEndPct: 76.35, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 1, points: 5 }] },
+    { id: 'r6-2_a01', section: 'A', number: 1, imageFile: 'a01.png', questionStartPct: 17.86, answerYPct: 28.84, explanationEndPct: 76.35, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 1, points: 5 }] },
     { id: 'r6-2_a02', section: 'A', number: 2, imageFile: 'a02.png', questionStartPct: 19.85, answerYPct: 26.53, explanationEndPct: 73.28, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 1, points: 5 }] },
     { id: 'r6-2_a03', section: 'A', number: 3, imageFile: 'a03.png', questionStartPct: 21.13, answerYPct: 26.98, explanationEndPct: 71.58, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 2, points: 5 }] },
     { id: 'r6-2_a04', section: 'A', number: 4, imageFile: 'a04.png', questionStartPct: 21.89, answerYPct: 36.8, explanationEndPct: 70.59, topic: '電磁気', studyMode: 'memory', parts: [{ correct: 2, points: 5 }] },
