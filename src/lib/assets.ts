@@ -18,7 +18,19 @@ export interface AssetRef {
   questionId: string
   region: Region
   sort: number
+  // 解答マスクの横位置(%)。この位置より右を解答として隠す。
+  //  - 50（既定・見開き標準）: 左ページ=問題／右ページ=解答。
+  //  - 100: 画像全体が問題（マスクなし・常時表示）。B問題で図が右ページまで及ぶ場合など。
+  //  - 0:   画像全体が解答（見開き丸ごと解答／解答の続きページ）。「解答を見る」まで非表示。
+  // 未指定時の既定は sort で決める（sort=0→50 の問題見開き、sort>0→0 の解答続き）。
+  answerXPct?: number
   answerYPct?: number // 短い問題で解答が左ページ下に始まる場合の縦位置(%)。既定100=標準
+}
+
+// 取り込み時に DB へ書く answer_x_pct を決める。明示指定を優先し、
+// 無ければ「主画像(sort=0)=問題見開き50」「続き画像(sort>0)=解答ページ0」を既定とする。
+export function defaultAnswerXPct(ref: AssetRef): number {
+  return ref.answerXPct ?? (ref.sort > 0 ? 0 : 50)
 }
 
 /** ファイル名 -> そのファイルが対応する問題（2問同居なら複数） */

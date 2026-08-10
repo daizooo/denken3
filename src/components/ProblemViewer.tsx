@@ -4,7 +4,7 @@ import { fetchAssets, signedUrl, type QuestionAsset, type Region } from '../lib/
 
 // 見開き画像1枚（またはその上/下半分）を、解答マスク付きで表示する。
 // マスクは最大2枚:
-//  - 右ページ（横 answerXPct% より右）を常に隠す
+//  - 右ページ（横 answerXPct% より右）を隠す（answerXPct=100 の全面問題ではマスクなし）
 //  - 短い問題（answerYPct<100）は左ページ下部（縦 answerYPct% より下・左ページ内）も隠す
 function AssetImage({
   url, region, answerXPct, answerYPct, showAnswer,
@@ -23,16 +23,18 @@ function AssetImage({
       />
       {!showAnswer && (
         <>
-          {/* 右ページ（解答） */}
-          <div
-            style={{
-              position: 'absolute', top: 0, bottom: 0, left: `${answerXPct}%`, right: 0,
-              background: maskBg, borderLeft: '1px dashed #e5e7eb',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <span style={{ color: '#9ca3af', fontSize: 12, writingMode: 'vertical-rl' }}>解答（タップで表示）</span>
-          </div>
+          {/* 右ページ（解答）。answerXPct=100（全面問題）はマスク不要。 */}
+          {answerXPct < 100 && (
+            <div
+              style={{
+                position: 'absolute', top: 0, bottom: 0, left: `${answerXPct}%`, right: 0,
+                background: maskBg, borderLeft: '1px dashed #e5e7eb',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <span style={{ color: '#9ca3af', fontSize: 12, writingMode: 'vertical-rl' }}>解答（タップで表示）</span>
+            </div>
+          )}
           {/* 左ページ下部（短い問題で解答が下に始まる場合） */}
           {answerYPct < 100 && (
             <div
@@ -77,8 +79,13 @@ export default function ProblemViewer({
     return () => { alive = false }
   }, [questionId])
 
-  const primary = assets?.filter(a => a.sort === 0) ?? []
-  const continuations = assets?.filter(a => a.sort > 0) ?? []
+  // 表示は sort ではなく answer_x_pct（マスク位置）で振り分ける:
+  //  - 問題ページ（answer_x_pct>0）: 常時表示。1枚ごとに右（と下）を解答マスク。
+  //    標準見開き=50、全面問題=100、B問題の(a)(b)は2枚とも問題ページ。
+  //  - 解答ページ（answer_x_pct=0）: 見開き丸ごと解答。「解答を見る」まで非表示。
+  const bySort = (a: QuestionAsset, b: QuestionAsset) => a.sort - b.sort
+  const problemPages = (assets ?? []).filter(a => a.answer_x_pct > 0).sort(bySort)
+  const answerPages = (assets ?? []).filter(a => a.answer_x_pct <= 0).sort(bySort)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
@@ -123,15 +130,15 @@ export default function ProblemViewer({
               ヘッダーの「取り込み」から画像を登録してください。
             </div>
           )}
-          {!err && primary.map((a, i) => (
+          {!err && problemPages.map((a, i) => (
             urls[a.storage_path]
               ? <div key={`p${i}`} className="rounded-xl overflow-hidden shadow-lg mb-3">
                   <AssetImage url={urls[a.storage_path]} region={a.region} answerXPct={a.answer_x_pct} answerYPct={a.answer_y_pct} showAnswer={showAnswer} />
                 </div>
               : null
           ))}
-          {/* 解答の続きページ（解答表示時のみ・マスクなし） */}
-          {!err && showAnswer && continuations.map((a, i) => (
+          {/* 見開き丸ごと解答のページ（解答表示時のみ・マスクなし） */}
+          {!err && showAnswer && answerPages.map((a, i) => (
             urls[a.storage_path]
               ? <div key={`c${i}`} className="rounded-xl overflow-hidden shadow-lg mb-3">
                   <img src={urls[a.storage_path]} alt="" draggable={false} style={{ width: '100%', display: 'block' }} />
