@@ -51,7 +51,7 @@ export const MEAS_QUESTIONS: MasterQuestion[] = [
   { id: 'meas_47', number: 47, title: '電位差計 ほか（H27）',                                          difficulty: 2, importance: 3, studyMode: 'calc' },
   // 問48 捨て問（電位差計 ほか）
   // 問49-51はオリジナルの捨て問リストに含まれないため収録（暫定値。要レビュー）
-  { id: 'meas_49', number: 49, title: 'オシロスコープ（H12-A8）',                                     difficulty: 1, importance: 2, studyMode: 'memory' },
-  { id: 'meas_50', number: 50, title: 'オシロスコープ（H25-B16）',                                    difficulty: 2, importance: 2, studyMode: 'calc' },
-  { id: 'meas_51', number: 51, title: 'オシロスコープ（H20-B16）',                                    difficulty: 2, importance: 2, studyMode: 'calc' },
+  { id: 'meas_49', number: 49, title: 'オシロスコープ（H12-A8）',                                     difficulty: 1, importance: 1, studyMode: 'memory' },
+  { id: 'meas_50', number: 50, title: 'オシロスコープ（H25-B16）',                                    difficulty: 2, importance: 1, studyMode: 'calc' },
+  { id: 'meas_51', number: 51, title: 'オシロスコープ（H20-B16）',                                    difficulty: 2, importance: 1, studyMode: 'calc' },
 ]
