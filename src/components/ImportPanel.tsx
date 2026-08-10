@@ -3,7 +3,7 @@ import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath, defaultAnswerXPct } from '../lib/assets'
 import { DEFAULT_EXAM_ID, subjectDefsOf } from '../data/registry'
-import { paperImagePath } from '../lib/mock'
+import { legacyPaperImagePath, paperImagePath } from '../lib/mock'
 import type { PaperDefinition, PaperQuestion } from '../domain/types'
 
 // 一度きりの取り込みツール。
@@ -47,7 +47,17 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
         const prefix = paperImagePath(userId, s.id, p.id, '').replace(/\/$/, '')
         const { data } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
         // フォルダ以外の実ファイル（id !== null）のみを数える。
-        counts[paperKey(p)] = (data ?? []).filter(e => e.id !== null).length
+        let n = (data ?? []).filter(e => e.id !== null).length
+        // 新パスに何も無い場合は、subjectId 導入前の旧パス（理論のみで運用していた頃の
+        // 格納先）も確認する。ここを見ないと、表示側（PaperImage）は既に旧パスへ
+        // フォールバックして正しく画像を出せているのに、この一覧だけが
+        // 「未アップロード」と誤表示してしまう（理論の既存回で発生していた不整合）。
+        if (n === 0) {
+          const legacyPrefix = legacyPaperImagePath(userId, p.id, '').replace(/\/$/, '')
+          const { data: legacyData } = await supabase.storage.from(BUCKET).list(legacyPrefix, { limit: 1000 })
+          n = (legacyData ?? []).filter(e => e.id !== null).length
+        }
+        counts[paperKey(p)] = n
       }
     }
     setUploadedCounts(counts)
