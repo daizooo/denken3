@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { ASSET_MAP, BUCKET, chapterOf, storagePath } from '../lib/assets'
+import { ASSET_MAP, BUCKET, chapterOf, storagePath, defaultAnswerXPct } from '../lib/assets'
 import { DEFAULT_EXAM_ID, subjectDefsOf } from '../data/registry'
 import { paperImagePath } from '../lib/mock'
 import type { PaperDefinition, PaperQuestion } from '../domain/types'
@@ -174,6 +174,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           storage_path: path,
           region: r.region,
           sort: r.sort,
+          // 解答マスクの横位置。1枚ごとに明示（B問題の(a)(b)分割・問題丸ごと/解答丸ごとページに対応）。
+          answer_x_pct: defaultAnswerXPct(r),
           answer_y_pct: r.answerYPct ?? 100,
         }))
         const ins = await supabase
