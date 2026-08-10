@@ -47,15 +47,15 @@ export const R7_1: PaperDefinition = {
     { id: 'r7-1_a14', section: 'A', number: 14, imageFile: 'a14.png', questionStartPct: 21.2, answerYPct: 30.1, explanationEndPct: 72.4, topic: '電気材料', parts: [{ correct: 2, points: 5 }] },
 
     {
-      id: 'r7-1_b15', section: 'B', number: 15, imageFile: 'b15.png', questionStartPct: 19.7, answerYPct: 47.1, explanationEndPct: 74.4, topic: '水力',
+      id: 'r7-1_b15', section: 'B', number: 15, imageFile: 'b15.png', questionStartPct: 19.7, answerYPct: 45.87, explanationEndPct: 74.4, topic: '水力',
       parts: [{ label: '(a)', correct: 5, points: 5 }, { label: '(b)', correct: 5, points: 5 }],
     },
     {
-      id: 'r7-1_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 15.7, answerYPct: 27.7, explanationEndPct: 79.5, topic: '配電',
+      id: 'r7-1_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 15.7, answerYPct: 26.78, explanationEndPct: 79.5, topic: '配電',
       parts: [{ label: '(a)', correct: 3, points: 5 }, { label: '(b)', correct: 3, points: 5 }],
     },
     {
-      id: 'r7-1_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 15.3, answerYPct: 24.8, explanationEndPct: 79.9, topic: '配電',
+      id: 'r7-1_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 15.3, answerYPct: 23.95, explanationEndPct: 79.9, topic: '配電',
       parts: [{ label: '(a)', correct: 4, points: 5 }, { label: '(b)', correct: 4, points: 5 }],
     },
   ],
