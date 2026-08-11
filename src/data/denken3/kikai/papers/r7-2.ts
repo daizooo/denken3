@@ -31,19 +31,19 @@ export const R7_2: PaperDefinition = {
     { id: 'r7-2_a02', section: 'A', number: 2, imageFile: 'a02.png', questionStartPct: 13.03, answerYPct: 19.44, explanationEndPct: 72.77, topic: '直流機', parts: [{ correct: 4, points: 5 }] },
     { id: 'r7-2_a03', section: 'A', number: 3, imageFile: 'a03.png', questionStartPct: 7.47, answerYPct: 17.84, explanationEndPct: 84.66, topic: '誘導機', parts: [{ correct: 4, points: 5 }] },
     { id: 'r7-2_a04', section: 'A', number: 4, imageFile: 'a04.png', questionStartPct: 13.86, answerYPct: 18.57, explanationEndPct: 71.27, topic: '誘導機', parts: [{ correct: 5, points: 5 }] },
-    { id: 'r7-2_a05', section: 'A', number: 5, imageFile: 'a05.png', questionStartPct: 12.34, answerYPct: 27.35, explanationEndPct: 72.27, topic: '同期機', parts: [{ correct: 3, points: 5 }] },
+    { id: 'r7-2_a05', section: 'A', number: 5, imageFile: 'a05.png', questionStartPct: 12.89, answerYPct: 27.35, explanationEndPct: 72.27, topic: '同期機', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-2_a06', section: 'A', number: 6, imageFile: 'a06.png', questionStartPct: 8.91, answerYPct: 11.96, explanationEndPct: 81.35, topic: '同期機', parts: [{ correct: 4, points: 5 }] },
     { id: 'r7-2_a07', section: 'A', number: 7, imageFile: 'a07.png', questionStartPct: 9.59, answerYPct: 21.13, explanationEndPct: 80.33, topic: '電動機応用', parts: [{ correct: 3, points: 5 }] },
-    { id: 'r7-2_a08', section: 'A', number: 8, imageFile: 'a08.png', questionStartPct: 11.10, answerYPct: 29.05, explanationEndPct: 75.06, topic: '電気機器', parts: [{ correct: 2, points: 5 }] },
+    { id: 'r7-2_a08', section: 'A', number: 8, imageFile: 'a08.png', questionStartPct: 11.64, answerYPct: 29.05, explanationEndPct: 75.06, topic: '電気機器', parts: [{ correct: 2, points: 5 }] },
     { id: 'r7-2_a09', section: 'A', number: 9, imageFile: 'a09.png', questionStartPct: 12.16, answerYPct: 18.87, explanationEndPct: 75.04, topic: '変圧器', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-2_a10', section: 'A', number: 10, imageFile: 'a10.png', questionStartPct: 8.93, answerYPct: 19.02, explanationEndPct: 81.64, topic: 'パワーエレクトロニクス', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-2_a11', section: 'A', number: 11, imageFile: 'a11.png', questionStartPct: 11.40, answerYPct: 23.60, explanationEndPct: 76.78, topic: '電動機応用', parts: [{ correct: 5, points: 5 }] },
     { id: 'r7-2_a12', section: 'A', number: 12, imageFile: 'a12.png', questionStartPct: 13.35, answerYPct: 19.09, explanationEndPct: 72.57, topic: '電熱', parts: [{ correct: 2, points: 5 }] },
-    { id: 'r7-2_a13', section: 'A', number: 13, imageFile: 'a13.png', questionStartPct: 9.87, answerYPct: 18.23, explanationEndPct: 77.98, topic: '自動制御', parts: [{ correct: 3, points: 5 }] },
+    { id: 'r7-2_a13', section: 'A', number: 13, imageFile: 'a13.png', questionStartPct: 10.33, answerYPct: 18.23, explanationEndPct: 77.98, topic: '自動制御', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-2_a14', section: 'A', number: 14, imageFile: 'a14.png', questionStartPct: 10.74, answerYPct: 28.54, explanationEndPct: 77.43, topic: '情報伝送及び処理', parts: [{ correct: 3, points: 5 }] },
 
     {
-      id: 'r7-2_b15', section: 'B', number: 15, imageFile: 'b15.png', questionStartPct: 11.28, answerYPct: 21.93, explanationEndPct: 74.64, topic: '変圧器',
+      id: 'r7-2_b15', section: 'B', number: 15, imageFile: 'b15.png', questionStartPct: 11.81, answerYPct: 21.93, explanationEndPct: 74.64, topic: '変圧器',
       parts: [{ label: '(a)', correct: 5, points: 5 }, { label: '(b)', correct: 2, points: 5 }],
     },
     {
@@ -51,11 +51,11 @@ export const R7_2: PaperDefinition = {
       parts: [{ label: '(a)', correct: 5, points: 5 }, { label: '(b)', correct: 4, points: 5 }],
     },
     {
-      id: 'r7-2_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 7.44, answerYPct: 14.10, explanationEndPct: 83.29, topic: '照明', selectable: true,
+      id: 'r7-2_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 7.77, answerYPct: 14.10, explanationEndPct: 83.29, topic: '照明', selectable: true,
       parts: [{ label: '(a)', correct: 4, points: 5 }, { label: '(b)', correct: 4, points: 5 }],
     },
     {
-      id: 'r7-2_b18', section: 'B', number: 18, imageFile: 'b18.png', questionStartPct: 6.44, answerYPct: 23.46, explanationEndPct: 85.53, topic: '自動制御', selectable: true,
+      id: 'r7-2_b18', section: 'B', number: 18, imageFile: 'b18.png', questionStartPct: 6.73, answerYPct: 23.46, explanationEndPct: 85.53, topic: '自動制御', selectable: true,
       parts: [{ label: '(a)', correct: 2, points: 5 }, { label: '(b)', correct: 2, points: 5 }],
     },
   ],
