@@ -35,19 +35,19 @@ export const R6_1: PaperDefinition = {
   name: '令和6年度 上期',
   timeLimitMin: 65,
   questions: [
-    { id: 'r6-1_a01', section: 'A', number: 1, imageFile: 'a01.png', questionStartPct: 18.52, answerYPct: 43.06, explanationEndPct: 75.06, topic: '電気事業法', parts: [{ correct: 2, points: 6 }] },
+    { id: 'r6-1_a01', section: 'A', number: 1, imageFile: 'a01.png', questionStartPct: 19.06, answerYPct: 43.06, explanationEndPct: 75.06, topic: '電気事業法', parts: [{ correct: 2, points: 6 }] },
     { id: 'r6-1_a02', section: 'A', number: 2, imageFile: 'a02.png', questionStartPct: 18.39, answerYPct: 28.69, explanationEndPct: 75.94, topic: '電気関係報告規則', parts: [{ correct: 4, points: 6 }] },
-    { id: 'r6-1_a03', section: 'A', number: 3, imageFile: 'a03.png', questionStartPct: 15.47, answerYPct: 26.14, explanationEndPct: 79.18, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
-    { id: 'r6-1_a04', section: 'A', number: 4, imageFile: 'a04.png', questionStartPct: 15.03, answerYPct: 26.78, explanationEndPct: 79.61, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
+    { id: 'r6-1_a03', section: 'A', number: 3, imageFile: 'a03.png', questionStartPct: 15.93, answerYPct: 26.14, explanationEndPct: 79.18, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
+    { id: 'r6-1_a04', section: 'A', number: 4, imageFile: 'a04.png', questionStartPct: 15.48, answerYPct: 26.78, explanationEndPct: 79.61, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
     { id: 'r6-1_a05', section: 'A', number: 5, imageFile: 'a05.png', questionStartPct: 19.68, answerYPct: 40.11, explanationEndPct: 73.72, topic: '風力設備技術基準', parts: [{ correct: 3, points: 6 }] },
     { id: 'r6-1_a06', section: 'A', number: 6, imageFile: 'a06.png', questionStartPct: 16.57, answerYPct: 36.42, explanationEndPct: 78.33, topic: '電気設備技術基準', parts: [{ correct: 4, points: 6 }] },
     { id: 'r6-1_a07', section: 'A', number: 7, imageFile: 'a07.png', questionStartPct: 12.25, answerYPct: 35.24, explanationEndPct: 84.2, topic: '電気設備技術基準', parts: [{ correct: 5, points: 6 }] },
-    { id: 'r6-1_a08', section: 'A', number: 8, imageFile: 'a08.png', questionStartPct: 19.77, answerYPct: 39.08, explanationEndPct: 73.38, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
+    { id: 'r6-1_a08', section: 'A', number: 8, imageFile: 'a08.png', questionStartPct: 20.36, answerYPct: 39.08, explanationEndPct: 73.38, topic: '電気設備技術基準', parts: [{ correct: 3, points: 6 }] },
     { id: 'r6-1_a09', section: 'A', number: 9, imageFile: 'a09.png', questionStartPct: 18.92, answerYPct: 37.17, explanationEndPct: 75.43, topic: '電気設備技術基準', parts: [{ correct: 4, points: 6 }] },
-    { id: 'r6-1_a10', section: 'A', number: 10, imageFile: 'a10.png', questionStartPct: 17.68, answerYPct: 35.42, explanationEndPct: 76.38, topic: '電気施設管理', parts: [{ correct: 1, points: 6 }] },
+    { id: 'r6-1_a10', section: 'A', number: 10, imageFile: 'a10.png', questionStartPct: 18.21, answerYPct: 35.42, explanationEndPct: 76.38, topic: '電気施設管理', parts: [{ correct: 1, points: 6 }] },
 
     {
-      id: 'r6-1_b11', section: 'B', number: 11, imageFile: 'b11.png', questionStartPct: 12.45, answerYPct: 20.6, explanationEndPct: 83.14, topic: '電気施設管理',
+      id: 'r6-1_b11', section: 'B', number: 11, imageFile: 'b11.png', questionStartPct: 12.81, answerYPct: 20.6, explanationEndPct: 83.14, topic: '電気施設管理',
       parts: [{ label: '(a)', correct: 3, points: 6 }, { label: '(b)', correct: 2, points: 7 }],
     },
     {
@@ -55,7 +55,7 @@ export const R6_1: PaperDefinition = {
       parts: [{ label: '(a)', correct: 5, points: 6 }, { label: '(b)', correct: 3, points: 7 }],
     },
     {
-      id: 'r6-1_b13', section: 'B', number: 13, imageFile: 'b13.png', questionStartPct: 14.35, answerYPct: 27.72, explanationEndPct: 80.21, topic: '電気設備技術基準',
+      id: 'r6-1_b13', section: 'B', number: 13, imageFile: 'b13.png', questionStartPct: 14.75, answerYPct: 27.72, explanationEndPct: 80.21, topic: '電気設備技術基準',
       parts: [{ label: '(a)', correct: 4, points: 7 }, { label: '(b)', correct: 5, points: 7 }],
     },
   ],

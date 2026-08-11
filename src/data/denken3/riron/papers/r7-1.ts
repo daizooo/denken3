@@ -25,10 +25,10 @@ export const R7_1: PaperDefinition = {
     { id: 'r7-1_a03', section: 'A', number: 3, imageFile: 'a03.png', questionStartPct: 14.21, answerYPct: 23.37, explanationEndPct: 80.8, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-1_a04', section: 'A', number: 4, imageFile: 'a04.png', questionStartPct: 16.31, answerYPct: 27.64, explanationEndPct: 78.05, topic: '電磁気', studyMode: 'calc', parts: [{ correct: 5, points: 5 }] },
     { id: 'r7-1_a05', section: 'A', number: 5, imageFile: 'a05.png', questionStartPct: 21.34, answerYPct: 32.63, explanationEndPct: 70.74, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 5, points: 5 }] },
-    { id: 'r7-1_a06', section: 'A', number: 6, imageFile: 'a06.png', questionStartPct: 14.56, answerYPct: 27.75, explanationEndPct: 79.28, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 2, points: 5 }] },
+    { id: 'r7-1_a06', section: 'A', number: 6, imageFile: 'a06.png', questionStartPct: 14.70, answerYPct: 27.75, explanationEndPct: 79.28, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 2, points: 5 }] },
     { id: 'r7-1_a07', section: 'A', number: 7, imageFile: 'a07.png', questionStartPct: 19.19, answerYPct: 27.56, explanationEndPct: 73.54, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 1, points: 5 }] },
     { id: 'r7-1_a08', section: 'A', number: 8, imageFile: 'a08.png', questionStartPct: 16.95, answerYPct: 20.93, explanationEndPct: 76.54, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 5, points: 5 }] },
-    { id: 'r7-1_a09', section: 'A', number: 9, imageFile: 'a09.png', questionStartPct: 15.72, answerYPct: 25.53, explanationEndPct: 77.71, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 3, points: 5 }] },
+    { id: 'r7-1_a09', section: 'A', number: 9, imageFile: 'a09.png', questionStartPct: 16.02, answerYPct: 25.53, explanationEndPct: 77.71, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-1_a10', section: 'A', number: 10, imageFile: 'a10.png', questionStartPct: 12.52, answerYPct: 28.09, explanationEndPct: 82.36, topic: '電気回路', studyMode: 'calc', parts: [{ correct: 3, points: 5 }] },
     { id: 'r7-1_a11', section: 'A', number: 11, imageFile: 'a11.png', questionStartPct: 17.34, answerYPct: 34.1, explanationEndPct: 75.8, topic: '電子理論', studyMode: 'memory', parts: [{ correct: 4, points: 5 }] },
     { id: 'r7-1_a12', section: 'A', number: 12, imageFile: 'a12.png', questionStartPct: 14.97, answerYPct: 29.95, explanationEndPct: 78.95, topic: '電子理論', studyMode: 'memory', parts: [{ correct: 5, points: 5 }] },
@@ -40,11 +40,11 @@ export const R7_1: PaperDefinition = {
       parts: [{ label: '(a)', correct: 2, points: 5 }, { label: '(b)', correct: 2, points: 5 }],
     },
     {
-      id: 'r7-1_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 9.98, answerYPct: 22.0, explanationEndPct: 85.7, topic: '電気及び電子計測', studyMode: 'calc',
+      id: 'r7-1_b16', section: 'B', number: 16, imageFile: 'b16.png', questionStartPct: 10.10, answerYPct: 22.0, explanationEndPct: 85.7, topic: '電気及び電子計測', studyMode: 'calc',
       parts: [{ label: '(a)', correct: 1, points: 5 }, { label: '(b)', correct: 4, points: 5 }],
     },
     {
-      id: 'r7-1_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 13.96, answerYPct: 26.49, explanationEndPct: 80.3, topic: '電磁気', selectable: true, studyMode: 'calc',
+      id: 'r7-1_b17', section: 'B', number: 17, imageFile: 'b17.png', questionStartPct: 14.08, answerYPct: 26.49, explanationEndPct: 80.3, topic: '電磁気', selectable: true, studyMode: 'calc',
       parts: [{ label: '(a)', correct: 3, points: 5 }, { label: '(b)', correct: 5, points: 5 }],
     },
     {

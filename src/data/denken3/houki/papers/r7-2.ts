@@ -44,7 +44,7 @@ export const R7_2: PaperDefinition = {
       parts: [{ label: '(a)', correct: 4, points: 6 }, { label: '(b)', correct: 4, points: 7 }],
     },
     {
-      id: 'r7-2_b12', section: 'B', number: 12, imageFile: 'b12.png', questionStartPct: 9.04, answerYPct: 23.23, explanationEndPct: 79.95, topic: '電気設備技術基準',
+      id: 'r7-2_b12', section: 'B', number: 12, imageFile: 'b12.png', questionStartPct: 9.13, answerYPct: 23.23, explanationEndPct: 79.95, topic: '電気設備技術基準',
       parts: [{ label: '(a)', correct: 2, points: 6 }, { label: '(b)', correct: 3, points: 7 }],
     },
     {
