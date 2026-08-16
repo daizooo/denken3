@@ -110,7 +110,7 @@ export default function SettingsView({
           {field('申込締切', appEnd, setAppEnd, '締切前にリマインド表示（例: 2026-11-26）')}
         </div>
 
-        {field('分野別 完走目標日', bunyaTarget, setBunyaTarget, '未設定なら試験日の90日前を目標として自動計算')}
+        {field('分野別 全問A以上 目標日', bunyaTarget, setBunyaTarget, '分野別の全問をA以上にする目標日。未設定なら試験日の90日前を目標として自動計算')}
         {field('年度別演習 開始予定日', nendoStart, setNendoStart, '年度別（CBT模試）を始める予定日')}
 
         <div className="flex items-center gap-3 pt-1">
