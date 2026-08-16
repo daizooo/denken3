@@ -45,7 +45,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 async function peek(questionId) {
   const { data: rows, error } = await supabase
     .from('denken_question_assets')
-    .select('storage_path, region, sort, answer_x_pct, answer_y_pct')
+    .select('storage_path, region, sort, answer_x_pct, answer_y_pct, question_start_pct, explanation_end_pct')
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
 
@@ -66,6 +66,8 @@ async function peek(questionId) {
     const region = row.region ?? 'full'
     console.log(
       `  sort=${row.sort} region=${region} answer_x_pct=${row.answer_x_pct} answer_y_pct=${row.answer_y_pct}\n` +
+      // 年度別ペーパー（1問1枚の縦長画像）の表示範囲。分野別の見開き画像では使わない。
+      `  question_start_pct=${row.question_start_pct} explanation_end_pct=${row.explanation_end_pct}\n` +
       `  path=${row.storage_path}`,
     )
     if (signErr) {

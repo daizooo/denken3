@@ -131,7 +131,11 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
 
         if (q) {
           const ins = await supabase.from('denken_question_assets').upsert(
-            { user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100, answer_y_pct: q.answerYPct },
+            {
+              user_id: userId, question_id: q.id, storage_path: path, region: null, sort: 0, answer_x_pct: 100,
+              // 表示座標の初期投入（以後はDBが正で、修正はSQLのUPDATE1行。§5-A）。
+              question_start_pct: q.questionStartPct, answer_y_pct: q.answerYPct, explanation_end_pct: q.explanationEndPct,
+            },
             { onConflict: 'user_id,question_id,storage_path,sort' },
           )
           if (ins.error) { add(`✗ ${f.name} 登録失敗: ${ins.error.message}`); failed++ }
