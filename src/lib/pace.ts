@@ -1,14 +1,18 @@
 // 適応型ペース分析（§7.2）。すべて純関数。
 //
+// ゴールの定義: 「全問に着手した」ではなく「全問が A（答えを見ずに解けた）以上」。
+// 一度解いただけの B・C は得点力になっていないため、ペースの分母（残り）にも
+// 分子（実績）にも A・S 到達だけを数える。
+//
 // 設計原則: 学習キャパシティを事前に宣言させない。
 // 産後1年程度は1日にどれだけ勉強できるか不確定であり「この期間はこう」と断定できない。
-// そこで固定の休止期間や固定窓の平均ではなく、日々の実績（新規着手数）の
+// そこで固定の休止期間や固定窓の平均ではなく、日々の実績（A・S への到達数）の
 // 指数加重移動平均（EWMA・半減期14日）で現在ペースを推定し続け、
 // 毎日、残り日数と突き合わせて計画を再計算する。
 //
 // 入力は (questions, reviews, plan, today)。DB・UIには依存しない。
 
-import type { ExamPlan, Review } from '../domain/types'
+import type { ExamPlan, Review, Status } from '../domain/types'
 import { addDaysStr, diffDays, formatMD } from './date'
 
 // EWMA 半減期14日 → 1ステップ(1日)あたりの平滑化係数。
@@ -22,6 +26,10 @@ const REPLAN_LATE_DAYS = 14
 const DEFAULT_BUNYA_LEAD_DAYS = 90
 // 年度別演習に最低限確保したい日数（後ろ倒しの限界日算出に使う）。
 const MIN_NENDO_DAYS = 30
+// 1問を A 以上へ引き上げるまでに要する演習回数の既定値（実績が無いときのフォールバック）と上限。
+// 復習負荷予測で「修得ノルマ → 発生する演習回数」を見積もるのに使う。
+const DEFAULT_ATTEMPTS_PER_MASTERY = 2
+const MAX_ATTEMPTS_PER_MASTERY = 5
 
 export type PaceVerdict = 'done' | 'ahead' | 'onTrack' | 'behind' | 'stalled'
 
@@ -35,7 +43,7 @@ export interface Milestone {
 export interface WeeklyLoad {
   weekLabel: string
   due: number          // その週に既に予定されている復習（due_date 分布）
-  projectedNew: number // 推奨ノルマで新規着手した分から発生する初回復習の推定
+  projectedNew: number // 推奨ノルマ（A以上への引き上げ）に伴って発生する演習の推定
 }
 
 export interface ReplanOption {
@@ -51,12 +59,12 @@ export interface PaceResult {
   daysToExam: number | null
 
   totalQ: number
-  startedQ: number
-  remainingQ: number       // 未着手 U
+  masteredQ: number        // A・S 到達済み
+  remainingQ: number       // 未修得 U（未着手・C・B）
 
-  currentPace: number      // EWMA 現在ペース（問/日）
+  currentPace: number      // EWMA 現在ペース（A以上への到達 問/日）
   requiredPace: number     // U / 残り日数（問/日）
-  recommendedNorm: number  // 今日の推奨ノルマ（問・整数）
+  recommendedNorm: number  // 今日の推奨ノルマ（A以上へ引き上げる問数・整数）
 
   projectedFinishDate: string | null
   verdict: PaceVerdict
@@ -71,26 +79,46 @@ export interface PaceResult {
 
 interface QLike { id: string }
 
-// 未着手判定: レビュー無し or status==='未着手'
-function isUntouched(r: Review | undefined): boolean {
-  return !r || r.status === '未着手'
+// 修得判定: A（答えを見ずに解けた）以上。B・C・未着手 はいずれも未修得として残りに数える。
+function isMastered(status: Status | undefined): boolean {
+  return status === 'A' || status === 'S'
 }
 
-// 日次の新規着手数（first_reviewed === その日）を集計。
-function dailyNewStarts(reviews: Record<string, Review>): Map<string, number> {
+// 日次の「A以上への到達数」を集計。
+// review_history を日付順に再生し、未修得（未着手・C・B）→ 修得（A・S）へ切り替わった日に +1 する。
+// 一度Aになった問題が後でCに落ち、再びAへ戻った場合は復帰日にも +1 する
+// （落ちた分は remainingQ に戻るので、再修得も実際に発生した学習量として数える）。
+function dailyMasteryGains(
+  questions: QLike[],
+  reviews: Record<string, Review>,
+): Map<string, number> {
   const m = new Map<string, number>()
-  for (const r of Object.values(reviews)) {
-    const d = r.first_reviewed
-    if (!d) continue
+  const bump = (d: string | null | undefined) => {
+    if (!d) return
     m.set(d, (m.get(d) ?? 0) + 1)
+  }
+  for (const q of questions) {
+    const r = reviews[q.id]
+    if (!r) continue
+    const history = [...(r.review_history ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+    if (history.length === 0) {
+      // 履歴を持たない旧データ。現在Aなら最終実施日（無ければ初回実施日）に計上する。
+      if (isMastered(r.status)) bump(r.last_reviewed ?? r.first_reviewed)
+      continue
+    }
+    let prevMastered = false
+    for (const e of history) {
+      const nowMastered = isMastered(e.status)
+      if (nowMastered && !prevMastered) bump(e.date)
+      prevMastered = nowMastered
+    }
   }
   return m
 }
 
-// 現在ペース（EWMA）。最初の実績日〜today を1日刻みで走査し、
-// 学習ゼロの日も0問として算入する（休止を自動的に織り込む）。
-export function estimateCurrentPace(reviews: Record<string, Review>, today: string): number {
-  const daily = dailyNewStarts(reviews)
+// 日次実績の EWMA。最初の実績日〜today を1日刻みで走査し、
+// 実績ゼロの日も0問として算入する（休止を自動的に織り込む）。
+function ewmaOfDaily(daily: Map<string, number>, today: string): number {
   if (daily.size === 0) return 0
   const startDay = [...daily.keys()].sort()[0]
   const span = diffDays(startDay, today)
@@ -104,18 +132,28 @@ export function estimateCurrentPace(reviews: Record<string, Review>, today: stri
   return ewma
 }
 
+// 現在ペース（EWMA）＝ 1日あたり何問を A 以上へ引き上げているか。
+export function estimateMasteryPace(
+  questions: QLike[],
+  reviews: Record<string, Review>,
+  today: string,
+): number {
+  return ewmaOfDaily(dailyMasteryGains(questions, reviews), today)
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }
 
 // 週次の復習負荷予測（§7.2 復習負荷予測）。
-// 既存 due_date 分布に、推奨ノルマで新規着手した分の初回復習見込みを重ねる。
+// 既存 due_date 分布に、推奨ノルマ（A以上への引き上げ）に伴って発生する演習の見込みを重ねる。
 function buildWeeklyLoad(
   questions: QLike[],
   reviews: Record<string, Review>,
   today: string,
   horizonWeeks: number,
   recommendedNorm: number,
+  attemptsPerMastery: number,
   bunyaTargetDate: string | null,
 ): WeeklyLoad[] {
   const weeks: WeeklyLoad[] = []
@@ -129,9 +167,11 @@ function buildWeeklyLoad(
       if (w === 0) return d < end
       return d >= start && d < end
     }).length
-    // 新規着手はおおむね翌週に初回復習が発生すると仮定した軽量な推定。
+    // 1問を A 以上へ引き上げるには平均 attemptsPerMastery 回の演習が要り、
+    // それがおおむね翌週以降の演習として発生すると仮定した軽量な推定。
     const withinTarget = !bunyaTargetDate || start < bunyaTargetDate
-    const projectedNew = w >= 1 && withinTarget ? Math.round(recommendedNorm * 7) : 0
+    const projectedNew =
+      w >= 1 && withinTarget ? Math.round(recommendedNorm * attemptsPerMastery * 7) : 0
     weeks.push({ weekLabel: formatMD(start), due, projectedNew })
   }
   return weeks
@@ -144,15 +184,26 @@ export function analyzePace(
   today: string,
 ): PaceResult {
   const totalQ = questions.length
-  const remainingQ = questions.filter(q => isUntouched(reviews[q.id])).length
-  const startedQ = totalQ - remainingQ
+  // 残り＝まだ A・S に届いていない問題（未着手だけでなく B・C も含む）。
+  const masteredQ = questions.filter(q => isMastered(reviews[q.id]?.status)).length
+  const remainingQ = totalQ - masteredQ
 
-  const currentPace = estimateCurrentPace(reviews, today)
+  const dailyGains = dailyMasteryGains(questions, reviews)
+  const currentPace = ewmaOfDaily(dailyGains, today)
+
+  // 1問あたりの実演習回数（実績ベース）。復習負荷予測でノルマを演習回数へ換算するのに使う。
+  const totalGains = [...dailyGains.values()].reduce((a, b) => a + b, 0)
+  const totalAttempts = questions.reduce(
+    (n, q) => n + (reviews[q.id]?.review_history?.length ?? 0), 0,
+  )
+  const attemptsPerMastery = totalGains > 0
+    ? clamp(totalAttempts / totalGains, 1, MAX_ATTEMPTS_PER_MASTERY)
+    : DEFAULT_ATTEMPTS_PER_MASTERY
 
   const examDate = plan?.exam_date ?? null
   const daysToExam = examDate ? diffDays(today, examDate) : null
 
-  // 分野別完走の目標日: 明示指定 > (試験日 - 90日) > なし
+  // 分野別を全問A以上にする目標日: 明示指定 > (試験日 - 90日) > なし
   const bunyaTargetDate =
     plan?.bunya_target_date ??
     (examDate ? addDaysStr(examDate, -DEFAULT_BUNYA_LEAD_DAYS) : null)
@@ -163,7 +214,7 @@ export function analyzePace(
   const R = bunyaTargetDate ? Math.max(1, diffDays(today, bunyaTargetDate)) : null
   const requiredPace = R !== null ? remainingQ / R : 0
 
-  // 完走予測日: today + ceil(U / 現在ペース)。ペース0（実績なし）は予測不能。
+  // 全問A以上の到達予測日: today + ceil(U / 現在ペース)。ペース0（実績なし）は予測不能。
   const projectedFinishDate =
     remainingQ === 0
       ? today
@@ -171,7 +222,7 @@ export function analyzePace(
         ? addDaysStr(today, Math.ceil(remainingQ / currentPace))
         : null
 
-  // 判定: 完走予測 vs 目標日。
+  // 判定: 全問A以上の到達予測 vs 目標日。
   let verdict: PaceVerdict
   let verdictDays = 0
   if (remainingQ === 0) {
@@ -187,7 +238,7 @@ export function analyzePace(
     else verdict = 'onTrack'
   }
 
-  // 今日の推奨ノルマ: clamp(必要ペース, 現在ペース×0.8, 現在ペース×1.3)。
+  // 今日の推奨ノルマ（A以上へ引き上げる問数）: clamp(必要ペース, 現在ペース×0.8, 現在ペース×1.3)。
   // 実績とかけ離れた無理な数字を出さない。実績が無い（currentPace=0）ときは
   // 必要ペースをそのまま提示する。
   const lower = currentPace > 0 ? currentPace * 0.8 : 0
@@ -196,7 +247,7 @@ export function analyzePace(
     remainingQ === 0 ? 0 : Math.max(1, Math.ceil(clamp(requiredPace, lower, upper)))
 
   // 計画見直しが要るか: 必要ペースが現在ペースの上限（×1.3）を超え続ける、
-  // かつ完走予測が目標を REPLAN_LATE_DAYS 日以上超過。
+  // かつ全問A以上の到達予測が目標を REPLAN_LATE_DAYS 日以上超過。
   const needsReplan =
     remainingQ > 0 &&
     verdict === 'behind' &&
@@ -208,33 +259,34 @@ export function analyzePace(
     const limitDate = examDate ? addDaysStr(examDate, -MIN_NENDO_DAYS) : null
     replanOptions.push({
       key: 'postpone',
-      title: '完走目標を後ろ倒しする',
+      title: '全問A以上の目標日を後ろ倒しする',
       detail: projectedFinishDate
-        ? `現ペースなら ${formatMD(projectedFinishDate)} 完走見込み。` +
+        ? `現ペースなら ${formatMD(projectedFinishDate)} に全問A以上の見込み。` +
           (limitDate ? `年度別に最低${MIN_NENDO_DAYS}日を残す限界は ${formatMD(limitDate)}。` : '')
-        : '現ペースでは完走時期を見通せません。',
+        : '現ペースでは全問A以上に届く時期を見通せません。',
     })
-    // b) 範囲の絞り込み（importance=3 のみ完走 → 残りは年度別期に回す）
+    // b) 範囲の絞り込み（importance=3 のみA以上 → 残りは年度別期に回す）
     replanOptions.push({
       key: 'narrow',
       title: '範囲を絞る（重要度の高い問題を優先）',
-      detail: '重要度3の問題だけ先に完走し、残りは年度別演習期に回す。',
+      detail: '重要度3の問題だけ先にA以上へ仕上げ、残りは年度別演習期に回す。',
     })
     // c) daily_cap・生活時間の見直し
     replanOptions.push({
       key: 'capacity',
       title: '1日の学習時間・復習上限を見直す',
-      detail: `目標達成には約 ${requiredPace.toFixed(1)} 問/日 が必要（現在ペース ${currentPace.toFixed(1)} 問/日）。`,
+      detail: `目標達成には約 ${requiredPace.toFixed(1)} 問/日 をA以上にする必要があります` +
+        `（現在ペース ${currentPace.toFixed(1)} 問/日）。`,
     })
   }
 
-  // マイルストーン表（分野別完走目標 → 年度別開始 → 申込期間 → 試験日）。
+  // マイルストーン表（分野別A以上目標 → 年度別開始 → 申込期間 → 試験日）。
   const milestones: Milestone[] = []
   const push = (key: string, label: string, date: string | null | undefined) => {
     if (!date) return
     milestones.push({ key, label, date, daysFromToday: diffDays(today, date) })
   }
-  push('bunya', '分野別 完走目標', bunyaTargetDate)
+  push('bunya', '分野別 全問A以上 目標', bunyaTargetDate)
   push('nendo', '年度別演習 開始', plan?.nendo_start_date)
   push('appStart', '申込開始', plan?.application_start)
   push('appEnd', '申込締切', plan?.application_end)
@@ -246,7 +298,7 @@ export function analyzePace(
     ? Math.min(16, Math.ceil(daysToExam / 7))
     : 12
   const weeklyLoad = buildWeeklyLoad(
-    questions, reviews, today, horizonWeeks, recommendedNorm, bunyaTargetDate,
+    questions, reviews, today, horizonWeeks, recommendedNorm, attemptsPerMastery, bunyaTargetDate,
   )
 
   return {
@@ -255,7 +307,7 @@ export function analyzePace(
     bunyaTargetDate,
     daysToExam,
     totalQ,
-    startedQ,
+    masteredQ,
     remainingQ,
     currentPace,
     requiredPace,

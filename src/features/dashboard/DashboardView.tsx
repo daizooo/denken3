@@ -10,7 +10,7 @@ import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
 
 const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: string }> = {
-  done:    { label: () => '完走済み', cls: 'text-emerald-600' },
+  done:    { label: () => '全問A以上 達成', cls: 'text-emerald-600' },
   ahead:   { label: n => `先行 ${n}日`, cls: 'text-emerald-600' },
   onTrack: { label: () => '順調', cls: 'text-blue-600' },
   behind:  { label: n => `遅延 ${n}日`, cls: 'text-red-500' },
@@ -25,7 +25,7 @@ function PaceCard({ pace }: { pace: PaceResult }) {
           <Gauge size={14} className="text-blue-500" />ペース分析
         </h3>
         <p className="text-xs text-gray-400">
-          「設定」で試験日を登録すると、現在ペース・完走予測・今日の推奨ノルマが表示されます。
+          「設定」で試験日を登録すると、A以上への到達ペース・全問A以上の到達予測・今日の推奨ノルマが表示されます。
         </p>
       </div>
     )
@@ -33,7 +33,7 @@ function PaceCard({ pace }: { pace: PaceResult }) {
 
   const v = VERDICT_STYLE[pace.verdict]
   const loadData = pace.weeklyLoad.map(w => ({
-    week: w.weekLabel, 既存: w.due, 新規予測: w.projectedNew,
+    week: w.weekLabel, 既存: w.due, 演習予測: w.projectedNew,
   }))
 
   return (
@@ -52,25 +52,25 @@ function PaceCard({ pace }: { pace: PaceResult }) {
 
       {/* 主要指標 */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="text-center">
+        <div className="text-center" title="1日あたり何問を A 以上へ引き上げているか（EWMA）">
           <p className="text-lg font-bold text-gray-800">{pace.currentPace.toFixed(1)}</p>
-          <p className="text-[11px] text-gray-400">現在ペース 問/日</p>
+          <p className="text-[11px] text-gray-400">現在ペース A以上/日</p>
         </div>
-        <div className="text-center">
+        <div className="text-center" title="目標日までに全問を A 以上にするために必要なペース">
           <p className="text-lg font-bold text-gray-800">{pace.requiredPace.toFixed(1)}</p>
-          <p className="text-[11px] text-gray-400">必要ペース 問/日</p>
+          <p className="text-[11px] text-gray-400">必要ペース A以上/日</p>
         </div>
-        <div className="text-center">
+        <div className="text-center" title="今日 A 以上へ引き上げたい問題数">
           <p className="text-lg font-bold text-blue-600">{pace.recommendedNorm}</p>
           <p className="text-[11px] text-gray-400">今日の推奨ノルマ</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-3">
-        <span className="text-gray-500">
-          未着手 <b className="text-gray-700">{pace.remainingQ}</b> / {pace.totalQ}問
+        <span className="text-gray-500" title="未着手・C・B はすべて未修得として残りに数えます">
+          未修得 <b className="text-gray-700">{pace.remainingQ}</b> / {pace.totalQ}問
           {pace.projectedFinishDate && (
-            <> · 完走予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
+            <> · 全問A以上 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
           )}
         </span>
         <span className={`font-semibold ${v.cls}`}>{v.label(pace.verdictDays)}</span>
@@ -106,7 +106,7 @@ function PaceCard({ pace }: { pace: PaceResult }) {
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="既存" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-            <Bar dataKey="新規予測" stackId="a" fill="#93c5fd" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="演習予測" stackId="a" fill="#93c5fd" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
