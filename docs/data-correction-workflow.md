@@ -11,9 +11,9 @@ Google Drive へ接続し直して再取得する運用になっていた。原�
 
 | # | 問題 | コストへの効き方 |
 |---|---|---|
-| ① | 年度別のマスク座標（`questionStartPct` / `answerYPct` / `explanationEndPct`）が Supabase ではなく `src/data/denken3/*/papers/*.ts` に直書き | 値を1つ直すだけでも「大きなTS配列をRead→該当行探索→Edit→commit→PR→デプロイ」。DBの1行UPDATEで済む作業をファイル操作でやっている |
+| ① | ~~年度別のマスク座標（`questionStartPct` / `answerYPct` / `explanationEndPct`）が Supabase ではなく `src/data/denken3/*/papers/*.ts` に直書き~~ **（migration 014 で解消済み。TSの値は取り込み時の初期値に降格し、表示の正はDB）** | 値を1つ直すだけでも「大きなTS配列をRead→該当行探索→Edit→commit→PR→デプロイ」。DBの1行UPDATEで済む作業をファイル操作でやっている |
 | ② | Supabase 側に画像の中身を確認する手段が無い（Supabase MCP は SQL 系のみ。Storage のダウンロード手段が無い） | 確認のたびに Drive のフォルダを一覧→対象を探索→ダウンロード。**画像を毎回ゼロから読み直している**のが最大のコスト源 |
-| ③ | `denken_question_assets.answer_y_pct` は年度別取り込み時に書かれるが、表示側（`PaperImage.tsx`）は DB を読まない | 書くだけで誰も読まない行。DBとTSの値がズレても検知できず、毎回目視で確かめ直すことになる |
+| ③ | ~~`denken_question_assets.answer_y_pct` は年度別取り込み時に書かれるが、表示側（`PaperImage.tsx`）は DB を読まない~~ **（解消済み。`PaperImage` が `fetchAssets()` でDBの3座標を読む）** | 書くだけで誰も読まない行。DBとTSの値がズレても検知できず、毎回目視で確かめ直すことになる |
 | ④ | `ImportPanel` は「一度きりの取り込み」専用で、単発修正の動線が無い | 1問直すだけでもフル手順（Drive探索→ローカル保存→ドラッグ）を踏む |
 
 ## 1. 原則
@@ -56,19 +56,32 @@ Supabase MCP の `execute_sql` で直接 UPDATE する。git clone → branch �
 のフルサイクルを省略できるのが、工数削減として最も効く。
 
 ```sql
--- 例: 年度別 r7-1 問6 の解答マスク位置を是正
+-- 例: 年度別 理論 r7-1 問6 の解答マスク位置を是正
+-- question_id は科目をまたいで重複する（理論と機械の 'r6-2_b16' は別問題）ため、
+-- 年度別は storage_path で科目を絞り込む。
 UPDATE denken_question_assets
    SET answer_y_pct = 27.75
- WHERE question_id = 'r7-1_a06';
+ WHERE question_id = 'r7-1_a06'
+   AND storage_path LIKE '%/papers/riron/r7-1/a06.png';
 ```
+
+年度別の表示範囲は3つの列で決まる（いずれも縦位置%）。
+
+| 列 | 意味 | CBT解答中 | 結果画面 |
+|---|---|---|---|
+| `question_start_pct` | 問題文の開始（【難易度】行の直後）。ここより上は常に隠す | 上端 | 上端 |
+| `answer_y_pct` | 【ワンポイント解説】見出しの直前 | 下端 | — |
+| `explanation_end_pct` | 解説・解答の本文の終わり（宣伝バナーの直前） | — | 下端 |
 
 ### コード変更を伴う修正
 表示ロジック・UI・スキーマの変更は従来どおり `CLAUDE.md` のコンフリクト最小化方針に従い、
 ブランチを切って PR を出す。
 
-> **注意**: ①が未解消の現時点では、年度別の座標の正は TS ソース側にある。
-> ①の移行（§5）が完了するまでは、年度別座標の修正は TS ファイル側で行うこと。
-> 分野別（`answer_x_pct` / `region`）は既に DB が正なので、上記 SQL 方式が今すぐ使える。
+> 年度別（`question_start_pct` / `answer_y_pct` / `explanation_end_pct`）・分野別
+> （`answer_x_pct` / `region` 等）とも DB が正なので、上記 SQL 方式がそのまま使える。
+> TS 側（`src/data/denken3/*/papers/*.ts`）の座標は **取り込み時にDBへ投入する初期値** であり、
+> 取り込み済みの回の表示には使われない。TS を直しても画面は変わらないので触らないこと
+> （未取り込みの回を新規収録するときだけ TS に値を書く）。
 
 ## 4. 質を落とさずに手数を減らすための運用
 
@@ -81,17 +94,21 @@ UPDATE denken_question_assets
 - **測定の信頼度を残す。** 値を保存する際に「機械測定」か「目視確認済み」かを区別できるように
   しておくと、後から怪しい箇所だけを再監査でき、精度と省力化を両立できる。
 
-## 5. 未実装（工数が大きいため別タスクで対応）
+## 5. 実装状況
 
-以下2件はスキーマ変更・移行スクリプトを伴うため、独立したPRとして個別に進める。
-
-### A. 年度別マスク座標を TS ソースから Supabase へ移す（①③の解消）
+### A. 年度別マスク座標を TS ソースから Supabase へ移す（①③の解消）— **実装済み**
 - `denken_question_assets` に `question_start_pct` / `explanation_end_pct` を **ADD COLUMN** で追加
   （既存カラムの変更・削除はしない＝`docs/problem-data-integration.md` §migration 008 の方針）。
-- `PaperImage` / `CBTRunner` / `ResultView` が `fetchAssets()` 経由で DB の値を読むようにし、
-  `PaperDefinition` 側の座標は初期投入用の既定値に降格する。
-- 既存の `.ts` の値を DB へ流し込む1回限りの移行を行い、以後は DB を唯一の正とする。
-- これが終わると §3 の「SQL 1行で修正」が年度別にも適用でき、③の死んだ書き込みも解消される。
+  → `supabase/migrations/014_paper_mask_pcts.sql`
+- `PaperImage` が `fetchAssets()` で DB の3座標を読み、`CBTRunner` / `ResultView` は `questionId` を
+  渡すだけにした。`PaperDefinition` 側の座標は初期投入用の既定値に降格し、`ImportPanel` が
+  取り込み時に3座標とも DB へ書く。
+- 既存の `.ts` の値（収録済み4科目・266問）を DB へ流し込む1回限りの移行を 014 に同梱した。
+  突き合わせは `question_id` だけでは足りない（科目をまたいで重複するため）ので、
+  科目を含む `storage_path` の末尾で一意に決めている。
+- これにより §3 の「SQL 1行で修正」が年度別にも適用でき、③の死んだ書き込みも解消された。
+
+以下2件はスキーマ変更・移行スクリプトを伴うため、独立したPRとして個別に進める。
 
 ### B. マスク座標の測定をスクリプト化する（Vision推論の削減）
 - 現状 `package.json` に OCR 依存が無く、コメントに残る「tesseractで検出」は毎回使い捨て。

@@ -74,13 +74,17 @@ export interface QuestionAsset {
   answer_right_y_pct: number
   region_y_pct: number
   sort: number
+  // 年度別ペーパー（1問1枚・縦長）の表示範囲(%)。分野別の見開き画像では使わない。
+  // DBが唯一の正で、修正はSQLのUPDATE1行で完結する（docs/data-correction-workflow.md §5-A）。
+  question_start_pct: number  // 問題文が始まる縦位置。ここより上（タイトル・目次・難易度行）は常に隠す
+  explanation_end_pct: number // 解説・解答の本文が終わる縦位置。ここより下（宣伝バナー等）は常に隠す
 }
 
 /** 指定問題の画像アセットを sort 昇順で取得 */
 export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> {
   const { data, error } = await supabase
     .from('denken_question_assets')
-    .select('storage_path, region, answer_x_pct, answer_y_pct, answer_right_y_pct, region_y_pct, sort')
+    .select('storage_path, region, answer_x_pct, answer_y_pct, answer_right_y_pct, region_y_pct, sort, question_start_pct, explanation_end_pct')
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
   if (error) throw error

@@ -131,6 +131,11 @@ export interface PaperQuestion {
   // が縦に並んだ1問1枚の元画像（paperフォルダ内、物理クロップなし）。
   // 実際のStorageパスは paperImagePath(userId, paperId, imageFile) で解決する。
   imageFile: string                  // 'a05.png'
+  // 以下3つの表示座標は「取り込み時の初期値」。表示の正は denken_question_assets 側の
+  // question_start_pct / answer_y_pct / explanation_end_pct で、ImportPanel が取り込み時に
+  // ここの値をDBへ投入し、以後の修正はSQLのUPDATE1行で行う
+  // （docs/data-correction-workflow.md §5-A）。DBに行が無い回のみここの値が表示に使われる。
+  //
   // 【難易度】行の直後（問題文が始まる位置）の縦位置(%)。表示は常にこの位置から始め、上部の
   // タイトル・共有ボタン・動画・目次・【問題】見出し・難易度行を切り捨てる。既定0=切り捨てなし。
   // 小数可（画像によっては難易度行と本文の間の空白が1%未満しかなく、整数では収まらないため）。

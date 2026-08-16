@@ -158,6 +158,7 @@ export default function ResultView({
                       </div>
                       <PaperImage
                         userId={userId} subjectId={paper.subjectId} paperId={paper.id} filename={q.imageFile}
+                        questionId={q.id}
                         questionStartPct={q.questionStartPct} answerYPct={q.answerYPct}
                         explanationEndPct={q.explanationEndPct} showAnswer
                       />

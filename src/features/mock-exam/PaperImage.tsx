@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { signedUrl } from '../../lib/assets'
+import { fetchAssets, signedUrl, type QuestionAsset } from '../../lib/assets'
 import { legacyPaperImagePath, paperImagePath } from '../../lib/mock'
 
 // 年度別ペーパーの切り出し画像1枚を、非公開Storageの署名付きURLで表示する。
@@ -9,13 +9,19 @@ import { legacyPaperImagePath, paperImagePath } from '../../lib/mock'
 // endPct は showAnswer=false のとき answerYPct、true のとき explanationEndPct
 // （結果画面で解説・解答は見せるが、末尾の宣伝バナー・共有ボタン・おすすめ記事は隠す）。
 // zoom で横幅を拡大（ピンチ/横スクロール前提・§7.4(2)）。
+//
+// 3つの座標は denken_question_assets が唯一の正（docs/data-correction-workflow.md §5-A）。
+// questionId を渡すと fetchAssets() でDBの値を読み、画像URLと同時に解決してから描画する
+// （props より後に届いて切り出し位置が飛ぶことがない）。props の値は「まだDBに行が無い
+// ＝画像未取り込みの回」向けの既定値で、取り込み時に ImportPanel がその値をDBへ投入する。
 export default function PaperImage({
-  userId, subjectId, paperId, filename, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
+  userId, subjectId, paperId, filename, questionId, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
 }: {
   userId: string
   subjectId: string
   paperId: string
   filename?: string
+  questionId?: string
   questionStartPct?: number
   answerYPct?: number
   explanationEndPct?: number
@@ -25,18 +31,30 @@ export default function PaperImage({
   const [url, setUrl] = useState<string | null>(null)
   const [err, setErr] = useState(false)
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
+  const [asset, setAsset] = useState<QuestionAsset | null>(null)
 
   useEffect(() => {
     if (!filename) { setUrl(null); return }
     let alive = true
-    setUrl(null); setErr(false); setNaturalSize(null)
+    setUrl(null); setErr(false); setNaturalSize(null); setAsset(null)
     // まず科目修飾の新パスを引き、無ければ旧パス（subjectId 導入前の理論画像）へフォールバックする。
-    signedUrl(paperImagePath(userId, subjectId, paperId, filename))
-      .catch(() => signedUrl(legacyPaperImagePath(userId, paperId, filename)))
-      .then(u => { if (alive) setUrl(u) })
+    const newPath = paperImagePath(userId, subjectId, paperId, filename)
+    const legacyPath = legacyPaperImagePath(userId, paperId, filename)
+    const urlP = signedUrl(newPath).then(u => ({ u, path: newPath }))
+      .catch(() => signedUrl(legacyPath).then(u => ({ u, path: legacyPath })))
+    // DBの座標。question_id は科目をまたいで重複する（理論と機械の 'r6-2_b16' は別問題）ため、
+    // 実際に表示する画像の storage_path が一致する行だけを採用する。
+    // 取得に失敗しても表示は続行し、props の既定値へ静かに落とす。
+    const assetP = questionId ? fetchAssets(questionId).catch(() => []) : Promise.resolve([])
+    Promise.all([urlP, assetP])
+      .then(([{ u, path }, assets]) => {
+        if (!alive) return
+        setAsset(assets.find(a => a.storage_path === path) ?? null)
+        setUrl(u)
+      })
       .catch(() => { if (alive) setErr(true) })
     return () => { alive = false }
-  }, [userId, subjectId, paperId, filename])
+  }, [userId, subjectId, paperId, filename, questionId])
 
   if (!filename) return null
   if (err) return (
@@ -48,8 +66,13 @@ export default function PaperImage({
     <div className="bg-white rounded-xl p-10 text-center text-xs text-gray-400">読み込み中...</div>
   )
 
-  const endPct = showAnswer ? explanationEndPct : answerYPct
-  const startPct = Math.min(questionStartPct, endPct)
+  // DBに行があればそれが正。無い（未取り込み）ときだけ PaperDefinition 側の既定値を使う。
+  const start = asset?.question_start_pct ?? questionStartPct
+  const answerY = asset?.answer_y_pct ?? answerYPct
+  const explanationEnd = asset?.explanation_end_pct ?? explanationEndPct
+
+  const endPct = showAnswer ? explanationEnd : answerY
+  const startPct = Math.min(start, endPct)
   const span = Math.max(endPct - startPct, 1)
   // クロップ範囲の縦横比が判明するまでは全体表示（画像読み込み直後の一瞬）。
   const cropReady = naturalSize != null
