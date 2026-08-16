@@ -191,3 +191,36 @@ npm run detect-pcts -- --paper riron/r8-1 ./r8-1/*.png --ts
      行が無い（未登録の）ときだけ、一括取り込みと同じ既定値で登録する。
 - 年度別で現物が旧パス（`subjectId` 導入前の理論画像）にある場合はその旨を表示し、
   差し替え後は新パスへ保存する（表示側 `PaperImage` のフォールバック順と一致させる）。
+
+### D. 分野別 見開き画像の変則検出（Vision実読の削減）— **実装済み・実データ未検証**
+- B は年度別（1問1枚）を対象にしており、分野別（見開き）の取り込みでは
+  `docs/problem-data-integration.md` §5 手順1「章フォルダの全画像を実読」が残っていた。
+  章あたり 20〜82枚を丸ごと目で見る工程で、年度別より1桁重い。
+- 収録済み9章520枚の実績では **78%が既定値どおりの標準見開き**で、目視で新しい情報が出るのは
+  22%（変則67枚＋捨て問48枚）だけだった。この22%を名指しするのが `scripts/detect-bunya-layout.mjs`
+  （`npm run detect-layout`）で、検討と設計は **`docs/design/bunya-anomaly-detection.md`** にある。
+
+```bash
+npm run detect-layout -- --chapter elec              # 取り込み済みの章（DB現在値との食い違いも出る）
+npm run detect-layout -- --chapter elec ./elec/*.png --map  # 未取り込みの章（マッピング雛形）
+```
+
+- 判定は `ok`（標準・目視不要）/ `check`（変則候補）/ `miss`（読めず）の3段階。B と違い
+  **値を確定させない・`--sql` を出さない**——分野別の変則は行の増減を伴うため、誤検出が
+  DBの構造を壊す経路を作らない（設計書 §3）。
+- **実データでの精度はまだ測っていない。** 合成フィクスチャ9ケースのみで確認済み。
+  実キーのある環境で9章スイープを回すのが次の一手（設計書 §5・§7）。
+
+### E. 認証情報の事前チェック（全スクリプト共通）
+- `SUPABASE_SERVICE_ROLE_KEY` に、キーではなく**キーの書式を説明したプレースホルダ**
+  （`<Secret key（sb_secret_XXXX…）>` のような文字列）が入っていた事故があった。この値では
+  undici が Authorization ヘッダを組み立てられず、
+  `TypeError: Cannot convert argument to a ByteString …` という原因の分からない例外になる。
+  しかも OCR を回し切ったあとに出るため気付くのが遅い。
+- `peek` / `detect-pcts` / `detect-layout` は起動時に認証情報を検査し、
+  **HTTPヘッダに載せられない値・プレースホルダのままの値をその場で弾く**
+  （`scripts/lib/ocr-lines.mjs` の `assertSupabaseCredentials`）。
+  何が問題かと、どこから貼り直すかを表示する（キーの値自体は表示しない）。
+- 認証エラー（`Invalid API key` 等）には「secret キーか？publishable/anon では読めない」旨の
+  ヒントを添える。キーは Supabase ダッシュボード → Project Settings → API Keys から、
+  **括弧や説明文を付けずにそのまま** `.env` か実行環境の環境変数へ置く（雛形は `.env.example`）。

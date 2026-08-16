@@ -18,9 +18,8 @@
 // 各画像の短期署名付きURL。マスク座標（answer_x_pct/answer_y_pct）も一緒に表示するので、
 // URLを開いて目視確認 → 数値がずれていれば直接 Supabase 側を修正、という流れで完結できる。
 import { createClient } from '@supabase/supabase-js'
+import { assertSupabaseCredentials } from './lib/ocr-lines.mjs'
 
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const TTL_SECONDS = Number(process.env.PEEK_TTL_SECONDS ?? 600)
 const BUCKET = 'denken-problems'
 
@@ -31,12 +30,11 @@ function fail(message) {
   process.exit(1)
 }
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  fail('SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を環境変数で指定してください。')
-}
 if (questionIds.length === 0) {
   fail('question_id を1つ以上指定してください（例: node scripts/peek-asset.mjs dc_8 r7-1_a06）。')
 }
+// 認証情報が未設定・プレースホルダのままなら、ここで理由付きで止まる（scripts/lib/ocr-lines.mjs）。
+const { url: SUPABASE_URL, key: SERVICE_ROLE_KEY } = assertSupabaseCredentials()
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },

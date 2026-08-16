@@ -34,6 +34,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { createWorker } from 'tesseract.js'
+import { assertSupabaseCredentials, authHint } from './lib/ocr-lines.mjs'
 
 const BUCKET = 'denken-problems'
 // tesseract.js の言語データ。CDN（jsdelivr）任せにせず npm 依存として固定し、
@@ -371,9 +372,9 @@ function proxyHint(message) {
 
 /** Supabase に取り込み済みの画像を署名なしで直接ダウンロードする（Driveへ戻らない＝§2） */
 async function remoteTargets(paper, questionIds) {
-  const url = process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) fail('SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を環境変数で指定してください。')
+  // 認証情報の妥当性は共通部品で先に確かめる。プレースホルダのままだと undici が
+  // Authorization ヘッダを作れず、原因の分からない TypeError になるため（scripts/lib/ocr-lines.mjs）。
+  const { url, key } = assertSupabaseCredentials()
 
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -384,7 +385,7 @@ async function remoteTargets(paper, questionIds) {
     if (storagePathLike) q = q.like('storage_path', storagePathLike)
     if (questionIds.length > 0) q = q.in('question_id', questionIds)
     const { data, error } = await q.order('storage_path', { ascending: true })
-    if (error) fail(`denken_question_assets の取得に失敗: ${error.message}${proxyHint(error.message)}`)
+    if (error) fail(`denken_question_assets の取得に失敗: ${error.message}${authHint(error.message)}${proxyHint(error.message)}`)
     return data
   }
 
@@ -404,7 +405,7 @@ async function remoteTargets(paper, questionIds) {
 
   return Promise.all(rows.map(async row => {
     const { data: blob, error: dlErr } = await supabase.storage.from(BUCKET).download(row.storage_path)
-    if (dlErr) fail(`${row.storage_path} のダウンロードに失敗: ${dlErr.message}`)
+    if (dlErr) fail(`${row.storage_path} のダウンロードに失敗: ${dlErr.message}${authHint(dlErr.message)}`)
     return {
       name: basename(row.storage_path),
       buffer: Buffer.from(await blob.arrayBuffer()),
