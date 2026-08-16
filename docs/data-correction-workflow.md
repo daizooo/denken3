@@ -123,6 +123,12 @@ npm run detect-pcts -- --paper riron/r7-1 --sql      # そのまま実行でき�
 npm run detect-pcts -- --paper riron/r8-1 ./r8-1/*.png --ts
 ```
 
+- 認証情報は `.env`（`.gitignore` 済み）に置けばよい。`npm run detect-pcts` は
+  `node --env-file-if-exists=.env` 経由で起動するので、シェルへの `export` は要らない
+  （`.env` が無ければそのまま環境変数を見る）。雛形は `.env.example` にある。
+  `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` は `VITE_` 接頭辞が無いため、
+  同じ `.env` に置いてもブラウザ向けバンドルには入らない（Vite の `envPrefix` 既定は `VITE_`）。
+
 - OCR は `tesseract.js` + `@tesseract.js-data/jpn` を **devDependency として固定**した。
   言語データを CDN から実行時に取りに行かせない（オフラインで動き、データ差し替えで結果が
   変わらない）。表示側のバンドルには入らない。既定は `4.0.0_best_int`（fast より約3割遅いが

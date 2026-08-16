@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "peek": "node scripts/peek-asset.mjs",
-    "detect-pcts": "node scripts/detect-mask-pcts.mjs"
+    "detect-pcts": "node --env-file-if-exists=.env scripts/detect-mask-pcts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
