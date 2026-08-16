@@ -1,9 +1,17 @@
-// 自動生成: 静電気(elec)章の画像→問題マッピング（章フォルダ全画像のヘッダー実読で突合）。
+// 自動生成＋実画像視認: 静電気(elec)章の画像→問題マッピング（章フォルダ全画像のヘッダー実読で突合）。
 // ドロップされたファイル名から紐付け先の問題(question_id)を引く。捨て問画像は含めない。
 // 変則:
 //  - 2問同居(0145,0150,0169,0181): 1画像に2問。上バンド=小番号(region 'top')/下バンド=大番号(region 'bottom')。
+//    0181(問38/39)だけ2問目の見出しが画像中央より上(実測 y=782/1640)にあり、既定の50%分割では
+//    問39の見出しが切れる。regionYPct=45 で境界を実レイアウト（問38の末尾572と問39の先頭782の間）に合わせる。
 //  - 解答またがり(0155+0156=問13, 0188+0189=問45, 0192+0193=問48, 0194+0195=問49,
 //    0214+0215=問68, 0218+0219=問71): 問題(sort 0)＋解答の続き(sort 1)で同一 questionId に2枚。
+//    ただし2枚目が常に「見開き丸ごと解答」とは限らず、レイアウトは問題ごとに異なる（下記 answerXPct 参照）。
+//  - 2枚組の1枚目が「見開き丸ごと問題」の型(問13/45/49/71): 右ページが選択肢の表や小問(a)(b)で、
+//    解答は次の見開きにある。answerXPct=100（マスクなし）にしないと選択肢まで隠れる。
+//  - 問48は(a)と(b)が別々の見開きにあるB問題。2枚とも「左=問題／右=解答」なので両方 answerXPct=50。
+//  - 問47は1枚の見開き内で「左=問題＋(a)／右上=(b)＋選択肢／右下=解答」。右ページは
+//    answerRightYPct=24（実測 選択肢の末尾315と解答見出しの先頭412の間）から下だけをマスクする。
 //  - 捨て問(問17/21/31/70 = 0160/0164/0173+0174/0217)はマッピングに含めない（MASTER未登録）。
 //    ※問31は捨て問だが見開き2画像(0173+0174)構成のため2枚とも除外。
 //  - 0187 は連番の欠番（スキャン番号の飛び。問題の抜けではない）。
@@ -25,8 +33,8 @@ export const ELEC_ASSETS: AssetMap = {
   'newIMG_0152.png': [{ questionId: 'elec_10', region: null, sort: 0 }],
   'newIMG_0153.png': [{ questionId: 'elec_11', region: null, sort: 0 }],
   'newIMG_0154.png': [{ questionId: 'elec_12', region: null, sort: 0 }],
-  // 解答またがり: 問13の問題文
-  'newIMG_0155.png': [{ questionId: 'elec_13', region: null, sort: 0 }],
+  // 問13: 1枚目は見開き丸ごと問題（右ページ=(ｱ)～(ｴ)の選択肢の表）→ マスクなし
+  'newIMG_0155.png': [{ questionId: 'elec_13', region: null, sort: 0, answerXPct: 100 }],
   // 解答またがり: 問13の解答の続き
   'newIMG_0156.png': [{ questionId: 'elec_13', region: null, sort: 1 }],
   'newIMG_0157.png': [{ questionId: 'elec_14', region: null, sort: 0 }],
@@ -53,28 +61,32 @@ export const ELEC_ASSETS: AssetMap = {
   'newIMG_0178.png': [{ questionId: 'elec_35', region: null, sort: 0 }],
   'newIMG_0179.png': [{ questionId: 'elec_36', region: null, sort: 0 }],
   'newIMG_0180.png': [{ questionId: 'elec_37', region: null, sort: 0 }],
-  // 2問同居: 問38(上)＋問39(下)
-  'newIMG_0181.png': [{ questionId: 'elec_38', region: 'top', sort: 0 }, { questionId: 'elec_39', region: 'bottom', sort: 0 }],
+  // 2問同居: 問38(上)＋問39(下)。分割位置は45%（既定50%だと問39の見出しが切れる）
+  'newIMG_0181.png': [
+    { questionId: 'elec_38', region: 'top', sort: 0, regionYPct: 45 },
+    { questionId: 'elec_39', region: 'bottom', sort: 0, regionYPct: 45 },
+  ],
   'newIMG_0182.png': [{ questionId: 'elec_40', region: null, sort: 0 }],
   'newIMG_0183.png': [{ questionId: 'elec_41', region: null, sort: 0 }],
   'newIMG_0184.png': [{ questionId: 'elec_42', region: null, sort: 0 }],
   'newIMG_0185.png': [{ questionId: 'elec_43', region: null, sort: 0 }],
   'newIMG_0186.png': [{ questionId: 'elec_44', region: null, sort: 0 }],
   // 0187 欠番
-  // 解答またがり: 問45の問題文
-  'newIMG_0188.png': [{ questionId: 'elec_45', region: null, sort: 0 }],
-  // 解答またがり: 問45の解答の続き
-  'newIMG_0189.png': [{ questionId: 'elec_45', region: null, sort: 1 }],
+  // 問45: 1枚目は見開き丸ごと問題（右ページ=(ｱ)～(ｳ)の選択肢の表）→ マスクなし
+  'newIMG_0188.png': [{ questionId: 'elec_45', region: null, sort: 0, answerXPct: 100 }],
+  // 問45: 2枚目が見開き丸ごと解答（左=解答／右=解説）
+  'newIMG_0189.png': [{ questionId: 'elec_45', region: null, sort: 1, answerXPct: 0 }],
   'newIMG_0190.png': [{ questionId: 'elec_46', region: null, sort: 0 }],
-  'newIMG_0191.png': [{ questionId: 'elec_47', region: null, sort: 0 }],
-  // 解答またがり: 問48の問題文＋(a)解答
-  'newIMG_0192.png': [{ questionId: 'elec_48', region: null, sort: 0 }],
-  // 解答またがり: 問48の(b)の続き
-  'newIMG_0193.png': [{ questionId: 'elec_48', region: null, sort: 1 }],
-  // 解答またがり: 問49の問題文
-  'newIMG_0194.png': [{ questionId: 'elec_49', region: null, sort: 0 }],
-  // 解答またがり: 問49の解答の続き
-  'newIMG_0195.png': [{ questionId: 'elec_49', region: null, sort: 1 }],
+  // 問47: 右ページの上部が小問(b)＋選択肢。解答は右ページの24%より下から始まる
+  'newIMG_0191.png': [{ questionId: 'elec_47', region: null, sort: 0, answerXPct: 50, answerRightYPct: 24 }],
+  // 問48(B問題): (a)の見開き＝左=問題文＋(a)／右=(a)の解答
+  'newIMG_0192.png': [{ questionId: 'elec_48', region: null, sort: 0, answerXPct: 50 }],
+  // 問48(B問題): (b)の見開き＝左=図＋(b)の問題文／右=(b)の解答（従来は解答続き扱いで(b)が隠れていた）
+  'newIMG_0193.png': [{ questionId: 'elec_48', region: null, sort: 1, answerXPct: 50 }],
+  // 問49: 1枚目は見開き丸ごと問題（右ページ=小問(a)(b)と選択肢）→ マスクなし
+  'newIMG_0194.png': [{ questionId: 'elec_49', region: null, sort: 0, answerXPct: 100 }],
+  // 問49: 2枚目が見開き丸ごと解答
+  'newIMG_0195.png': [{ questionId: 'elec_49', region: null, sort: 1, answerXPct: 0 }],
   'newIMG_0196.png': [{ questionId: 'elec_50', region: null, sort: 0 }],
   'newIMG_0197.png': [{ questionId: 'elec_51', region: null, sort: 0 }],
   'newIMG_0198.png': [{ questionId: 'elec_52', region: null, sort: 0 }],
@@ -99,10 +111,10 @@ export const ELEC_ASSETS: AssetMap = {
   'newIMG_0215.png': [{ questionId: 'elec_68', region: null, sort: 1 }],
   'newIMG_0216.png': [{ questionId: 'elec_69', region: null, sort: 0 }],
   // 0217.png = 問70 捨て問（H29-A2・コンデンサ接続と静電エネルギーの複合・対象外）
-  // 解答またがり: 問71の問題文
-  'newIMG_0218.png': [{ questionId: 'elec_71', region: null, sort: 0 }],
-  // 解答またがり: 問71の解答の続き
-  'newIMG_0219.png': [{ questionId: 'elec_71', region: null, sort: 1 }],
+  // 問71: 1枚目は見開き丸ごと問題（右ページ=(ｱ)～(ｳ)の選択肢の表）→ マスクなし
+  'newIMG_0218.png': [{ questionId: 'elec_71', region: null, sort: 0, answerXPct: 100 }],
+  // 問71: 2枚目が見開き丸ごと解答（左=解答・解説／右=MEMO）
+  'newIMG_0219.png': [{ questionId: 'elec_71', region: null, sort: 1, answerXPct: 0 }],
   'newIMG_0220.png': [{ questionId: 'elec_72', region: null, sort: 0 }],
   'newIMG_0221.png': [{ questionId: 'elec_73', region: null, sort: 0 }],
   'newIMG_0222.png': [{ questionId: 'elec_74', region: null, sort: 0 }],

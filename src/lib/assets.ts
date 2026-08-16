@@ -25,6 +25,12 @@ export interface AssetRef {
   // 未指定時の既定は sort で決める（sort=0→50 の問題見開き、sort>0→0 の解答続き）。
   answerXPct?: number
   answerYPct?: number // 短い問題で解答が左ページ下に始まる場合の縦位置(%)。既定100=標準
+  // 右ページの解答マスクを縦にずらす位置(%)。既定0=右ページ全体が解答。
+  // 右ページの上部が問題の続き（小問(b)や選択肢）で、その下から解答が始まる見開き用。
+  answerRightYPct?: number
+  // 2問同居画像(region top/bottom)の上下分割位置(%)。既定50=画像のちょうど半分。
+  // 2問目の見出しが中央にかからない画像は、この値で境界を実レイアウトに合わせる。
+  regionYPct?: number
 }
 
 // 取り込み時に DB へ書く answer_x_pct を決める。明示指定を優先し、
@@ -65,6 +71,8 @@ export interface QuestionAsset {
   region: Region
   answer_x_pct: number
   answer_y_pct: number
+  answer_right_y_pct: number
+  region_y_pct: number
   sort: number
 }
 
@@ -72,7 +80,7 @@ export interface QuestionAsset {
 export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> {
   const { data, error } = await supabase
     .from('denken_question_assets')
-    .select('storage_path, region, answer_x_pct, answer_y_pct, sort')
+    .select('storage_path, region, answer_x_pct, answer_y_pct, answer_right_y_pct, region_y_pct, sort')
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
   if (error) throw error

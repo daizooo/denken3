@@ -187,6 +187,9 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           // 解答マスクの横位置。1枚ごとに明示（B問題の(a)(b)分割・問題丸ごと/解答丸ごとページに対応）。
           answer_x_pct: defaultAnswerXPct(r),
           answer_y_pct: r.answerYPct ?? 100,
+          // 右ページ上部が問題の続きの見開き（解答は途中から）／2問同居の上下境界。
+          answer_right_y_pct: r.answerRightYPct ?? 0,
+          region_y_pct: r.regionYPct ?? 50,
         }))
         const ins = await supabase
           .from('denken_question_assets')
