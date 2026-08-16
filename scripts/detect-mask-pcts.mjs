@@ -25,6 +25,10 @@
 // 出力の見方: 判定が ok 以外の行だけ現物を確認すればよい。miss（見出し未検出）と
 // check（弱い手掛かりでの検出）は誤りうるので、npm run peek で署名付きURLを開いて確かめる。
 // Vision推論はここで明らかにおかしい値が出たときの例外対応に限定する。
+//
+// 注意: プロキシ必須の環境（Claude Code on the web のリモート実行環境など）では、
+// Node の組み込み fetch が HTTPS_PROXY を見ないため NODE_USE_ENV_PROXY=1 を付けて起動する。
+//   NODE_USE_ENV_PROXY=1 npm run detect-pcts -- --paper riron/r7-1
 import { createRequire } from 'node:module'
 import { basename, dirname, join, resolve } from 'node:path'
 import { readFile } from 'node:fs/promises'
@@ -115,29 +119,55 @@ function normalize(text) {
     .replace(/\s+/g, '')
 }
 
+// 見出し行の先頭には、OCRが【を読み違えた記号が連続して乗ることがある
+// （実データで確認: "|【ワンポイント解説】" のように「|」と「【」の2文字が連続する等）。
+// 行頭一致の判定はこれを剥がした上で行う。ただし数字は剥がさない——目次の「2. ワンポイント
+// 解説」のような行（実データに実在）が、数字ごと剥がすと見出しと区別できなくなり、
+// 【難易度】が検出できないページで誤って選ばれてしまう（実際に退行として発生・要修正済み）。
+// 括弧様の文字だけを対象にすることで、TOC行（数字始まり）は依然として弾かれる。
+const LEADING_NOISE = /^[[［「『【|(lI]{1,2}/
+
+function stripLeadingNoise(norm) {
+  return norm.replace(LEADING_NOISE, '')
+}
+
 // ---- 見出しの検出 --------------------------------------------------------
 // 電験王のページは見出しが【】で囲まれるが、OCRは 【 を [ | ( 「 などに読み違える。
 // また「解説→解誓」「紹介→細介」のような字形の近い誤読も出る。そこで
 // 「行頭が括弧様の文字＋キーワード」を strong、「本文中のどこかにキーワード」を weak とし、
 // 強い手掛かりを優先しつつ、弱い一致は判定に check を立てて人間の確認へ回す。
-const OPEN_BRACKET = '[\\[［「『【|(lI]'
+//
+// 見出し行と「本文中でその見出しへ言及する文」は、キーワードの有無だけでは区別できない。
+// 実データで実際に起きた誤検出：解説文が「ワンポイント解説「2. フレミングの左手の法則」の
+// 通り、…」のように見出し語を引用しながら長い1文として続くことがあり、OCRがこれを
+// 独立した行として切ってしまうと、行頭一致だけを見る判定は本文をそのまま見出しと誤認する。
+// 見出し行そのものは短い独立行（【難易度】★★☆(普通) や【ワンポイント解説】程度）である
+// ことを利用し、tiers に maxLen（正規化後の文字数上限）を持たせて長い文を弾く。
+const HEADING_MAX_LEN = 20 // 見出し単独行の想定文字数（【】+キーワード+補足で十分な余裕）
 
 const MARKERS = {
   // 【難易度】。ページタイトルにも「（難易度★★☆）」が入ることがあるため、
-  // 行頭が括弧＋難易度の strong を優先する（タイトルは行の途中に出るので weak にしかならない）。
+  // 行頭（先頭ノイズを剥がした上で）＋短い行 の strong を優先する
+  // （タイトルは長い1行の途中に出るので maxLen で自然に落ちる）。
+  // 3文字目（度）は当てにしない。実データ18枚のうち5枚で 度→友 / 度→搬 と誤読され、
+  // 3文字を必須にすると【難易度】行そのものを取りこぼした（★の並びが隣接するため、
+  // この行はOCR信頼度が 0〜34 と低く出る。位置さえ取れれば値は正しいので拾いに行く）。
+  // 「難易」の2文字は5枚すべてで正しく読めており、かつ問題文に現れない語なので誤検出は増えない。
   difficulty: {
     label: '【難易度】',
     tiers: [
-      { tier: 'strong', re: new RegExp(`^${OPEN_BRACKET}?[難錐][易昌][度渡]`) },
-      { tier: 'weak', re: /[難錐][易昌][度渡]/ },
+      { tier: 'strong', re: /^[難錐][易昌]/, maxLen: HEADING_MAX_LEN },
+      { tier: 'weak', re: /[難錐][易昌]/ },
     ],
   },
   // 【ワンポイント解説】。「解説」は誤読が多い（解誓など）ので後半は当てにしない。
   // 目次にも同じ語が出るが、目次は【難易度】より上にあるため位置制約で自然に落ちる。
+  // strong を短い行に限定するのは、本文中の「ワンポイント解説「N. …」の通り」引用
+  // （長い1文）を見出しと取り違えないため。
   onepoint: {
     label: '【ワンポイント解説】',
     tiers: [
-      { tier: 'strong', re: new RegExp(`^${OPEN_BRACKET}?ワ[ンソ][ポボ][イィ][ンソ][トド]`) },
+      { tier: 'strong', re: /^ワ[ンソ][ポボ][イィ][ンソ][トド]/, maxLen: HEADING_MAX_LEN },
       { tier: 'weak', re: /ワ[ンソ][ポボ][イィ][ンソ][トド]/ },
     ],
   },
@@ -169,7 +199,11 @@ function candidates(lines, marker) {
   const found = []
   for (const line of lines) {
     for (let i = 0; i < marker.tiers.length; i++) {
-      if (marker.tiers[i].re.test(line.norm)) { found.push({ line, tier: marker.tiers[i].tier, rank: i }); break }
+      const t = marker.tiers[i]
+      if (t.maxLen != null && line.norm.length > t.maxLen) continue
+      // 先頭ノイズを剥がした文字列で判定する。strong/weak を問わず、行頭アンカー(^)を
+      // 使う tier ほどこれが効く。「本文中のどこか」を見る tier（^ なし）には影響しない。
+      if (t.re.test(line.stripped)) { found.push({ line, tier: t.tier, rank: i }); break }
     }
   }
   return found.sort((a, b) => a.rank - b.rank || a.line.y0 - b.line.y0)
@@ -223,10 +257,13 @@ function cutBelow(target, lines, size) {
 
 function analyze(ocrLines, size) {
   const lines = ocrLines
-    .map(l => ({
-      y0: l.bbox.y0, y1: l.bbox.y1, text: l.text.trim(), norm: normalize(l.text),
-      conf: l.confidence, topPct: l.bbox.y0 / size.height * 100,
-    }))
+    .map(l => {
+      const norm = normalize(l.text)
+      return {
+        y0: l.bbox.y0, y1: l.bbox.y1, text: l.text.trim(), norm, stripped: stripLeadingNoise(norm),
+        conf: l.confidence, topPct: l.bbox.y0 / size.height * 100,
+      }
+    })
     .filter(l => l.norm.length > 0)
     .sort((a, b) => a.y0 - b.y0)
 
@@ -322,6 +359,16 @@ async function localTargets(files, paper) {
   }))
 }
 
+// Node の組み込み fetch は HTTPS_PROXY を既定では見ない。プロキシ必須の環境
+// （Claude Code on the web のリモート実行環境など）では通信が届かず fetch failed になるので、
+// 気付けるようにヒントを出す。手元のPCで動かすぶんには関係しない。
+function proxyHint(message) {
+  const looksNetwork = /fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|allowlist/i.test(message ?? '')
+  if (!looksNetwork || !process.env.HTTPS_PROXY) return ''
+  return '\n  ヒント: HTTPS_PROXY が設定された環境では Node の fetch がプロキシを使わない。' +
+    '\n  NODE_USE_ENV_PROXY=1 npm run detect-pcts -- ... のように指定して再実行する。'
+}
+
 /** Supabase に取り込み済みの画像を署名なしで直接ダウンロードする（Driveへ戻らない＝§2） */
 async function remoteTargets(paper, questionIds) {
   const url = process.env.SUPABASE_URL
@@ -331,16 +378,28 @@ async function remoteTargets(paper, questionIds) {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 
-  let query = supabase
-    .from('denken_question_assets')
-    .select('question_id, storage_path, question_start_pct, answer_y_pct, explanation_end_pct')
-  // question_id は科目をまたいで重複する（理論と機械の 'r6-2_b16' は別問題）ため、
-  // 年度別は必ず科目を含む storage_path で絞る（docs/data-correction-workflow.md §3）。
-  if (paper) query = query.like('storage_path', `%/papers/${paper.subjectId}/${paper.paperId}/%`)
-  if (questionIds.length > 0) query = query.in('question_id', questionIds)
+  const select = 'question_id, storage_path, question_start_pct, answer_y_pct, explanation_end_pct'
+  const run = async storagePathLike => {
+    let q = supabase.from('denken_question_assets').select(select)
+    if (storagePathLike) q = q.like('storage_path', storagePathLike)
+    if (questionIds.length > 0) q = q.in('question_id', questionIds)
+    const { data, error } = await q.order('storage_path', { ascending: true })
+    if (error) fail(`denken_question_assets の取得に失敗: ${error.message}${proxyHint(error.message)}`)
+    return data
+  }
 
-  const { data: rows, error } = await query.order('storage_path', { ascending: true })
-  if (error) fail(`denken_question_assets の取得に失敗: ${error.message}`)
+  let rows = []
+  if (paper) {
+    // question_id は科目をまたいで重複する（理論と機械の 'r6-2_b16' は別問題）ため、
+    // 年度別は必ず科目を含む storage_path で絞る（docs/data-correction-workflow.md §3）。
+    rows = await run(`%/papers/${paper.subjectId}/${paper.paperId}/%`)
+    // 理論は subjectId 導入前に取り込まれており、旧パス（{user_id}/papers/{paperId}/{filename}。
+    // subjectId セグメントが無い）に格納されている（PaperImage の legacyPaperImagePath と同じ
+    // フォールバック）。新パスで1件も無いときだけ試す＝新パスへの移行後は自然に使われなくなる。
+    if (rows.length === 0) rows = await run(`%/papers/${paper.paperId}/%`)
+  } else {
+    rows = await run(null)
+  }
   if (!rows || rows.length === 0) fail('対象の行が見つかりません（--paper / --question の指定と取り込み状況を確認してください）。')
 
   return Promise.all(rows.map(async row => {
