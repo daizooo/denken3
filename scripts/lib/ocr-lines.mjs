@@ -163,10 +163,61 @@ export function proxyHint(message) {
     '\n  NODE_USE_ENV_PROXY=1 を付けて再実行する。'
 }
 
-export async function createSupabase() {
+// 認証情報が「キーそのもの」ではなく「キーの書式を説明したプレースホルダ」になっていることが
+// 実際にあった（`<Secret key（sb_secret_XXXX…）>` のような文字列が環境変数に入っていた）。
+// この状態で走らせると、undici が Authorization ヘッダを組み立てられず
+//   TypeError: Cannot convert argument to a ByteString because the character at index 11 …
+// という原因の分からない例外になる。しかも OCR を回し切ったあとに出るので気付くのが遅い。
+// HTTPヘッダに載せられない値は先に弾き、何をどこで直せばよいかを出す。
+const HEADER_SAFE = /^[!-~]+$/ // 空白・制御文字・非ASCIIを含まない可視ASCIIのみ
+const PLACEHOLDER = /^<|>$|your[-_]|xxxx|ここに|＜|＞/i
+
+export function assertSupabaseCredentials() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) fail('SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を環境変数（または .env）で指定してください。')
+  const where = '.env（.gitignore 済み）か実行環境の環境変数'
+  if (!url || !key) {
+    fail(`SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を ${where} で指定してください（雛形は .env.example）。`)
+  }
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') throw new Error('https ではない')
+  } catch {
+    fail(`SUPABASE_URL が URL として読めません。https://<project-ref>.supabase.co の形で ${where} に設定してください。`)
+  }
+  if (!HEADER_SAFE.test(key) || PLACEHOLDER.test(key)) {
+    // 値そのものは出さない（秘密情報なので）。何が問題かだけを示す。
+    const reasons = []
+    if (!HEADER_SAFE.test(key)) reasons.push('空白・全角文字・記号など、HTTPヘッダに載せられない文字が含まれている')
+    if (PLACEHOLDER.test(key)) reasons.push('プレースホルダ（説明文・雛形）のまま置き換えられていない')
+    fail([
+      'SUPABASE_SERVICE_ROLE_KEY がキーの値になっていません。',
+      `  検出した問題: ${reasons.join(' / ')}（長さ ${key.length}）`,
+      `  Supabase ダッシュボード → Project Settings → API Keys の secret key（sb_secret_… ）を`,
+      `  引用符・括弧・説明文を付けずにそのまま ${where} へ貼り直してください。`,
+    ].join('\n'))
+  }
+  // 書式が既知のどちらでもない場合は止めない（将来キー形式が増えても動くように）。
+  // 実際のリクエストで Supabase 自身がエラーを返すので、そのときの手掛かりとして出しておく。
+  const known = /^sb_(secret|publishable)_/.test(key) || /^eyJ[\w-]*\.[\w-]*\./.test(key)
+  if (!known) {
+    console.error('⚠ SUPABASE_SERVICE_ROLE_KEY が既知の形式（sb_secret_… / JWT）ではありません。認証に失敗したらここを疑ってください。')
+  }
+  if (key.startsWith('sb_publishable_')) {
+    console.error('⚠ publishable キーのようです。非公開バケットの読み出しには secret キー（RLS を bypass）が要ります。')
+  }
+  return { url, key }
+}
+
+/** 認証まわりのエラーに、原因の当たりを付けるヒントを足す */
+export function authHint(message) {
+  if (!/invalid api key|jwt|unauthorized|permission denied|row-level security|not authorized/i.test(message ?? '')) return ''
+  return '\n  ヒント: SUPABASE_SERVICE_ROLE_KEY が secret キー（sb_secret_… ）か確認する。' +
+    '\n  publishable / anon キーでは非公開バケットも denken_question_assets も読めない。'
+}
+
+export async function createSupabase() {
+  const { url, key } = assertSupabaseCredentials()
   const { createClient } = await import('@supabase/supabase-js')
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
@@ -178,13 +229,13 @@ export async function selectAssets(supabase, { pathLike, columns }) {
     .select(columns)
     .like('storage_path', pathLike)
     .order('storage_path', { ascending: true })
-  if (error) fail(`denken_question_assets の取得に失敗: ${error.message}${proxyHint(error.message)}`)
+  if (error) fail(`denken_question_assets の取得に失敗: ${error.message}${authHint(error.message)}${proxyHint(error.message)}`)
   return data ?? []
 }
 
 /** 非公開バケットから画像本体を落とす（署名URLを介さない＝service role 前提） */
 export async function downloadImage(supabase, storagePath) {
   const { data, error } = await supabase.storage.from(BUCKET).download(storagePath)
-  if (error) fail(`${storagePath} のダウンロードに失敗: ${error.message}${proxyHint(error.message)}`)
+  if (error) fail(`${storagePath} のダウンロードに失敗: ${error.message}${authHint(error.message)}${proxyHint(error.message)}`)
   return { name: basename(storagePath), buffer: Buffer.from(await data.arrayBuffer()) }
 }

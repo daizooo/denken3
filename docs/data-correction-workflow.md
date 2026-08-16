@@ -210,3 +210,17 @@ npm run detect-layout -- --chapter elec ./elec/*.png --map  # 未取り込みの
   DBの構造を壊す経路を作らない（設計書 §3）。
 - **実データでの精度はまだ測っていない。** 合成フィクスチャ9ケースのみで確認済み。
   実キーのある環境で9章スイープを回すのが次の一手（設計書 §5・§7）。
+
+### E. 認証情報の事前チェック（全スクリプト共通）
+- `SUPABASE_SERVICE_ROLE_KEY` に、キーではなく**キーの書式を説明したプレースホルダ**
+  （`<Secret key（sb_secret_XXXX…）>` のような文字列）が入っていた事故があった。この値では
+  undici が Authorization ヘッダを組み立てられず、
+  `TypeError: Cannot convert argument to a ByteString …` という原因の分からない例外になる。
+  しかも OCR を回し切ったあとに出るため気付くのが遅い。
+- `peek` / `detect-pcts` / `detect-layout` は起動時に認証情報を検査し、
+  **HTTPヘッダに載せられない値・プレースホルダのままの値をその場で弾く**
+  （`scripts/lib/ocr-lines.mjs` の `assertSupabaseCredentials`）。
+  何が問題かと、どこから貼り直すかを表示する（キーの値自体は表示しない）。
+- 認証エラー（`Invalid API key` 等）には「secret キーか？publishable/anon では読めない」旨の
+  ヒントを添える。キーは Supabase ダッシュボード → Project Settings → API Keys から、
+  **括弧や説明文を付けずにそのまま** `.env` か実行環境の環境変数へ置く（雛形は `.env.example`）。

@@ -134,7 +134,12 @@ npm run detect-layout -- --chapter elec ./elec/*.png --map
 ### 実データ未検証（重要）
 
 **収録済み9章472枚での検証はまだ行っていない。** この作業環境の
-`SUPABASE_SERVICE_ROLE_KEY` がプレースホルダで、Storage の実画像を取得できなかったため。
+`SUPABASE_SERVICE_ROLE_KEY` に、キーではなく**キーの書式を説明したプレースホルダ**
+（`<Secret key（sb_secret_XXXX…）>` のような文字列）が入っており、Storage の実画像を
+取得できなかったため。`SUPABASE_URL` は正しく、プロジェクトも生きている（HTTP 401 が返る）。
+再発防止として、認証情報の事前チェックを全スクリプトに入れた
+（`docs/data-correction-workflow.md` §5-E）。**正しい secret キーを設定すれば、
+下記のスイープはそのまま流せる。**
 
 PR#101 では、潰した誤検出4件のうち**3件が合成フィクスチャでは再現せず実データで初めて出た**
 （本文中の「紹介」で切る／バナーがOCRできない／本文の引用を見出しと誤認）。同じことが
