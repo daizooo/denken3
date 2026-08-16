@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { ASSET_MAP, BUCKET, chapterOf, storagePath, defaultAnswerXPct } from '../lib/assets'
 import { DEFAULT_EXAM_ID, subjectDefsOf } from '../data/registry'
 import { legacyPaperImagePath, paperImagePath } from '../lib/mock'
+import ReplacePanel from './ReplacePanel'
 import type { PaperDefinition, PaperQuestion } from '../domain/types'
 
 // 一度きりの取り込みツール。
@@ -15,8 +16,13 @@ import type { PaperDefinition, PaperQuestion } from '../domain/types'
 // 例: 理論と電力の 'r7-2' を区別するため 'riron/r7-2' / 'denryoku/r7-2' とする。
 const paperKey = (p: PaperDefinition) => `${p.subjectId}/${p.id}`
 
+// 「差し替え」＝取り込み済みの1問だけ画像を上書きする単発修正モード（ReplacePanel・§5-C）。
+const MODE_LABELS: Record<'bunya' | 'nendo' | 'replace', string> = {
+  bunya: '分野別', nendo: '年度別（CBT模試）', replace: '差し替え',
+}
+
 export default function ImportPanel({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [mode, setMode] = useState<'bunya' | 'nendo'>('bunya')
+  const [mode, setMode] = useState<'bunya' | 'nendo' | 'replace'>('bunya')
   // 年度別モードで選択中のペーパー。科目別に一覧を出し、subjectId+paperId の複合キーで保持する
   // （id だけだと科目跨ぎで衝突し、理論のペーパーに固定されてしまう）。
   const subjectDefs = useMemo(() => subjectDefsOf(DEFAULT_EXAM_ID), [])
@@ -223,13 +229,13 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
         <div className="p-4 space-y-3">
           {/* 取り込みモード */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {(['bunya', 'nendo'] as const).map(m => (
+            {(['bunya', 'nendo', 'replace'] as const).map(m => (
               <button key={m}
                 onClick={() => { setMode(m); setLog([]); setProgress(null) }}
                 className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
                   mode === m ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
                 }`}
-              >{m === 'bunya' ? '分野別' : '年度別（CBT模試）'}</button>
+              >{MODE_LABELS[m]}</button>
             ))}
           </div>
 
@@ -241,7 +247,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
               <br />
               <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気・電気計測・電子理論・電子回路）</span>
             </p>
-          ) : (
+          ) : mode === 'nendo' ? (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 leading-relaxed">
                 電験王ページを1問1枚でキャプチャした元画像（問題・ワンポイント解説・解答が縦に並んだまま）を
@@ -302,8 +308,12 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
                 )
               })()}
             </div>
+          ) : (
+            <ReplacePanel userId={userId} />
           )}
 
+          {/* 差し替えは1枚ずつ確認して上書きするため、一括取り込み用のドロップ領域・進捗は隠す。 */}
+          {mode !== 'replace' && (<>
           <div
             onClick={() => inputRef.current?.click()}
             onDragOver={e => e.preventDefault()}
@@ -345,6 +355,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
               ))}
             </div>
           )}
+          </>)}
         </div>
       </div>
     </div>
