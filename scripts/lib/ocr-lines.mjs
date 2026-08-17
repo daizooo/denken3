@@ -139,11 +139,15 @@ export function rowsFromWords(words, size) {
     }
   }
   return rows.map(r => {
-    const text = [...r.words].sort((a, b) => a.x0 - b.x0).map(w => w.text).join(' ').trim()
+    const words = [...r.words].sort((a, b) => a.x0 - b.x0)
+    const text = words.map(w => w.text).join(' ').trim()
     const norm = normalize(text)
     return {
       x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y1,
       text, norm, stripped: stripLeadingNoise(norm),
+      // 個々の語（x0昇順）。行のテキストを結合すると失われる「語単体では数字だけ」という
+      // 情報を、見出し検出（bunya-layout の badgeNumber）が使う。
+      words,
       conf: r.words.reduce((s, w) => s + w.conf, 0) / r.words.length,
       topPct: r.y0 / size.height * 100,
       leftPct: r.x0 / size.width * 100,
