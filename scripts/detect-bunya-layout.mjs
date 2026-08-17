@@ -34,7 +34,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
 import {
-  createSupabase, downloadImage, fail, ocrAll, rowsFromWords, selectAssets, traineddataVariant,
+  createSupabase, downloadImage, fail, normalize, ocrAll, rowsFromWords, selectAssets, traineddataVariant,
 } from './lib/ocr-lines.mjs'
 
 // ---- CLI ----------------------------------------------------------------
@@ -69,35 +69,68 @@ function parseArgs(argv) {
 }
 
 // ---- 見出しの検出 --------------------------------------------------------
-// 分野別の見開きは、左ページの左上に「問N 表題 （出典）」の見出しがあり、右ページに
-// 「解答」「解説」の見出しが来る（docs/problem-data-integration.md §2）。
-// 日本語OCRは 問→間/冏、解→鮮、答→荅 のように読み違えるので、崩れても拾える形にする。
+// 分野別の見開きは、左ページの左上に「バッジ（章タイトル＋問番号）＋表題＋出典コード」の
+// 見出しがあり、右ページに「章タイトル＋問番号＋の解答」の見出しが来る
+// （docs/problem-data-integration.md §2、docs/design/bunya-anomaly-detection.md §5・§8）。
 //
-// !!! 退行（2026-08-16・実データ7章357枚で検証、docs/design/bunya-anomaly-detection.md §5） !!!
-// 上記の前提は実データと違う。実際の見出しバッジは「問N」ではなく「章タイトル＋N」で、
-// 「問」の字を含まない（例: dc/newIMG_0283.png = "直流回路1抵抗直列回路"、
-// trans/newIMG_0458.png = "過渡現象1アア直列回路"）。右ページの解答見出しも
+// !!! 退行（2026-08-16・実データ7章357枚で検証、design doc §5） !!!
+// 当初の実装は見出しを「問N 表題 （出典）」（行頭が「問」）だと仮定していたが、実データの
+// バッジは「章タイトル＋N」で「問」の字を含まない（例: dc/newIMG_0283.png = "直流回路1抵抗
+// 直列回路"、trans/newIMG_0458.png = "過渡現象1アア直列回路"）。右ページの解答見出しも
 // 「章タイトル＋N＋の解答」で始まり「解」で始まらない（elec/newIMG_0145.png =
-// "静電気1の解答答え(3"）。そのため下記の QUESTION_HEADER・ANSWER_HEADING は実データの
-// 357枚中352枚で不一致になり、全て analyze() の分岐(1)（ヘッダ0個 → continuation）に落ちる
-// （check率98.6%、目標22%の4.5倍）。章タイトル文字列に緩める対症療法はしていない
-// （タイトルバッジ自体が反転配色でOCRに一語も乗らない画像がある＝elec/newIMG_0145.png。
-// 正規表現の問題ではなく画像側の前処理が要る）。次の一手は同ドキュメント §7 参照。
-// このコメントは、直すときに「なぜ問Nを前提にしていたか」を辿れるよう残す。
+// "静電気1の解答答え(3"）。そのため QUESTION_HEADER・ANSWER_HEADING は実データの357枚中
+// 352枚で不一致になり、全て analyze() の分岐(1)（ヘッダ0個→continuation）に落ちていた
+// （check率98.6%、目標22%の4.5倍）。
+//
+// !!! 再設計（2026-08-17・design doc §8） !!!
+// 章タイトル文字列そのものには（章ごとに違い、しかもOCRで安定して読めないため）もう頼らない。
+// 代わりに章タイトルに依存しない2つの手掛かりを使う。
+//   1. バッジの問番号は独立した語として現れることが多い（"直流回路1" の "1" が別語に切れる。
+//      実データ dc/newIMG_0283.png で確認済み）。語単位で「数字だけの語」をバッジ列（左ページ
+//      左35%）から探す（BARE_NUMBER）。ただしこれだけでは本文の左端に紛れた数字（箇条書きの
+//      番号など）を誤って拾う恐れがある（design doc §7 の懸念(b)）ため、出典コード
+//      （SOURCE_CODE）が近くにあることを裏取りにする（badge 検出本体は analyze() 内）。
+//      出典コードは本文には出てこない書式なので、これがない行は見出しとして採用しない。
+//   2. 右ページの解答見出しは章タイトルが変わっても語尾が「…の解答」で共通（ANSWER_SUFFIX）。
+//      バッジの「答え(N)」表示も同じ理由で使える（ANSWER_MARK）。
+// 「問N」形式（QUESTION_HEADER）・行頭「解」（ANSWER_HEADING）は後方互換として残す
+// （分野別の別シリーズ——電力・機械・法規、design doc §6 限界2——がこの版面と違う書式を
+// 使う可能性があるため）。
 
-// 問ヘッダ。行頭が「問」＋数字であることだけを必須にする（表題はOCRの当てにならない）。
-// 本文中の「問13と同様に」を拾う可能性は残るが、ページ内の位置とセットで判定するので
-// 誤検出は check として人間へ回る（値を勝手に確定しないので実害が小さい側に倒す）。
+// 独立した数字だけの語（1〜3桁）。バッジの問番号候補。
+const BARE_NUMBER = /^[0-9]{1,3}$/
+// 問ヘッダ（後方互換）。行頭が「問」＋数字であることを必須にする。
 const QUESTION_HEADER = /^[問間冏悶]([0-9]{1,3})(?![0-9])/
-// 出典コード（H26-B17 / R1-A15 / R5下-B18）。英数字はOCRの信頼度が高く、問ヘッダの裏取りに使える。
-const SOURCE_CODE = /([HR])([0-9]{1,2})([上下]?)[-‐−ー―]?([AB])([0-9]{1,2})/
-// 解答・解説の見出し。行頭に来るものだけを見る（本文中の「解説する」を拾わない）。
+// 出典コード（H26-B17 / R1-A15 / R5下-B18）。OCRは "H"/"R" と数字の間にノイズ文字を1つ挟んだり
+// （dc/newIMG_0283.png: "H10-A5"→"Hi10-A5"）、区切りのハイフンを別の記号に読み違えたり
+// （dc/newIMG_0296.png: "H26-A6"→"H26_A6"）、"A"/"B" を似た形の文字に読み違えたりする
+// （dc/newIMG_0286.png: "H25-A5"→"H25-Z5"）。裏取りにしか使わない値なので、多少緩めても
+// 実害は小さい側（見出しが増える＝目視が増える）に倒れる。
+const SOURCE_CODE = /([HR])[A-Za-z]?([0-9]{1,2})([上下]?)[-‐−ー―_]?([A-Z])([0-9]{1,2})/
+// 解答・解説の見出し（後方互換。行頭が「解」であることを必須にする）。
 const ANSWER_HEADING = /^(解[答荅签]|解[説説誓]|答[ええ]|【解)/
+// 「…の解答」（章タイトルに関わらず共通の語尾。行中どこにあってもよい）。
+const ANSWER_SUFFIX = /の解[答荅签]/
+// 解答見出しバッジの「答え(N)」表示。
+const ANSWER_MARK = /答[ええ]\s*[(（]\s*[0-9]{1,2}/
 
-/** 行が問ヘッダなら問番号を返す */
-function headerNumber(line) {
-  const m = QUESTION_HEADER.exec(line.stripped)
-  return m ? Number(m[1]) : null
+// 一部の実データはにじみ・二重露光と見られる劣化で、1文字ずつ二重に読まれる
+// （dc/newIMG_0290.png: "直流回路8の解答え(3" が "直直流:回路88のの解解答答えぇ(33" になる）。
+// 見出しの有無だけを見る判定はこれに巻き込まれると解答見出しを取りこぼすので、連続する
+// 同じ文字を1つに畳んだ文字列でも試す。値を取り出す判定（問番号・出典コード）には使わない
+// ——"11"のような正規の連続数字を壊してしまうため、存在確認だけに限定する。
+function collapseRepeats(text) {
+  return text.replace(/(.)\1+/gu, '$1')
+}
+
+function matchesAnswerPattern(text) {
+  return ANSWER_HEADING.test(text) || ANSWER_SUFFIX.test(text) || ANSWER_MARK.test(text)
+}
+
+function isAnswerHeading(line) {
+  if (matchesAnswerPattern(line.stripped)) return true
+  const collapsed = collapseRepeats(line.stripped)
+  return collapsed !== line.stripped && matchesAnswerPattern(collapsed)
 }
 
 function sourceCode(line) {
@@ -189,14 +222,20 @@ function analyze({ words, size }, master) {
   const rightLines = rowsFromWords(words.filter(w => !onLeft(w)), size)
 
   // 問ヘッダは左ページにしか無い。左端寄りで始まる行に限って拾い、本文の折返しを除く。
-  const headers = leftLines
-    .filter(l => l.x0 / splitX < 0.35)
-    .map(l => ({ line: l, number: headerNumber(l) }))
-    .filter(h => h.number != null)
-    .map(h => ({ ...h, source: sourceCode(h.line) ?? nearbySource(leftLines, h.line) }))
+  // 「難易度／重要度／出典コード」の行自体（バッジのすぐ下、同じくらい左端寄り）は見出し行では
+  // ないので、出典コードが自分の行に直接乗っている行は除く（badgeNumber の裏取りに使う
+  // nearbySource がこの行を別途見つける）。
+  const headers = mergeWrappedHeaders(
+    leftLines
+      .filter(l => l.x0 / splitX < 0.35)
+      .filter(l => !sourceCode(l))
+      .map(l => badgeHeader(l, leftLines))
+      .filter(h => h != null),
+    size,
+  )
 
-  const answersRight = rightLines.filter(l => ANSWER_HEADING.test(l.stripped))
-  const answersLeft = leftLines.filter(l => ANSWER_HEADING.test(l.stripped))
+  const answersRight = rightLines.filter(isAnswerHeading)
+  const answersLeft = leftLines.filter(isAnswerHeading)
 
   const notes = []
   if (!gutter) notes.push('綴じ目を検出できず（単ページ／中央に図がまたがる可能性）')
@@ -254,13 +293,80 @@ function analyze({ words, size }, master) {
     return null
   }
 
+  /**
+   * バッジ列の行1つが見出しかどうかを判定し、見出しなら { line, number, source } を返す
+   * （見出しでなければ null）。判定の優先順位:
+   *   1. 「問N」形式（QUESTION_HEADER）は行だけで自己完結するのでそのまま採用。
+   *   2. それ以外は、近くに出典コードが無い限り採用しない——出典コードは本文には出てこない
+   *      書式なので、これを裏取りにすることで本文左端の数字（箇条書きの番号など）を誤って
+   *      見出しと判定するリスクを抑える（design doc §7 の懸念(b)）。
+   *      「直前の行との空白の広さ」も裏取りの候補として試したが、図版の直後（本文が無く
+   *      OCRの語も無い）や、ページ下端の柱（ノンブル）の直前も広い空白になるため、実データ
+   *      7章で誤検出が大量に出た（design doc §8 の再設計メモ）。採用しない。
+   *   採用した行から、バッジの問番号を拾う。章タイトルの文字列そのものはあてにしない
+   *   （design doc §8）。数字が拾えなければ番号は null のまま返し、finish() 側で目視に回す。
+   */
+  function badgeHeader(line, all) {
+    const legacy = QUESTION_HEADER.exec(line.stripped)
+    if (legacy) return { line, number: Number(legacy[1]), source: nearbySource(all, line) }
+    const source = nearbySource(all, line)
+    if (!source) return null
+    return { line, number: badgeNumber(line), source }
+  }
+
+  /**
+   * バッジの問番号を取り出す。「独立した数字だけの語」（"直流回路1" の "1" が別語に切れる、
+   * dc/newIMG_0283.png で確認）を優先し、章タイトルと数字がOCRで1語にくっついた場合
+   * （"静電気2" のように空白が入らない、elec/newIMG_0145.png で確認）は行の先頭2語だけを見て
+   * 数字で始まる語を拾う（バッジの番号は行の先頭に来る。表題の途中に出る数字を誤って拾わない
+   * よう先頭付近に絞る）。
+   */
+  function badgeNumber(line) {
+    const bare = line.words.find(w => BARE_NUMBER.test(normalize(w.text)))
+    if (bare) return Number(normalize(bare.text))
+    for (const w of line.words.slice(0, 2)) {
+      const m = /^([0-9]{1,3})/.exec(normalize(w.text))
+      if (m) return Number(m[1])
+    }
+    return null
+  }
+
+  /**
+   * バッジの表題が2行に折り返す版面がある（実データ elec/newIMG_0146.png:
+   * "点電荷による電位・電界／電気力線・電束／静電容量"）。折返し2行目もバッジ列に収まり、
+   * 同じ出典コードを裏取りに見つけてしまうため、badgeHeader() だけでは同じバッジが2つの
+   * 見出しとして重複検出される。出典コードが同じで行間がバッジ内の行送り程度（本物の2問同居は
+   * §1 の実測どおり見出し同士がページの上下に離れる）しか無い候補は同一バッジの続きとみなし、
+   * 番号が読めている方を残して統合する。
+   */
+  function mergeWrappedHeaders(list, size) {
+    const WRAP_GAP_PCT = 6
+    const merged = []
+    for (const h of [...list].sort((a, b) => a.line.y0 - b.line.y0)) {
+      const prev = merged.at(-1)
+      const gapPct = prev ? (h.line.y0 - prev.line.y1) / size.height * 100 : Infinity
+      if (prev && prev.source && prev.source === h.source && gapPct < WRAP_GAP_PCT) {
+        if (prev.number == null) prev.number = h.number
+        prev.line = { ...prev.line, y1: Math.max(prev.line.y1, h.line.y1) }
+      } else {
+        merged.push({ ...h })
+      }
+    }
+    return merged
+  }
+
   function finish(r, kind, values, extraNotes) {
     r.kind = kind
     r.values = values
     r.notes = [...r.notes, ...extraNotes]
-    // 捨て問（MASTER 未登録）の判定は問番号が取れたときだけ意味がある。
+    // 捨て問（MASTER 未登録）の判定は問番号が取れたときだけ意味がある。バッジは検出できても
+    // 番号が読み取れない行があれば、既定値を当てず目視に回す（design doc §4 の非目標）。
     r.questionNumbers = r.headers.map(h => h.number)
-    r.unknownNumbers = master ? r.questionNumbers.filter(n => !master.has(n)) : []
+    const knownNumbers = r.questionNumbers.filter(n => n != null)
+    r.unknownNumbers = master ? knownNumbers.filter(n => !master.has(n)) : []
+    if (knownNumbers.length < r.questionNumbers.length) {
+      r.notes.push('バッジの問番号を読み取れず（見出し自体は検出）。目視で確認')
+    }
     if (r.unknownNumbers.length > 0) {
       r.notes.push(`捨て問候補: 問${r.unknownNumbers.join('・問')} は MASTER 未登録`)
     }
@@ -387,7 +493,7 @@ function printTable(targets, results, verbose) {
   console.log('-'.repeat(width + 50))
   for (const [i, t] of targets.entries()) {
     const r = results[i]
-    const qs = r.questionNumbers?.length ? r.questionNumbers.map(n => `問${n}`).join('+') : '—'
+    const qs = r.questionNumbers?.length ? r.questionNumbers.map(n => n != null ? `問${n}` : '問?').join('+') : '—'
     const gutter = r.gutter ? `${r.gutter.pct.toFixed(1)}%` : '—'
     console.log(
       `${pad(t.name, width)}  ${pad(KIND_LABEL[r.kind], 12)}  ${pad(qs, 9)}  ${gutter.padStart(6)}  ` +
@@ -433,8 +539,9 @@ function printMap(targets, results, chapter) {
       continue
     }
     sort = 0
-    if (r.questionNumbers.length === 0) {
-      console.log(`  // ${t.name}: 問ヘッダを取れず（${KIND_LABEL[r.kind]}）。目視で question_id を決めること`)
+    // バッジ自体は検出しても番号が読めない行が1つでもあれば、question_id を組み立てられない。
+    if (r.questionNumbers.length === 0 || r.questionNumbers.some(n => n == null)) {
+      console.log(`  // ${t.name}: 問番号を読み取れず（${KIND_LABEL[r.kind]}）。目視で question_id を決めること`)
       continue
     }
     // 捨て問（MASTER 未登録）は登録しない＝行を出さない。コメントとして残し、
