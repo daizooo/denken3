@@ -199,7 +199,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     if (!fileList || busy || !chapter) return
     const chapterCode = chapter.code
     const all = Array.from(fileList)
-    const resolved = all.map(f => ({ file: f, hit: resolveBunyaFile(chapterCode, f.name) }))
+    const map = CHAPTER_ASSET_MAPS[chapterCode]
+    const resolved = all.map(f => ({ file: f, hit: resolveBunyaFile(chapterCode, map, f.name) }))
     const targets = resolved.filter(
       (r): r is { file: File; hit: ResolvedBunyaFile } => r.hit !== undefined,
     )

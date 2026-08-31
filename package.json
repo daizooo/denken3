@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "peek": "node scripts/peek-asset.mjs",
     "detect-pcts": "node --env-file-if-exists=.env scripts/detect-mask-pcts.mjs",
-    "detect-layout": "node --env-file-if-exists=.env scripts/detect-bunya-layout.mjs"
+    "detect-layout": "node --env-file-if-exists=.env scripts/detect-bunya-layout.mjs",
+    "import-bunya": "node --env-file-if-exists=.env scripts/import-bunya.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
