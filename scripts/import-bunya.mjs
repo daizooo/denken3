@@ -134,18 +134,38 @@ const { url, key } = assertSupabaseCredentials()
 const { createClient } = await import('@supabase/supabase-js')
 const supabase = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 
+// 接続先が本当にこのアプリのプロジェクトかを、1枚も上げる前に確かめる。
+// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY は別プロジェクトのものが入っていることがあり
+// （実際に取り違えた環境変数を踏んだ）、そのまま走ると他プロジェクトへ書きに行ってしまう。
+const projectRef = (process.env.SUPABASE_URL.match(/https:\/\/([a-z0-9]+)\./) ?? [])[1] ?? '(不明)'
+async function preflight() {
+  const problems = []
+  const { error: be } = await supabase.storage.getBucket(BUCKET)
+  if (be) problems.push(`バケット ${BUCKET} が見つからない（${be.message}）`)
+  const { data, error: te } = await supabase.from('denken_question_assets').select('user_id').limit(1000)
+  if (te) problems.push(`テーブル denken_question_assets が見つからない（${te.message}）`)
+  if (problems.length > 0) {
+    fail([
+      `接続先プロジェクト ${projectRef} はこのアプリのプロジェクトではないようです:`,
+      ...problems.map(x => `  - ${x}`),
+      '  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY が別プロジェクトのものになっていないか確認してください。',
+    ].join('\n'))
+  }
+  return data ?? []
+}
+const existing = await preflight()
+console.log(`接続先プロジェクト: ${projectRef}`)
+
 // 投入先の user_id。明示指定が無ければ、既存データの user_id が1人だけのときのみ自動で使う
 // （複数いる場合に取り違えて他人の領域へ書かないよう、必ず止める）。
-async function resolveUserId() {
+function resolveUserId() {
   if (userArg) return userArg
-  const { data, error } = await supabase.from('denken_question_assets').select('user_id').limit(1000)
-  if (error) fail(`user_id を特定できません: ${error.message}${authHint(error.message)}`)
-  const ids = [...new Set((data ?? []).map(r => r.user_id))]
+  const ids = [...new Set(existing.map(r => r.user_id))]
   if (ids.length === 1) return ids[0]
   fail(`--user で投入先の user_id を指定してください（既存データから一意に決められません: ${ids.length} 件）。`)
 }
-const userId = await resolveUserId()
-console.log(`\n投入先 user_id: ${userId}`)
+const userId = resolveUserId()
+console.log(`投入先 user_id: ${userId}`)
 
 // 取り込み時に DB へ書く answer_x_pct（src/lib/assets.ts の defaultAnswerXPct と同じ既定）。
 const answerXPctOf = (r) => r.answerXPct ?? (r.sort > 0 ? 0 : 50)

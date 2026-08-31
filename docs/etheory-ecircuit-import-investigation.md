@@ -143,6 +143,11 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
 - 章コードは `src/data/*Assets.ts` の存在から引くので、章を足してもスクリプトの修正は不要。
 - 認証情報の扱いは既存スクリプト（`peek-asset` / `detect-pcts`）と同じ
   `assertSupabaseCredentials()` に揃えた。service key はリポジトリに置かない。
+- **1枚も上げる前に接続先プロジェクトを確かめる**（バケット `denken-problems` と
+  テーブル `denken_question_assets` の存在を確認し、無ければ ref 付きで止まる）。
+  `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` に別プロジェクトのものが入っている状況は
+  実在した（このリポジトリのリモート実行環境の環境変数は別プロジェクト `nbkpwjtkkiaklewtegzh`
+  のものだった）ため、`--user` を明示した場合でも必ず通る位置に置いている。
 
 ### 3.2 ファイル名の解決規則（`src/lib/bunyaFilename.ts`・新規）
 
@@ -203,8 +208,11 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
 
 ## 5. 残作業
 
-画像の実投入は、**service role キーを持つ手元の環境で**下記を実行するだけ。
-service key はリポジトリにも外部にも出さない方針（§5 の但し書き）のため、ここは手元作業になる。
+画像の実投入は、**denken3 プロジェクトの service role キーが使える環境で**下記を実行するだけ。
+
+> リモート実行環境（Claude Code on the web）の `SUPABASE_URL` /
+> `SUPABASE_SERVICE_ROLE_KEY` は**別プロジェクト（`nbkpwjtkkiaklewtegzh`）のもの**が
+> 設定されており、denken3 へは書き込めない。上記の接続先チェックで止まる。
 
 ```
 # ⑧電子理論・⑨電子回路 を GoogleDrive からローカルへ落としてから
