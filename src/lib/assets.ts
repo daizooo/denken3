@@ -42,8 +42,23 @@ export function defaultAnswerXPct(ref: AssetRef): number {
 /** ファイル名 -> そのファイルが対応する問題（2問同居なら複数） */
 export type AssetMap = Record<string, AssetRef[]>
 
-// 章ごとのマッピングを統合（章を増やしたらここへ足す）
-export const ASSET_MAP: AssetMap = { ...DC_ASSETS, ...AC1_ASSETS, ...TRANS_ASSETS, ...AC3_ASSETS, ...ELEC_ASSETS, ...MAG_ASSETS, ...MEAS_ASSETS, ...ETHEORY_ASSETS, ...ECIRCUIT_ASSETS }
+// 章コード -> その章のマッピング（章を増やしたらここへ足す）。
+// 取り込みは必ず章を1つ選んで行うため、ファイル名の解決はこの章スコープで引く
+// （`問1.png` のような章ローカルな命名は章をまたぐと一意にならないため・src/lib/bunyaFilename.ts）。
+export const CHAPTER_ASSET_MAPS: Record<string, AssetMap> = {
+  dc: DC_ASSETS,
+  ac1: AC1_ASSETS,
+  trans: TRANS_ASSETS,
+  ac3: AC3_ASSETS,
+  elec: ELEC_ASSETS,
+  mag: MAG_ASSETS,
+  meas: MEAS_ASSETS,
+  etheory: ETHEORY_ASSETS,
+  ecircuit: ECIRCUIT_ASSETS,
+}
+
+// 全章を統合したマッピング（「問題を見る」ボタンの表示判定・件数表示に使う）。
+export const ASSET_MAP: AssetMap = Object.assign({}, ...Object.values(CHAPTER_ASSET_MAPS))
 
 export const BUCKET = 'denken-problems'
 

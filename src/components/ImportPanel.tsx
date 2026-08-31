@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { ASSET_MAP, BUCKET, chapterOf, storagePath, defaultAnswerXPct } from '../lib/assets'
+import { BUCKET, CHAPTER_ASSET_MAPS, storagePath, defaultAnswerXPct } from '../lib/assets'
+import { resolveBunyaFile, type ResolvedBunyaFile } from '../lib/bunyaFilename'
 import { DEFAULT_EXAM_ID, subjectDefsOf } from '../data/registry'
 import { legacyPaperImagePath, paperImagePath } from '../lib/mock'
 import ReplacePanel from './ReplacePanel'
@@ -26,6 +27,14 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   // 年度別モードで選択中のペーパー。科目別に一覧を出し、subjectId+paperId の複合キーで保持する
   // （id だけだと科目跨ぎで衝突し、理論のペーパーに固定されてしまう）。
   const subjectDefs = useMemo(() => subjectDefsOf(DEFAULT_EXAM_ID), [])
+  // 分野別: マッピングを持つ章だけを取り込み対象として並べる。
+  // 章を選ばせるのは、整理後のファイル名（`問13.png`）が章ローカルで、章をまたぐと
+  // 一意にならないため（`問1.png` は9章すべてに存在する）。
+  const bunyaChapters = useMemo(
+    () => subjectDefs.flatMap(s => s.chapters).filter(c => CHAPTER_ASSET_MAPS[c.code]),
+    [subjectDefs],
+  )
+  const [chapterSel, setChapterSel] = useState<string>(() => bunyaChapters[0]?.code ?? '')
   const [paperSel, setPaperSel] = useState<string>(() => {
     const first = subjectDefs.flatMap(s => s.papers ?? [])[0]
     return first ? paperKey(first) : ''
@@ -37,9 +46,11 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   // 年度別: 各ペーパーへ既に画像がアップロード済みか（paperKey → 保存枚数）。
   // どの年度が済んでいてどれが未着手か一覧で分かるようにするため、Storageの実ファイルを数える。
   const [uploadedCounts, setUploadedCounts] = useState<Record<string, number>>({})
+  // 分野別: 章ごとの Storage 保存枚数（章コード → 枚数）。想定枚数と並べて
+  // 「取り込んだつもりで1枚も入っていない」章をパネル上で見つけられるようにする。
+  const [bunyaCounts, setBunyaCounts] = useState<Record<string, number>>({})
   const [statusLoading, setStatusLoading] = useState(false)
 
-  const knownFiles = useMemo(() => Object.keys(ASSET_MAP).length, [])
   const add = (m: string) => setLog(l => [...l, m])
 
   // 全ペーパーのアップロード済み枚数をStorageから集計する。
@@ -74,6 +85,28 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
   useEffect(() => {
     if (mode === 'nendo') void refreshStatus()
   }, [mode, refreshStatus])
+
+  // 分野別: 章ごとの保存枚数を Storage から集計する（フォルダが無い＝0枚）。
+  const refreshBunyaStatus = useCallback(async () => {
+    setStatusLoading(true)
+    const counts: Record<string, number> = {}
+    for (const c of bunyaChapters) {
+      const prefix = storagePath(userId, c.code, '').replace(/\/$/, '')
+      const { data } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
+      counts[c.code] = (data ?? []).filter(e => e.id !== null).length
+    }
+    setBunyaCounts(counts)
+    setStatusLoading(false)
+  }, [bunyaChapters, userId])
+
+  useEffect(() => {
+    if (mode === 'bunya') void refreshBunyaStatus()
+  }, [mode, refreshBunyaStatus])
+
+  const chapter = useMemo(
+    () => bunyaChapters.find(c => c.code === chapterSel),
+    [bunyaChapters, chapterSel],
+  )
 
   // 年度別: 選択中ペーパーの想定ファイル名（imageFile）→ 対応する問題。
   // 番号(問N)からの逆引き用マップも用意する（GoogleDriveの元ファイル名対応・下記 resolvePaperQuestion）。
@@ -159,13 +192,28 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
     }
   }
 
+  // 分野別の画像を {user}/theory/{chapter}/{正規名} へアップロードし、denken_question_assets へ登録する。
+  // ファイル名は完全一致だけでなく「問N」からも逆引きする（src/lib/bunyaFilename.ts）。
+  // 保存先ファイル名は ASSET_MAP 上の正規名に統一する（年度別の imageFile 統一と同じ考え方）。
   async function handleFiles(fileList: FileList | null) {
-    if (!fileList || busy) return
+    if (!fileList || busy || !chapter) return
+    const chapterCode = chapter.code
     const all = Array.from(fileList)
-    const targets = all.filter(f => ASSET_MAP[f.name])
+    const resolved = all.map(f => ({ file: f, hit: resolveBunyaFile(chapterCode, f.name) }))
+    const targets = resolved.filter(
+      (r): r is { file: File; hit: ResolvedBunyaFile } => r.hit !== undefined,
+    )
     const skipped = all.length - targets.length
     if (targets.length === 0) {
-      setLog([`対象の画像が見つかりませんでした（${all.length}件は未登録/捨て問のためスキップ）。`])
+      // 「対象なし」を捨て問スキップ（正常系）と読み違えると、命名不一致による取り込み
+      // 不成立を見逃す。実際に電子理論・電子回路がこれで未取り込みのまま残ったため、
+      // 何が解決できなかったかと想定命名を具体的に出す。
+      setLog([
+        `✗ ${chapter.name} に紐付く画像が1件もありませんでした（${all.length}件すべてスキップ）。`,
+        `想定するファイル名: 「問13.png」「問13-2.png」または「newIMG_0550.png」`,
+        `渡されたファイル名の例: ${all.slice(0, 3).map(f => f.name).join(' / ') || '（なし）'}`,
+        `選択中の章が、取り込もうとしているフォルダと一致しているか確認してください。`,
+      ])
       return
     }
     setBusy(true); setLog([]); setProgress({ done: 0, total: targets.length })
@@ -173,10 +221,9 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
 
     // 年度別と同様、例外時も busy を必ず戻して次の取り込みを可能にする。
     try {
-      for (const f of targets) {
-        const refs = ASSET_MAP[f.name]
-        const chapter = chapterOf(refs[0].questionId)
-        const path = storagePath(userId, chapter, f.name)
+      for (const { file: f, hit } of targets) {
+        const refs = hit.refs
+        const path = storagePath(userId, chapterCode, hit.canonicalName)
 
         const up = await supabase.storage.from(BUCKET).upload(path, f, {
           upsert: true,
@@ -187,6 +234,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           done++; setProgress({ done, total: targets.length }); continue
         }
         uploaded++
+        if (hit.canonicalName !== f.name) add(`${f.name} → ${hit.canonicalName} として保存`)
 
         const insertRows = refs.map(r => ({
           user_id: userId,
@@ -214,6 +262,8 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
       add(`✗ 取り込み中にエラーが発生しました: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setBusy(false)
+      // 取り込み結果を章の状況表示（済/未・枚数）へ即時反映する。
+      void refreshBunyaStatus()
     }
   }
 
@@ -240,13 +290,61 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           </div>
 
           {mode === 'bunya' ? (
-            <p className="text-xs text-gray-500 leading-relaxed">
-              GoogleDriveの各単元フォルダの画像をパソコンに保存し、下のエリアへドラッグ（または選択）してください。
-              ファイル名から自動で問題に紐付け、あなた専用の非公開ストレージへ保存します。
-              捨て問など対象外のファイルは自動でスキップされます。
-              <br />
-              <span className="text-gray-400">現在マッピング済み: {knownFiles} ファイル（直流回路・単相交流・過渡現象・三相交流・静電気・電磁気・電気計測・電子理論・電子回路）</span>
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                GoogleDriveの各単元フォルダの画像をパソコンに保存し、<strong>章を選んでから</strong>下のエリアへ
+                ドラッグ（または選択）してください。ファイル名は
+                「<code className="text-gray-600">問13.png</code>」「<code className="text-gray-600">問13-2.png</code>」形式でも、
+                撮影時の連番（<code className="text-gray-600">newIMG_0550.png</code>）でも自動認識します。
+                捨て問など対象外のファイルは自動でスキップされます。
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500">取り込む章を選択</p>
+                <button
+                  type="button"
+                  onClick={() => void refreshBunyaStatus()}
+                  disabled={statusLoading}
+                  className="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-300"
+                >{statusLoading ? '確認中…' : '状況を更新'}</button>
+              </div>
+              {/* 各章の頭に ✅（取り込み済み）/ ⬜（未取り込み）を付け、どの章が済んでいるか
+                  一目で分かるようにする（年度別の回一覧と同じ考え方）。 */}
+              <select
+                value={chapterSel}
+                onChange={e => { setChapterSel(e.target.value); setLog([]); setProgress(null) }}
+                className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+              >
+                {bunyaChapters.map(c => {
+                  const n = bunyaCounts[c.code] ?? 0
+                  return (
+                    <option key={c.code} value={c.code}>
+                      {n > 0 ? '✅' : '⬜'} {c.name}（{c.code}）{n > 0 ? ` ・${n}枚` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {chapter && (() => {
+                const uploaded = bunyaCounts[chapter.code] ?? 0
+                const expected = Object.keys(CHAPTER_ASSET_MAPS[chapter.code] ?? {}).length
+                const complete = expected > 0 && uploaded >= expected
+                return (
+                  <p className="text-xs text-gray-400">
+                    取り込み先: {chapter.name}
+                    {expected > 0 && ` ・想定ファイル数 ${expected} 枚`}
+                    <br />
+                    <span className={complete ? 'text-green-600 font-medium' : uploaded > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'}>
+                      {statusLoading
+                        ? '取り込み状況を確認中…'
+                        : uploaded === 0
+                          ? '未取り込み'
+                          : complete
+                            ? `取り込み済み（${uploaded}枚）`
+                            : `一部のみ（${uploaded}${expected > 0 ? ` / ${expected}` : ''}枚）`}
+                    </span>
+                  </p>
+                )
+              })()}
+            </div>
           ) : mode === 'nendo' ? (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 leading-relaxed">
