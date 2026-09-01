@@ -4,6 +4,7 @@
 // すべて純関数。母数（対象問題数）を必ず持たせ、計測前・未着手データは自然に除外する。
 
 import type { Chapter, MasterQuestion, MockSession, Review, Status } from '../domain/types'
+import { examTimeLimitSeconds } from './examTime'
 
 // 弱点スコアの重み（初期値・使用感で調整）。時間超過率(w3)は Phase 1 では未使用。
 const W_INCORRECT = 0.5  // (1 - 直近正答率)
@@ -144,7 +145,8 @@ export interface QuadrantItem {
   title: string
   status: Status           // 直近理解度
   seconds: number          // 直近の計測解答時間
-  ratio: number            // seconds / 同難易度帯の中央値（>1 で遅い）
+  ratio: number            // seconds / 同難易度帯の中央値（同程度の問題との比較・表示用）
+  limitSeconds: number     // 本番の持ち時間（A問題5分・B問題10分）。これを超えたら「遅い」
   difficulty: 1 | 2 | 3
 }
 
@@ -206,11 +208,15 @@ export function quadrantMatrix(
   for (const m of measured) {
     const med = medians[m.q.difficulty]
     const ratio = med && med > 0 ? m.seconds / med : 1
-    const slow = ratio > 1 // 中央値超で「遅い」
+    // 「遅い」は本番の持ち時間超え（課題12）。中央値で切ると定義上つねに約半数が
+    // 「遅い」側に落ち、難易度1（中央値1.9分）では4分でも警告が出てしまう。
+    // 中央値比（ratio）は「同程度の問題と比べてどうか」の情報として表示に残す。
+    const limitSeconds = examTimeLimitSeconds(m.q.title)
+    const slow = m.seconds > limitSeconds
     const correct = m.status === 'A' || m.status === 'S'
     const item: QuadrantItem = {
       id: m.q.id, chapter: m.chapter, number: m.q.number, title: m.q.title,
-      status: m.status, seconds: m.seconds, ratio, difficulty: m.q.difficulty,
+      status: m.status, seconds: m.seconds, ratio, limitSeconds, difficulty: m.q.difficulty,
     }
     if (correct && !slow) matrix.stable.push(item)
     else if (correct && slow) matrix.overtime.push(item)

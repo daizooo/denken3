@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { X, Eye, EyeOff, ZoomIn, ZoomOut } from 'lucide-react'
+import { X, Eye, EyeOff, ZoomIn, ZoomOut, PauseCircle } from 'lucide-react'
 import { fetchAssets, signedUrl, type QuestionAsset, type Region } from '../lib/assets'
+import { STATUS_LABEL } from '../features/shared/status'
+import type { Status } from '../domain/types'
 
 // 見開き画像1枚（またはその上/下部分）を、解答マスク付きで表示する。
 // マスクは最大2枚:
@@ -58,8 +60,19 @@ function AssetImage({
 }
 
 export default function ProblemViewer({
-  questionId, title, onClose,
-}: { questionId: string; title: string; onClose: () => void }) {
+  questionId, title, onClose, onRecord, onAbort, solving = false,
+}: {
+  questionId: string
+  title: string
+  onClose: () => void
+  // 理解度をこの画面から直接記録する（課題8）。押したらそのまま閉じる。
+  onRecord?: (status: Status) => void
+  // 「問題を解く」で開いた計測を破棄して閉じる（課題13）。育児中の中断は常態で、
+  // 中断時間が解答時間に混ざると時間予算の見積もりが狂う。
+  onAbort?: () => void
+  // 解答時間を計測中か（「問題を解く」で開いたか）。中断ボタンの表示条件。
+  solving?: boolean
+}) {
   const [assets, setAssets] = useState<QuestionAsset[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [showAnswer, setShowAnswer] = useState(false)
@@ -162,6 +175,36 @@ export default function ProblemViewer({
           ))}
         </div>
       </div>
+
+      {/* 記録バー（課題8）。解いた直後にこの画面から理解度を記録して閉じる。
+          片手操作のため画面下部に置く。 */}
+      {onRecord && (
+        <div className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-white/95 border-t border-gray-100">
+          <span className="text-[11px] text-gray-500 shrink-0">理解度</span>
+          {(['A', 'B', 'C'] as Status[]).map(s => (
+            <button
+              key={s}
+              onClick={() => onRecord(s)}
+              title={STATUS_LABEL[s]}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700 transition-colors"
+            >{s}</button>
+          ))}
+          <button
+            onClick={() => onRecord('S')}
+            title={STATUS_LABEL['S']}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-purple-500 border-purple-200 hover:border-purple-400 hover:text-purple-700 transition-colors"
+          >S</button>
+          {solving && onAbort && (
+            <button
+              onClick={onAbort}
+              title="計測を破棄して閉じます（記録は残りません）"
+              className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+            >
+              <PauseCircle size={13} /> 中断
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
