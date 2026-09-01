@@ -7,7 +7,7 @@ import { RIRON_PAPERS } from './papers'
 
 // 年度別→分野別の自動リンク（課題6・Phase E）。分野別タイトルの出典表記から組み立てる。
 // 手入力の `PaperQuestion.sourceQuestionId` はこれより優先される（registry.sourceQuestionIdOf）。
-// 出典が未補記の章（静電気・三相交流・電気計測の一部）はリンクされない。補記すれば自動で増える。
+// 分野別 全440問に出典を補記済み（§8.2）。ペーパーを新しく収録すれば自動でリンクが増える。
 // errors は「収録済みの回に存在しない問番号」「同じ年度別問題への重複リンク」＝データの誤りのみ。
 // ビルド時（モジュール読込時）に落として、出典の転記ミスをその場で検出する（papers/index.ts と同じ方針）。
 const rironSourceLinks = buildSourceLinks(OHMSHA_BUNYA_CHAPTERS, RIRON_PAPERS)
