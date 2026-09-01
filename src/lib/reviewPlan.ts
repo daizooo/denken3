@@ -14,20 +14,28 @@
 // 入力は (question, review, today, examDate) のみ。DB・UI には依存しない。
 
 import type { MasterQuestion, Review, Status } from '../domain/types'
-import { retrievability } from './fsrs'
+import { retentionFor, retrievability } from './fsrs'
 import { diffDays } from './date'
 
 // 理解度の重み（大きいほど価値が高い＝先に復習）。
-// C（答えを見た）> B（方向性OK・計算ミス）> A（見ずに解けた）。S・未着手は復習対象外。
-const STATUS_WEIGHT: Partial<Record<Status, number>> = { C: 1.0, B: 0.7, A: 0.45 }
+// C（答えを見た）> B（方向性OK・計算ミス）> A（見ずに解けた）> S（完璧に理解）。
+// S は通常の復習キューには載らないが、試験前の最終確認（fsrs.ts `finalCheckDue`）と
+// 手動の復習再開では due_date が付いて載る。そのとき価値0だとキューの最下段に沈み、
+// 時間予算の線から外れて「結局やらない」ことになるため、A より低い重みを与える。
+// 未着手だけが復習対象外（重み未設定）。
+const STATUS_WEIGHT: Partial<Record<Status, number>> = { C: 1.0, B: 0.7, A: 0.45, S: 0.25 }
 
 // 忘却リスクが十分低くても、重要度・理解度で最低限の差がつくようにする下駄。
 const RISK_FLOOR = 0.15
 
-// リスク帯のしきい値（想起確率 R）。FSRS の目標保持率90%を基準にする。
-// R≥0.90＝まだ目標圏内（余裕）／0.90>R≥0.80＝目標割れ（そろそろ）／R<0.80＝優先。
-const R_HIGH = 0.8 // これ未満＝🔴 優先（忘却が進行）
-const R_MID = 0.9 // これ未満＝🟡 そろそろ
+// リスク帯のしきい値（想起確率 R）。FSRS の目標保持率 request_retention を基準にする。
+// R≥目標＝まだ目標圏内（余裕）／目標>R≥目標-0.10＝目標割れ（そろそろ）／それ未満＝優先。
+//
+// 目標保持率は固定値ではなく試験までの残日数で変わる（fsrs.ts `retentionFor`：既定0.85・
+// 直前期0.9）ため、ここも連動させる。連動させずに 0.9 固定のままだと、retention 0.85 で
+// FSRS が「予定どおり」と判断した問題が期限当日に軒並み🟡そろそろ になり、帯が
+// 優先度として機能しなくなる（§6-2）。
+const BAND_HIGH_MARGIN = 0.1 // 目標からこれだけ下回ったら🔴 優先（忘却が進行）
 
 export type RiskBand = 'high' | 'mid' | 'low'
 
@@ -43,27 +51,30 @@ function importanceWeight(importance?: 1 | 2 | 3): number {
   return 0.6 + 0.4 * ((importance ?? 2) - 1)
 }
 
-function bandOf(r: number | null): RiskBand {
+function bandOf(r: number | null, retention: number): RiskBand {
   if (r === null) return 'low'
-  if (r < R_HIGH) return 'high'
-  if (r < R_MID) return 'mid'
+  if (r < retention - BAND_HIGH_MARGIN) return 'high'
+  if (r < retention) return 'mid'
   return 'low'
 }
 
 // 1問の復習価値。復習タブの並び順の主キー。
+// examDate はリスク帯のしきい値（目標保持率）を決めるためだけに使う。
+// 未指定なら既定の保持率で判定する（試験日未設定時の従来どおりの挙動）。
 export function reviewValue(
   question: MasterQuestion,
   review: Review | undefined,
   today: string,
+  examDate?: string | null,
 ): ReviewValue {
   const status = review?.status ?? '未着手'
   const statusW = STATUS_WEIGHT[status]
-  // 復習対象外（未着手・S）はスコア0で末尾へ。
+  // 復習対象外（未着手＝新規着手枠）はスコア0で末尾へ。
   if (statusW === undefined) return { score: 0, r: null, risk: 0, band: 'low' }
   const r = retrievability(review, today)
   const risk = r === null ? 0 : 1 - r
   const score = statusW * importanceWeight(question.importance) * (RISK_FLOOR + risk)
-  return { score, r, risk, band: bandOf(r) }
+  return { score, r, risk, band: bandOf(r, retentionFor(today, examDate)) }
 }
 
 // リスク帯の表示メタ（QuestionCard 等で使う）。
@@ -80,7 +91,7 @@ export function bandMeta(band: RiskBand): { label: string; cls: string; dot: str
 
 export interface DailyReviewPlan {
   dueCount: number // 今日時点で復習期限を迎えている問題数
-  urgentCount: number // うち🔴危険（R<0.75）の数。必ず推奨ラインの上に来る
+  urgentCount: number // うち🔴優先（R が目標保持率-0.10 未満）の数。必ず推奨ラインの上に来る
   recommendedCount: number // 今日の推奨ライン（順番待ちとの境界）
 }
 
@@ -106,7 +117,7 @@ export function planDailyReviews(
 
   let urgentCount = 0
   for (const c of candidates) {
-    if (reviewValue(c.question, c.review, today).band === 'high') urgentCount++
+    if (reviewValue(c.question, c.review, today, examDate).band === 'high') urgentCount++
   }
 
   const daysToExam = examDate ? diffDays(today, examDate) : null

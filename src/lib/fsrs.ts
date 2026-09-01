@@ -5,7 +5,46 @@ import type { Card, Grade } from 'ts-fsrs'
 import type { Review, ReviewHistoryEntry, Status } from '../domain/types'
 import { addDaysStr, dateAtUTCNoon, diffDays, toDateStr, todayJST } from './date'
 
-const fsrsScheduler = new FSRS({ enable_short_term: false })
+// 目標保持率 request_retention（§6-2）。
+// 学習時間が希少で未着手が多い段階では 0.9 は保守的すぎる（同じ時間で触れる問題数が減る）。
+// 既定を 0.85 に下げ、直前期＝試験60日前からは精度優先で 0.9 へ戻す。
+// retention を「その実施日から試験日までの残日数」だけで決めるのが要点で、こうすると
+// deriveFromHistory が review_history を再生するたびに同じ結果になる（決定的）。
+export const RETENTION_DEFAULT = 0.85
+export const RETENTION_ENDGAME = 0.9
+export const RETENTION_ENDGAME_DAYS = 60
+
+export function retentionFor(eventDate: string, examDate?: string | null): number {
+  if (!examDate) return RETENTION_DEFAULT
+  return diffDays(eventDate, examDate) <= RETENTION_ENDGAME_DAYS
+    ? RETENTION_ENDGAME
+    : RETENTION_DEFAULT
+}
+
+// request_retention ごとに FSRS インスタンスを使い回す（実施日ごとに生成しない）。
+const schedulers = new Map<number, FSRS>()
+function schedulerFor(retention: number): FSRS {
+  let s = schedulers.get(retention)
+  if (!s) {
+    s = new FSRS({ enable_short_term: false, request_retention: retention })
+    schedulers.set(retention, s)
+  }
+  return s
+}
+
+// S（復習不要）の試験前最終確認（§6-4・課題4）。
+// S にした問題は due_date=null で忘却追跡から完全に外れ、そのままだと試験まで一度も
+// 戻ってこない。試験日の21日前に1回だけ復習キューへ戻す。
+// - 試験日が未設定なら従来どおり null（復習キューから外れたまま）。
+// - 最終確認日が実施日を過ぎている場合も null。過去日を due にすると毎日 due に
+//   居座り、直前期に S を付け直すたびに翌日また出てくることになるため。
+export const FINAL_CHECK_DAYS_BEFORE_EXAM = 21
+
+export function finalCheckDue(eventDate: string, examDate?: string | null): string | null {
+  if (!examDate) return null
+  const due = addDaysStr(examDate, -FINAL_CHECK_DAYS_BEFORE_EXAM)
+  return due > eventDate ? due : null
+}
 
 const RATING_MAP: Record<Status, Grade> = {
   A: Rating.Easy,
@@ -63,16 +102,16 @@ export function calcFSRS(
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
   const eDate = eventDate ?? todayJST()
-  // S（完璧に理解・復習不要）: 復習予定日を消して復習キューから外す。
+  // S（完璧に理解・復習不要）: 通常の復習キューからは外し、試験前の最終確認だけ残す。
   // stability 等の FSRS 値は現状のまま温存するので、後で復習に戻す（due_date 再設定）／
   // A・B・C で再採点したときに、それまでの学習履歴を失わずスケジューリングを再開できる。
-  if (status === 'S') return { due_date: null, last_reviewed: eDate }
+  if (status === 'S') return { due_date: finalCheckDue(eDate, examDate), last_reviewed: eDate }
   const rating = RATING_MAP[status]
   const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
-  const newCard = fsrsScheduler.repeat(card, now)[rating].card
+  const newCard = schedulerFor(retentionFor(eDate, examDate)).repeat(card, now)[rating].card
   const rawDue = newCard.due.toISOString().split('T')[0]
   return {
     stability: newCard.stability,
@@ -118,7 +157,9 @@ export function retrievability(review: Partial<Review> | null | undefined, today
   if (!review || (review.repetitions ?? 0) <= 0) return null
   if (!review.due_date) return null
   const now = dateAtUTCNoon(today ?? todayJST())
-  const r = fsrsScheduler.get_retrievability(toFSRSCard(review, now), now, false)
+  // get_retrievability は忘却曲線そのもので request_retention に依存しないため、
+  // どのインスタンスで呼んでも同じ値になる。
+  const r = schedulerFor(RETENTION_DEFAULT).get_retrievability(toFSRSCard(review, now), now, false)
   return typeof r === 'number' ? r : null
 }
 
