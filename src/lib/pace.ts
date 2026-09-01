@@ -10,9 +10,15 @@
 // 指数加重移動平均（EWMA・半減期14日）で現在ペースを推定し続け、
 // 毎日、残り日数と突き合わせて計画を再計算する。
 //
-// 入力は (questions, reviews, plan, today)。DB・UIには依存しない。
+// ゴールの切り替え（study-time-scarcity.md 課題2）:
+// 既定のゴールは「合格ライン到達に必要な最小の問題集合」（passTarget.ts が算出）で、
+// 達成したら「全問A以上」へ昇格する。ここでは goal.remainingQ を分母に受け取るだけで、
+// どの問題が必要かの判断は持たない（ペース計算とゴール定義を分離する）。
+//
+// 入力は (questions, reviews, plan, today, goal?)。DB・UIには依存しない。
 
 import type { ExamPlan, Review, Status } from '../domain/types'
+import type { GoalMode } from './passTarget'
 import { addDaysStr, diffDays, formatMD } from './date'
 
 // EWMA 半減期14日 → 1ステップ(1日)あたりの平滑化係数。
@@ -32,6 +38,12 @@ const DEFAULT_ATTEMPTS_PER_MASTERY = 2
 const MAX_ATTEMPTS_PER_MASTERY = 5
 
 export type PaceVerdict = 'done' | 'ahead' | 'onTrack' | 'behind' | 'stalled'
+
+// ゴールの指定。省略時は従来どおり「全問A以上」。
+export interface PaceGoal {
+  mode: GoalMode
+  remainingQ: number // そのゴールに到達するまでに A 以上へ引き上げる残り問数
+}
 
 export interface Milestone {
   key: string
@@ -60,7 +72,9 @@ export interface PaceResult {
 
   totalQ: number
   masteredQ: number        // A・S 到達済み
-  remainingQ: number       // 未修得 U（未着手・C・B）
+  remainingQ: number       // ゴール到達までの残り（pass モードでは合格に必要な問数）
+  masteryRemainingQ: number // 全問A以上までの残り U（未着手・C・B）
+  goalMode: GoalMode       // 'pass' = 合格ライン到達 / 'mastery' = 全問A以上
 
   currentPace: number      // EWMA 現在ペース（A以上への到達 問/日）
   requiredPace: number     // U / 残り日数（問/日）
@@ -182,11 +196,17 @@ export function analyzePace(
   reviews: Record<string, Review>,
   plan: ExamPlan | null,
   today: string,
+  goal?: PaceGoal,
 ): PaceResult {
   const totalQ = questions.length
-  // 残り＝まだ A・S に届いていない問題（未着手だけでなく B・C も含む）。
+  // 未修得＝まだ A・S に届いていない問題（未着手だけでなく B・C も含む）。
   const masteredQ = questions.filter(q => isMastered(reviews[q.id]?.status)).length
-  const remainingQ = totalQ - masteredQ
+  const masteryRemainingQ = totalQ - masteredQ
+  // ゴールまでの残り。pass モードでは「合格ラインに必要な問数」で、未修得数を超えない。
+  const goalMode: GoalMode = goal?.mode ?? 'mastery'
+  const remainingQ = goal
+    ? Math.max(0, Math.min(goal.remainingQ, masteryRemainingQ))
+    : masteryRemainingQ
 
   const dailyGains = dailyMasteryGains(questions, reviews)
   const currentPace = ewmaOfDaily(dailyGains, today)
@@ -214,7 +234,7 @@ export function analyzePace(
   const R = bunyaTargetDate ? Math.max(1, diffDays(today, bunyaTargetDate)) : null
   const requiredPace = R !== null ? remainingQ / R : 0
 
-  // 全問A以上の到達予測日: today + ceil(U / 現在ペース)。ペース0（実績なし）は予測不能。
+  // ゴール到達の予測日: today + ceil(残り / 現在ペース)。ペース0（実績なし）は予測不能。
   const projectedFinishDate =
     remainingQ === 0
       ? today
@@ -222,7 +242,7 @@ export function analyzePace(
         ? addDaysStr(today, Math.ceil(remainingQ / currentPace))
         : null
 
-  // 判定: 全問A以上の到達予測 vs 目標日。
+  // 判定: ゴール到達の予測 vs 目標日。
   let verdict: PaceVerdict
   let verdictDays = 0
   if (remainingQ === 0) {
@@ -247,7 +267,7 @@ export function analyzePace(
     remainingQ === 0 ? 0 : Math.max(1, Math.ceil(clamp(requiredPace, lower, upper)))
 
   // 計画見直しが要るか: 必要ペースが現在ペースの上限（×1.3）を超え続ける、
-  // かつ全問A以上の到達予測が目標を REPLAN_LATE_DAYS 日以上超過。
+  // かつゴール到達の予測が目標を REPLAN_LATE_DAYS 日以上超過。
   const needsReplan =
     remainingQ > 0 &&
     verdict === 'behind' &&
@@ -259,18 +279,21 @@ export function analyzePace(
     const limitDate = examDate ? addDaysStr(examDate, -MIN_NENDO_DAYS) : null
     replanOptions.push({
       key: 'postpone',
-      title: '全問A以上の目標日を後ろ倒しする',
+      title: '目標日を後ろ倒しする',
       detail: projectedFinishDate
-        ? `現ペースなら ${formatMD(projectedFinishDate)} に全問A以上の見込み。` +
+        ? `現ペースなら ${formatMD(projectedFinishDate)} に${goalMode === 'pass' ? '合格ライン到達' : '全問A以上'}の見込み。` +
           (limitDate ? `年度別に最低${MIN_NENDO_DAYS}日を残す限界は ${formatMD(limitDate)}。` : '')
-        : '現ペースでは全問A以上に届く時期を見通せません。',
+        : '現ペースでは目標に届く時期を見通せません。',
     })
-    // b) 範囲の絞り込み（importance=3 のみA以上 → 残りは年度別期に回す）
-    replanOptions.push({
-      key: 'narrow',
-      title: '範囲を絞る（重要度の高い問題を優先）',
-      detail: '重要度3の問題だけ先にA以上へ仕上げ、残りは年度別演習期に回す。',
-    })
+    // b) 範囲の絞り込み。pass モードは既に「合格に必要な最小集合」まで絞り込んだ状態なので、
+    //    さらに絞る提案は出さない（課題2）。
+    if (goalMode !== 'pass') {
+      replanOptions.push({
+        key: 'narrow',
+        title: '範囲を絞る（合格ラインに必要な問題を優先）',
+        detail: '目標を「合格ライン到達」に切り替え、得点への寄与が大きい問題から先にA以上へ仕上げる。',
+      })
+    }
     // c) daily_cap・生活時間の見直し
     replanOptions.push({
       key: 'capacity',
@@ -286,7 +309,7 @@ export function analyzePace(
     if (!date) return
     milestones.push({ key, label, date, daysFromToday: diffDays(today, date) })
   }
-  push('bunya', '分野別 全問A以上 目標', bunyaTargetDate)
+  push('bunya', goalMode === 'pass' ? '分野別 合格ライン到達 目標' : '分野別 全問A以上 目標', bunyaTargetDate)
   push('nendo', '年度別演習 開始', plan?.nendo_start_date)
   push('appStart', '申込開始', plan?.application_start)
   push('appEnd', '申込締切', plan?.application_end)
@@ -309,6 +332,8 @@ export function analyzePace(
     totalQ,
     masteredQ,
     remainingQ,
+    masteryRemainingQ,
+    goalMode,
     currentPace,
     requiredPace,
     recommendedNorm,

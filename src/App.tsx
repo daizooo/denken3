@@ -9,6 +9,7 @@ import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForS
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
+import { planPassTarget } from './lib/passTarget'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import {
@@ -369,11 +370,7 @@ export default function App() {
     setFilterStatuses(new Set())
   }, [])
 
-  // 適応型ペース分析（§7.2）・弱点ランキング・学習曲線（§7.7(2)(3)）。
-  const paceResult = useMemo(
-    () => analyzePace(subjectQuestions, reviews, currentPlan, todayStr),
-    [subjectQuestions, reviews, currentPlan, todayStr]
-  )
+  // 弱点ランキング・学習曲線（§7.7(2)(3)）。ペース分析は合格ライン目標を使うため後段。
   const weakness = useMemo(
     () => chapterWeaknessRanking(inputChapters, reviews),
     [inputChapters, reviews]
@@ -411,6 +408,50 @@ export default function App() {
     () => estimateScore(currentChapters, reviews, subjectSessions, passingScore),
     [currentChapters, reviews, subjectSessions, passingScore]
   )
+
+  // 合格ライン目標（課題2）。想定得点から「合格に必要な最小の問題集合」を逆算する。
+  const passTarget = useMemo(
+    () => planPassTarget(currentChapters, reviews, scoreEstimate),
+    [currentChapters, reviews, scoreEstimate]
+  )
+
+  // 適応型ペース分析（§7.2）。ゴールの既定は「合格ライン到達」で、達成したら
+  // 「全問A以上」へ自動昇格する（§6-1）。440問すべてA以上を分母にすると、
+  // 学習時間が逼迫した状況では到達不能な目標に対して毎日 behind と判定されるため。
+  const paceResult = useMemo(
+    () => analyzePace(
+      subjectQuestions, reviews, currentPlan, todayStr,
+      passTarget.achieved
+        ? { mode: 'mastery', remainingQ: passTarget.masteryRemainingQ }
+        : { mode: 'pass', remainingQ: passTarget.requiredQ },
+    ),
+    [subjectQuestions, reviews, currentPlan, todayStr, passTarget]
+  )
+
+  // 「今日の学習」の新規着手枠（課題3）。復習due だけの画面だと、5分の隙間に開いて
+  // 「今日の復習はありません」と出た日に、ユーザーが自分でタブを移動して絞り込みを
+  // 開く必要がある。その操作こそが隙間時間を食うので、新規着手候補も同じキューに載せる。
+  //
+  // 枠数＝推奨ノルマ − 今日すでに着手した数（記録するたびに枠が減り、やがて空になる。
+  // 補充し続けると「今日の分が終わった」状態に到達できない）。
+  // 章フィルタに依らず科目全体で決めるので、章チップの件数と表示件数が食い違わない。
+  const todayNew = useMemo(() => {
+    const subjectQs = currentChapters.flatMap(c => c.questions)
+    const startedToday = subjectQs.filter(q => reviews[q.id]?.first_reviewed === todayStr).length
+    const slots = Math.max(0, paceResult.recommendedNorm - startedToday)
+    const ids = new Set<string>()
+    const picked: typeof subjectQs = []
+    for (const q of subjectQs) {
+      if (picked.length >= slots) break
+      const r = reviews[q.id]
+      if (r?.due_date) continue                  // 復習キューに載っている＝新規ではない
+      if (r && r.status !== '未着手') continue   // S（復習不要）も対象外
+      ids.add(q.id)
+      picked.push(q)
+    }
+    return { ids, count: picked.length, minutes: sumEstimateMinutes(picked, reviews, timeStats) }
+  }, [currentChapters, reviews, paceResult.recommendedNorm, todayStr, timeStats])
+
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
 
@@ -431,7 +472,8 @@ export default function App() {
       const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
-        if (i === 0) return !!(r?.due_date && r.due_date <= dStr)
+        // 今日は復習due＋新規着手枠（課題3）。表示件数と一致させる。
+        if (i === 0) return !!(r?.due_date && r.due_date <= dStr) || todayNew.ids.has(q.id)
         return reviews[q.id]?.due_date === dStr
       }).length
       const label = i === 0 ? '今日' : i === 1 ? '明日' : formatMD(dStr)
@@ -449,7 +491,7 @@ export default function App() {
       isOverflow: true,
     })
     return days
-  }, [allQuestions, reviews])
+  }, [allQuestions, reviews, todayNew])
 
   // 絞り込み前の母数（タブ・日付・復習キューのロジックだけを適用）。
   // 学習場所×理解度の絞り込みと、そのチップ件数（ファセット）は、この母数から導く。
@@ -462,8 +504,9 @@ export default function App() {
         // 記録した瞬間に「復習済み」として消す（次回復習日が更新される前でも即反映）。
         if (reviewedNowIds.has(q.id)) return false
         if (selectedDate === today) {
+          // 今日は「復習due」＋「新規着手枠」を1つのキューにまとめる（課題3）。
           const isDue = r?.due_date && r.due_date <= today
-          if (!isDue) return false
+          if (!isDue && !todayNew.ids.has(q.id)) return false
         } else if (selectedDate >= overflowStart) {
           // 「◯/◯以降」タブ: overflowStart 以降の予定をすべて表示
           if (!(r?.due_date && r.due_date >= overflowStart)) return false
@@ -473,7 +516,7 @@ export default function App() {
       }
       return true
     })
-  }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds])
+  }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds, todayNew])
 
   // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
   const matchMode = useCallback(
@@ -517,6 +560,8 @@ export default function App() {
     return [...filtered].sort((a, b) => {
       const va = rankOf.get(a.id) ?? 0, vb = rankOf.get(b.id) ?? 0
       if (va !== vb) return vb - va
+      // 新規着手枠は価値スコア0（復習対象外）。ここで並べ替えず章の学習順を保つ（課題3）。
+      if (va === 0 && vb === 0) return 0
       const ia = a.importance ?? 2, ib = b.importance ?? 2
       if (ia !== ib) return ib - ia
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
@@ -603,9 +648,9 @@ export default function App() {
     questions.filter(q => {
       const r = reviews[q.id]
       if (selectedDate === todayStr) {
-        // 未着手（メモだけ保存した問題など）は baseQuestions が復習タブに通さないため、
-        // 件数からも外す。含めるとチップの件数と実際の表示件数が食い違う（課題3）。
-        return !!(r?.due_date && r.due_date <= todayStr)
+        // 今日の表示対象は「復習due＋新規着手枠」。ここを一致させないと
+        // チップの件数と実際の表示件数が食い違う（課題3）。
+        return !!(r?.due_date && r.due_date <= todayStr) || todayNew.ids.has(q.id)
       }
       if (selectedDate >= overflowStart) {
         return !!(r?.due_date && r.due_date >= overflowStart)
@@ -616,6 +661,16 @@ export default function App() {
     const r = reviews[q.id]
     return !!(r?.due_date && r.due_date <= todayStr)
   }).length
+  // 今日やること＝復習due＋新規着手枠（課題3）。タブのバッジとヘッダの要約に使う。
+  // 新規着手枠は科目全体で決まるが、ここは表示中（章フィルタ後）の件数に合わせる。
+  const todayNewShown = allQuestions.filter(q => todayNew.ids.has(q.id)).length
+  const todayQueue = todayDue + todayNewShown
+  // 復習due と新規着手枠の境界（課題3）。新規着手枠は価値スコア0でキュー末尾に並ぶため、
+  // 最初に現れる新規着手枠の位置がそのまま区切りになる（-1＝新規なし）。
+  const newStartIdx = activeTab === 'review' && selectedDate === todayStr
+    ? filteredQuestions.findIndex(q => todayNew.ids.has(q.id))
+    : -1
+  const dueShownCount = newStartIdx === -1 ? filteredQuestions.length : newStartIdx
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
@@ -655,11 +710,15 @@ export default function App() {
               <span>
                 {saving
                   ? '保存中...'
-                  : todayReviewPlan && todayReviewPlan.recommendedCount < todayDue
-                    ? `今日の推奨 ${todayReviewPlan.recommendedCount}問・約${formatMinutes(todayReviewPlan.recommendedMinutes)}（期限 ${todayDue}）`
-                    : todayDue > 0
-                      ? `今日の復習 ${todayDue}問・約${formatMinutes(todayReviewPlan.recommendedMinutes)}`
-                      : '今日の復習 0問'}
+                  : todayQueue === 0
+                    ? '今日の学習 0問'
+                    : `今日の学習 ${
+                        todayReviewPlan.recommendedCount < todayDue
+                          ? `復習${todayReviewPlan.recommendedCount}問（期限${todayDue}）`
+                          : `復習${todayDue}問`
+                      }${todayNewShown > 0 ? ` ＋新規${todayNewShown}問` : ''}・約${
+                        formatMinutes(todayReviewPlan.recommendedMinutes + todayNew.minutes)
+                      }`}
               </span>
               <button
                 onClick={() => setShowImport(true)}
@@ -714,7 +773,7 @@ export default function App() {
                 activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              復習{todayDue > 0 ? ` (${todayDue})` : ''}
+              今日{todayQueue > 0 ? ` (${todayQueue})` : ''}
             </button>
             {(['list', 'dashboard', 'mock'] as const).map(t => {
               // 年度別タブは、ペーパー定義が無い科目では表示しない（§7.4）。
@@ -768,6 +827,7 @@ export default function App() {
             learningCurve={learningCurve}
             quadrant={quadrant}
             scoreEstimate={scoreEstimate}
+            passTarget={passTarget}
           />
         ) : activeTab === 'mock' ? (
           <MockExamView
@@ -882,9 +942,9 @@ export default function App() {
                   <p className="text-gray-400 text-sm">
                     {activeTab === 'review'
                       ? reviewedNowIds.size > 0
-                        ? '🎉 この日の復習を完了しました'
+                        ? '🎉 今日の分を完了しました'
                         : selectedDate === todayJST()
-                          ? '今日の復習はありません'
+                          ? '今日やることはありません'
                           : 'この日の復習予定はありません'
                       : '表示できる問題がありません'}
                   </p>
@@ -905,7 +965,7 @@ export default function App() {
                     filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
                     idx === todayReviewPlan.recommendedCount &&
-                    todayReviewPlan.recommendedCount < filteredQuestions.length
+                    todayReviewPlan.recommendedCount < dueShownCount
 
                   // 時間予算の線（課題1・提案B）。推奨ラインの一般化なので、予算を選んでいる
                   // 間はこちらに置き換える。表示中のキューに対して引くため絞り込みは問わない。
@@ -914,6 +974,9 @@ export default function App() {
                     timeBudget !== null &&
                     idx === budgetPlan.count &&
                     budgetPlan.count < filteredQuestions.length
+
+                  // 復習と新規着手の区切り（課題3）。小見出し1行だけで示す。
+                  const showNewHeading = newStartIdx >= 0 && idx === newStartIdx
 
                   return (
                     <Fragment key={q.id}>
@@ -933,6 +996,15 @@ export default function App() {
                           ここまでが{timeBudget}分ぶん · 以降は次の隙間で
                         </span>
                         <div className="flex-1 h-px bg-blue-200" />
+                      </div>
+                    )}
+                    {showNewHeading && (
+                      <div className="flex items-center gap-2 py-1 select-none">
+                        <div className="flex-1 h-px bg-gray-200" />
+                        <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                          ここから新規着手 {todayNewShown}問（今日のノルマ）
+                        </span>
+                        <div className="flex-1 h-px bg-gray-200" />
                       </div>
                     )}
                     <QuestionCard

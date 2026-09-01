@@ -240,8 +240,9 @@ export function quadrantMatrix(
 // オーム社原本の問題数（totalCount）を出題比率の代理とする。収録後に差し替える。
 
 // 5択のため未学習（未着手・未収録分）は当て推量の 0.2 をベースラインにする。
-// S（完璧に理解・復習不要）は A と同等の正答確率とみなす（インパクトの上限 PROB.A を超えないよう合わせる）。
-const PROB: Record<Status, number> = { S: 0.92, A: 0.92, B: 0.6, C: 0.25, '未着手': 0.2 }
+// S（完璧に理解・復習不要）は A と同等の正答確率とみなす（インパクトの上限 STATUS_PROB.A を超えないよう合わせる）。
+// 合格ライン目標モード（passTarget.ts）も同じ写像を使うため export する。
+export const STATUS_PROB: Record<Status, number> = { S: 0.92, A: 0.92, B: 0.6, C: 0.25, '未着手': 0.2 }
 const BASELINE = 0.2
 
 export interface ChapterImpact {
@@ -289,7 +290,7 @@ export function estimateScore(
     for (const q of c.questions) {
       const st = reviews[q.id]?.status ?? '未着手'
       if (st !== '未着手') attempted++
-      probSum += PROB[st]
+      probSum += STATUS_PROB[st]
     }
     const unknown = Math.max(0, denom - c.questions.length)
     probSum += unknown * BASELINE
@@ -297,7 +298,7 @@ export function estimateScore(
     estimate += weight * expectedRate
     studiedNum += attempted
     // インパクト: この章を全問A（0.92）まで引き上げたときの総得点増分。
-    const impact = weight * (PROB.A - expectedRate) * 100
+    const impact = weight * (STATUS_PROB.A - expectedRate) * 100
     rows.push({ code: c.code, name: c.name, expectedRate, weight, studiedRatio: c.questions.length ? attempted / c.questions.length : 0, impact })
   }
 
