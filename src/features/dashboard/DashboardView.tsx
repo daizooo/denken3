@@ -5,12 +5,13 @@ import {
 import { TrendingUp, CalendarClock, Gauge, AlertTriangle, Target, Timer, Trophy } from 'lucide-react'
 import type { Chapter, Review, Status } from '../../domain/types'
 import type { PaceResult, PaceVerdict } from '../../lib/pace'
+import type { PassTarget } from '../../lib/passTarget'
 import type { ChapterWeakness, WeeklyLearningPoint, QuadrantItem, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
 import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
 
 const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: string }> = {
-  done:    { label: () => '全問A以上 達成', cls: 'text-emerald-600' },
+  done:    { label: () => '目標 達成', cls: 'text-emerald-600' },
   ahead:   { label: n => `先行 ${n}日`, cls: 'text-emerald-600' },
   onTrack: { label: () => '順調', cls: 'text-blue-600' },
   behind:  { label: n => `遅延 ${n}日`, cls: 'text-red-500' },
@@ -32,6 +33,8 @@ function PaceCard({ pace }: { pace: PaceResult }) {
   }
 
   const v = VERDICT_STYLE[pace.verdict]
+  // ゴールは既定が「合格ライン到達」、達成後に「全問A以上」へ昇格する（課題2）。
+  const goalLabel = pace.goalMode === 'pass' ? '合格ライン到達' : '全問A以上'
   const loadData = pace.weeklyLoad.map(w => ({
     week: w.weekLabel, 既存: w.due, 演習予測: w.projectedNew,
   }))
@@ -56,7 +59,7 @@ function PaceCard({ pace }: { pace: PaceResult }) {
           <p className="text-lg font-bold text-gray-800">{pace.currentPace.toFixed(1)}</p>
           <p className="text-[11px] text-gray-400">現在ペース A以上/日</p>
         </div>
-        <div className="text-center" title="目標日までに全問を A 以上にするために必要なペース">
+        <div className="text-center" title="目標日までにゴールへ到達するために必要なペース">
           <p className="text-lg font-bold text-gray-800">{pace.requiredPace.toFixed(1)}</p>
           <p className="text-[11px] text-gray-400">必要ペース A以上/日</p>
         </div>
@@ -67,13 +70,25 @@ function PaceCard({ pace }: { pace: PaceResult }) {
       </div>
 
       <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-3">
-        <span className="text-gray-500" title="未着手・C・B はすべて未修得として残りに数えます">
-          未修得 <b className="text-gray-700">{pace.remainingQ}</b> / {pace.totalQ}問
+        <span
+          className="text-gray-500"
+          title={pace.goalMode === 'pass'
+            ? '想定得点が合格ライン＋マージンに届くために、あと何問をA以上にすればよいか'
+            : '未着手・C・B はすべて未修得として残りに数えます'}
+        >
+          {pace.goalMode === 'pass' ? (
+            <>合格まで <b className="text-gray-700">{pace.remainingQ}</b>問
+              （未修得 {pace.masteryRemainingQ}/{pace.totalQ}）</>
+          ) : (
+            <>未修得 <b className="text-gray-700">{pace.remainingQ}</b> / {pace.totalQ}問</>
+          )}
           {pace.projectedFinishDate && (
-            <> · 全問A以上 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
+            <> · {goalLabel} 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
           )}
         </span>
-        <span className={`font-semibold ${v.cls}`}>{v.label(pace.verdictDays)}</span>
+        <span className={`font-semibold ${v.cls}`}>
+          {pace.verdict === 'done' ? `${goalLabel} 達成` : v.label(pace.verdictDays)}
+        </span>
       </div>
 
       {/* マイルストーン */}
@@ -205,7 +220,7 @@ function LearningCurve({ points }: { points: WeeklyLearningPoint[] }) {
 }
 
 // ---- 本番想定得点の推定（§7.7(4)）----
-function ScoreEstimateCard({ est }: { est: ScoreEstimate }) {
+function ScoreEstimateCard({ est, target }: { est: ScoreEstimate; target: PassTarget }) {
   if (!est.hasData) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
@@ -232,6 +247,14 @@ function ScoreEstimateCard({ est }: { est: ScoreEstimate }) {
           {reached ? `合格ライン${est.passingScore}点 到達見込み` : `合格まで あと${est.passingGap}点`}
         </p>
       </div>
+      {/* 合格ライン目標（課題2）: 不足点を「あと何問A以上にすればよいか」に翻訳する。 */}
+      <p className="text-[11px] text-gray-500">
+        {target.achieved
+          ? `目標 ${target.targetScore}点（合格＋マージン）に到達済み — 以降は全問A以上を目標に切り替えます`
+          : target.reachable
+            ? `目標 ${target.targetScore}点まで あと ${target.pointGap}点 ＝ 収録問題を あと ${target.requiredQ}問 A以上にする`
+            : `収録済みを全問A以上にしても 約${target.maxScore}点（目標 ${target.targetScore}点）— 未収録分の入力が要ります`}
+      </p>
       <p className="text-[11px] text-gray-400">
         直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
         {est.actual != null && (
@@ -332,6 +355,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
 
 export default function DashboardView({
   data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve, quadrant, scoreEstimate,
+  passTarget,
 }: {
   data: { counts: Record<Status, number>; pieData: any[]; scheduleData: any[] }
   chapters: Chapter[]
@@ -343,6 +367,7 @@ export default function DashboardView({
   learningCurve: WeeklyLearningPoint[]
   quadrant: QuadrantMatrix
   scoreEstimate: ScoreEstimate
+  passTarget: PassTarget
 }) {
   const pct = totalQ > 0 ? Math.round((masteredQ / totalQ) * 100) : 0
 
@@ -353,7 +378,7 @@ export default function DashboardView({
       <PaceCard pace={pace} />
 
       {/* 本番想定得点（§7.7(4)） */}
-      <ScoreEstimateCard est={scoreEstimate} />
+      <ScoreEstimateCard est={scoreEstimate} target={passTarget} />
 
       {/* 概要カード */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
