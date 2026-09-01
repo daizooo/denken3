@@ -5,7 +5,7 @@ import {
 import { TrendingUp, CalendarClock, Gauge, AlertTriangle, Target, Timer, Trophy } from 'lucide-react'
 import type { Chapter, Review, Status } from '../../domain/types'
 import type { PaceResult, PaceVerdict } from '../../lib/pace'
-import type { ChapterWeakness, WeeklyLearningPoint, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
+import type { ChapterWeakness, WeeklyLearningPoint, QuadrantItem, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
 import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
 
@@ -273,14 +273,15 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
           <Timer size={14} className="text-indigo-500" />理解度 × 解答時間
         </h3>
         <p className="text-xs text-gray-400">
-          解答時間の計測データがまだありません。「問題を見る」から解いてA/B/Cを記録すると、
-          同難易度の中央値と比べた「速い/遅い」で弱点を分類します。
+          解答時間の計測データがまだありません。「問題を解く」から解いてA/B/Cを記録すると、
+          本番の持ち時間（A問題5分・B問題10分）と比べた「速い/遅い」で弱点を分類します。
         </p>
       </div>
     )
   }
-  // 訓練対象（A遅い＋誤答遅い）を ratio 降順で上位提示。
-  const targets = [...m.overtime, ...m.priority].sort((a, b) => b.ratio - a.ratio).slice(0, 5)
+  // 訓練対象（A遅い＋誤答遅い）を「本番の持ち時間に対する超過率」の降順で上位提示。
+  const overrun = (t: QuadrantItem) => t.seconds / t.limitSeconds
+  const targets = [...m.overtime, ...m.priority].sort((a, b) => overrun(b) - overrun(a)).slice(0, 5)
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -322,7 +323,8 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
         </div>
       )}
       <p className="text-[10px] text-gray-300">
-        「A・遅い」はCBT本番（1問約5分）で失点しやすい隠れ弱点です。直前期の訓練対象に。
+        「遅い」は本番の持ち時間（A問題5分・B問題10分）超え。「A・遅い」は正答できていても
+        本番では時間切れで失点しやすい隠れ弱点です。直前期の訓練対象に。
       </p>
     </div>
   )

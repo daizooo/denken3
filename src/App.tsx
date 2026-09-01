@@ -11,7 +11,10 @@ import { deriveFromHistory, defaultReview } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
-import { startTimer, pauseTimer, resumeTimer, elapsedSeconds, type TimerState } from './lib/timer'
+import {
+  startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
+  MAX_DURATION_SECONDS, type TimerState,
+} from './lib/timer'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
@@ -50,13 +53,17 @@ export default function App() {
   const [recordDate, setRecordDate] = useState<Record<string, string>>({})
   // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
-  const [viewerQ, setViewerQ] = useState<{ id: string; title: string } | null>(null)
+  // solving=true は「問題を解く」で開いた（解答時間を計測中の）状態。
+  const [viewerQ, setViewerQ] = useState<{ id: string; title: string; solving: boolean } | null>(null)
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
   const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
-  // 分野別の解答時間計測（§7.6）。「問題を見る」で開始、A/B/C で終了。
+  // 分野別の解答時間計測（§7.6）。「問題を解く」で開始、A/B/C で終了。
   // 問題IDごとの計測状態。UIの再描画とは無関係なので ref で保持する。
   const timersRef = useRef<Record<string, TimerState>>({})
+  // 問題IDごとの記録上限秒（課題13）。難易度帯の中央値から算出するが、その中央値は
+  // updateStatus より後で組み立てられるため、依存配列ではなく ref 経由で読む。
+  const durationCapsRef = useRef<Record<string, number>>({})
   const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -226,12 +233,14 @@ export default function App() {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const date = dateFor(questionId)
-    // 解答時間（分野別・§7.6）: 「問題を見る」で開始した計測があれば秒数を付与する。
-    // 無効（日跨ぎ・30分超・未計測）なら duration_seconds を付けない＝計測前扱い。
+    // 解答時間（分野別・§7.6）: 「問題を解く」で開始した計測があれば秒数を付与する。
+    // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
+    // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
     const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
     const timer = timersRef.current[questionId]
     if (timer) {
-      const sec = elapsedSeconds(timer, todayStr)
+      const cap = durationCapsRef.current[questionId] ?? MAX_DURATION_SECONDS
+      const sec = elapsedSeconds(timer, todayStr, Date.now(), cap)
       if (sec !== undefined) entry.duration_seconds = sec
       delete timersRef.current[questionId]
     }
@@ -372,6 +381,17 @@ export default function App() {
     () => quadrantMatrix(inputChapters, reviews),
     [inputChapters, reviews]
   )
+
+  // 記録時の解答時間の上限（課題13）。難易度帯の中央値の3倍と15分の小さいほう。
+  // 中断（画面を消さずに端末を置くと visibilitychange が発火しない）が解答時間として
+  // 記録されるのを防ぐ。updateStatus からは ref 経由で読む。
+  useEffect(() => {
+    const caps: Record<string, number> = {}
+    for (const c of currentChapters) {
+      for (const q of c.questions) caps[q.id] = durationCapSeconds(quadrant.medians[q.difficulty])
+    }
+    durationCapsRef.current = caps
+  }, [currentChapters, quadrant])
   const subjectSessions = useMemo(
     () => mockSessions.filter(s => s.subject_id === subjectIdOf(examId, subject)),
     [mockSessions, examId, subject]
@@ -550,7 +570,9 @@ export default function App() {
     questions.filter(q => {
       const r = reviews[q.id]
       if (selectedDate === todayStr) {
-        return r?.status === '未着手' || (r?.due_date && r.due_date <= todayStr)
+        // 未着手（メモだけ保存した問題など）は baseQuestions が復習タブに通さないため、
+        // 件数からも外す。含めるとチップの件数と実際の表示件数が食い違う（課題3）。
+        return !!(r?.due_date && r.due_date <= todayStr)
       }
       if (selectedDate >= overflowStart) {
         return !!(r?.due_date && r.due_date >= overflowStart)
@@ -871,12 +893,12 @@ export default function App() {
                         // 「問題を見る」= 確認のみ。タイマーは動かさない。
                         // 計測中の状態が残っていると解答時間に混ざるので破棄する。
                         delete timersRef.current[q.id]
-                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })
+                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}`, solving: false })
                       }}
                       onSolveProblem={() => {
                         // 「問題を解く」= 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
                         timersRef.current[q.id] = startTimer(todayStr)
-                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}` })
+                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}`, solving: true })
                       }}
                       dateValue={dateFor(q.id)}
                       dateOpen={dateOpenId === q.id}
@@ -899,7 +921,16 @@ export default function App() {
       </div>
 
       {viewerQ && (
-        <ProblemViewer questionId={viewerQ.id} title={viewerQ.title} onClose={() => setViewerQ(null)} />
+        <ProblemViewer
+          questionId={viewerQ.id}
+          title={viewerQ.title}
+          solving={viewerQ.solving}
+          onClose={() => setViewerQ(null)}
+          // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
+          onRecord={s => { void updateStatus(viewerQ.id, s); setViewerQ(null) }}
+          // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
+          onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
+        />
       )}
       {showImport && (
         <ImportPanel userId={user.id} onClose={() => setShowImport(false)} />

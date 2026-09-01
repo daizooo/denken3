@@ -1,11 +1,22 @@
 // 分野別の解答時間計測（§7.6）。
-// 「問題を見る」（ProblemViewer を開く）で計測開始、A/B/C 押下で終了。
+// 「問題を解く」（ProblemViewer を開く）で計測開始、A/B/C 押下で終了。
 // - タブ非表示中は加算しない（visibilitychange で pause/resume）
-// - 上限クリップ 30分・日跨ぎは無効（duration_seconds を付けない＝計測前扱い）
+// - 上限クリップ・日跨ぎは無効（duration_seconds を付けない＝計測前扱い）
+//   上限は「その難易度帯の中央値の3倍」と MAX_DURATION_SECONDS の小さいほう（課題13）。
+//   30分では中断（画面を消さずに端末を置いた場合は visibilitychange が発火しない）が
+//   解答時間として記録され続け、時間予算の見積もり精度を汚染するため引き下げた。
 //
 // 状態は素朴なプレーンオブジェクトで表現し、App 側で useRef 管理する。純ロジックのみここに置く。
 
-export const MAX_DURATION_SECONDS = 30 * 60
+// 難易度帯の中央値が未算出（母数不足）のときに使う既定の上限。
+export const MAX_DURATION_SECONDS = 15 * 60
+
+// 記録時の上限秒。中央値の3倍と MAX_DURATION_SECONDS の小さいほうを採る。
+// 難易度1（中央値1.9分）なら約5.7分、難易度2（中央値5.3分）なら15分になる。
+export function durationCapSeconds(medianSeconds: number | null | undefined): number {
+  if (medianSeconds == null || medianSeconds <= 0) return MAX_DURATION_SECONDS
+  return Math.min(Math.round(medianSeconds * 3), MAX_DURATION_SECONDS)
+}
 
 export interface TimerState {
   day: string               // 開始時点の JST 日付（日跨ぎ判定用）
@@ -29,18 +40,19 @@ export function resumeTimer(t: TimerState, now: number = Date.now()): TimerState
   return { ...t, startedAt: now }
 }
 
-// 計測終了時の秒数。無効（日跨ぎ・30分超・0以下）なら undefined を返し、
+// 計測終了時の秒数。無効（日跨ぎ・上限超・0以下）なら undefined を返し、
 // 呼び出し側は duration_seconds を付けずに記録する。
 export function elapsedSeconds(
   t: TimerState,
   today: string,
   now: number = Date.now(),
+  capSeconds: number = MAX_DURATION_SECONDS,
 ): number | undefined {
   if (t.day !== today) return undefined // 「解答中」のまま日をまたいだら破棄
   const totalMs = t.accumulatedMs + (t.startedAt != null ? now - t.startedAt : 0)
   const sec = Math.round(totalMs / 1000)
   if (sec <= 0) return undefined
-  if (sec > MAX_DURATION_SECONDS) return undefined // 押し忘れ・放置の外れ値は除外
+  if (sec > capSeconds) return undefined // 押し忘れ・中断・放置の外れ値は除外
   return sec
 }
 
