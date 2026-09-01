@@ -40,6 +40,9 @@ export interface SubjectDefinition {
   name: Subject         // '理論'
   chapters: Chapter[]
   papers?: PaperDefinition[]  // 年度別（CBT模試）ペーパー。未収録の科目は undefined。
+  // 年度別の問題ID → 分野別の問題ID の自動リンク（課題6・src/lib/sourceLink.ts）。
+  // 分野別タイトルの出典表記から起動時に組み立てる。誤答の復習前倒しの引き当てに使う。
+  sourceLinks?: ReadonlyMap<string, string>
 }
 
 // 資格ごとの試験制度の差異（§7.8）。UIの分岐やモデルの拡張点はここに集約する。

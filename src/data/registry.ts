@@ -1,7 +1,7 @@
 // マスターデータの唯一の入口（registry）。
 // 資格・科目・章を追加するときは各 data ファイルを編集し、EXAMS から辿れるようにする。
 // UI はこの registry を起点に描画する（資格・科目のハードコードをしない・§7.8）。
-import type { Chapter, ExamDefinition, ExamId, PaperDefinition, Subject, SubjectDefinition } from '../domain/types'
+import type { Chapter, ExamDefinition, ExamId, PaperDefinition, PaperQuestion, Subject, SubjectDefinition } from '../domain/types'
 import { DENKEN3_EXAM } from './denken3'
 
 // 全資格。将来 電験2種・エネ管等を配列に追加するだけで UI に現れる。
@@ -46,6 +46,16 @@ export function subjectIdOf(examId: ExamId, name: Subject): string {
 // 指定資格・指定科目の年度別（CBT模試）ペーパー一覧。未収録なら空配列。
 export function papersForSubject(examId: ExamId, name: Subject): PaperDefinition[] {
   return getExam(examId).subjects.find(s => s.name === name)?.papers ?? []
+}
+
+// 年度別（CBT模試）の問題IDに対応する分野別問題IDを引く（課題6）。
+// 各問題に手入力された sourceQuestionId を優先し、無ければ出典表記からの自動リンクを使う。
+// リンクが無ければ undefined（＝誤答の復習前倒しボタンを出さない）。
+export function sourceQuestionIdOf(
+  examId: ExamId, subjectId: string, paperQuestion: PaperQuestion,
+): string | undefined {
+  if (paperQuestion.sourceQuestionId) return paperQuestion.sourceQuestionId
+  return getExam(examId).subjects.find(s => s.id === subjectId)?.sourceLinks?.get(paperQuestion.id)
 }
 
 // ---- 後方互換の静的エクスポート（既定資格ベース）----

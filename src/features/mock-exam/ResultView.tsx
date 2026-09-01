@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, R
 import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Award, RotateCcw } from 'lucide-react'
 import type { MockSession, PaperDefinition } from '../../domain/types'
 import { scorePaper, transitionJudgment, type ScoreResult } from '../../lib/mock'
+import { sourceQuestionIdOf } from '../../data/registry'
 import PaperImage from './PaperImage'
 
 // 採点・結果画面（§7.4(3)）。
@@ -134,6 +135,8 @@ export default function ResultView({
               const q = r.question
               const allOk = r.ok.every(Boolean)
               const open = openId === q.id
+              // 対応する分野別問題（手入力の sourceQuestionId → 出典表記からの自動リンクの順・課題6）
+              const sourceId = sourceQuestionIdOf(paper.examId, paper.subjectId, q)
               return (
                 <div key={q.id} className="py-2">
                   <button onClick={() => setOpenId(open ? null : q.id)} className="w-full flex items-center gap-2 text-left">
@@ -165,9 +168,9 @@ export default function ResultView({
                       {q.explanationUrl && (
                         <a href={q.explanationUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">解説ページ（電験王）</a>
                       )}
-                      {!allOk && q.sourceQuestionId && onBoostReview && (
+                      {!allOk && sourceId && onBoostReview && (
                         <button
-                          onClick={() => onBoostReview(q.sourceQuestionId!)}
+                          onClick={() => onBoostReview(sourceId)}
                           className="flex items-center gap-1 text-xs font-medium text-blue-600 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100"
                         >
                           <RotateCcw size={12} /> 分野別のこの問題を今日の復習に前倒し
