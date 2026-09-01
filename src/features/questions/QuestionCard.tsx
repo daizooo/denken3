@@ -12,7 +12,7 @@ export interface QuestionWithChapter extends MasterQuestion {
 }
 
 export default function QuestionCard({
-  q, review, activeTab, todayStr,
+  q, review, activeTab, todayStr, examDate,
   isEditing, editMemo, onEditMemoChange, onToggleEdit, onSaveMemo,
   onRecordStatus, onReactivate, onViewProblem, onSolveProblem,
   dateValue, dateOpen, onOpenDate, onDateChange, onResetDate,
@@ -22,6 +22,8 @@ export default function QuestionCard({
   review: Review
   activeTab: 'review' | 'list' | 'dashboard'
   todayStr: string
+  // リスク帯のしきい値（目標保持率）を試験までの残日数で切り替えるために使う（reviewPlan.ts）
+  examDate: string | null
   isEditing: boolean
   editMemo: string
   onEditMemoChange: (v: string) => void
@@ -91,7 +93,7 @@ export default function QuestionCard({
             {review.due_date && (() => {
               // 「N日遅延」の赤表示はやめ、忘却リスク帯（優先度）で示す（reviewPlan.ts）。
               // 遅れは失敗ではなく、FSRS が経過を織り込むので順番の問題に過ぎない。
-              const bm = bandMeta(reviewValue(q, review, todayStr).band)
+              const bm = bandMeta(reviewValue(q, review, todayStr, examDate).band)
               return (
                 <span className="flex items-center gap-1">
                   <span className="text-gray-300">/</span>

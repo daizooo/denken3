@@ -552,7 +552,7 @@ export default function App() {
     // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
     const rankOf = new Map<string, number>()
     for (const q of filtered) {
-      const score = reviewValue(q, reviews[q.id], todayStr).score
+      const score = reviewValue(q, reviews[q.id], todayStr, currentPlan?.exam_date ?? null).score
       rankOf.set(q.id, timeBudget === null
         ? score
         : valueDensity(score, estimateMinutes(q, reviews[q.id], timeStats)))
@@ -567,7 +567,7 @@ export default function App() {
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, timeBudget, timeStats])
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, timeBudget, timeStats, currentPlan])
 
   // 時間予算の線（課題1・提案B）。表示中のキューに対して、累積の推定所要が予算に達した
   // 位置を求める。予算未指定のときはキュー全体の推定所要だけを使う。
@@ -590,8 +590,8 @@ export default function App() {
     // 推奨ラインぶんの推定所要分（提案C）。「7問」が10分なのか70分なのかを併記する。
     const recommended = [...candidates]
       .sort((a, b) =>
-        reviewValue(b.question, b.review, todayStr).score -
-        reviewValue(a.question, a.review, todayStr).score)
+        reviewValue(b.question, b.review, todayStr, currentPlan?.exam_date ?? null).score -
+        reviewValue(a.question, a.review, todayStr, currentPlan?.exam_date ?? null).score)
       .slice(0, plan.recommendedCount)
       .map(c => c.question)
     return { ...plan, recommendedMinutes: sumEstimateMinutes(recommended, reviews, timeStats) }
@@ -1012,6 +1012,7 @@ export default function App() {
                       review={review}
                       activeTab={activeTab}
                       todayStr={todayStr}
+                      examDate={currentPlan?.exam_date ?? null}
                       isEditing={isEditing}
                       editMemo={editMemo}
                       onEditMemoChange={setEditMemo}
