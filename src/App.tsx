@@ -12,6 +12,9 @@ import { analyzePace, applicationReminder } from './lib/pace'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import {
+  buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity, formatMinutes,
+} from './lib/estimateMinutes'
+import {
   startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
   MAX_DURATION_SECONDS, type TimerState,
 } from './lib/timer'
@@ -22,6 +25,7 @@ import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
+import TimeBudgetBar from './features/questions/TimeBudgetBar'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -47,6 +51,8 @@ export default function App() {
   const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
   const [filterOpen, setFilterOpen] = useState(false)
+  // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし。
+  const [timeBudget, setTimeBudget] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
   // 各問題の記録用「実施日」。未設定なら今日を使う。
@@ -381,6 +387,11 @@ export default function App() {
     () => quadrantMatrix(inputChapters, reviews),
     [inputChapters, reviews]
   )
+  // 所要時間の推定に使う実測統計（課題1・提案A）。難易度×studyMode の中央値と問題別の実測。
+  const timeStats = useMemo(
+    () => buildTimeStats(inputChapters, reviews),
+    [inputChapters, reviews]
+  )
 
   // 記録時の解答時間の上限（課題13）。難易度帯の中央値の3倍と15分の小さいほう。
   // 中断（画面を消さずに端末を置くと visibilitychange が発火しない）が解答時間として
@@ -493,18 +504,32 @@ export default function App() {
     // 価値＝〔重要度〕×〔忘却リスク 1-R〕×〔理解度〕。頻出・重要で、いま忘れかけていて、
     // 理解度の低い問題ほど先に。同点は重要度→難易度で割る。
     if (activeTab !== 'review') return filtered
-    // 価値スコアは事前計算（比較の中で R を再計算しない）。
-    const scoreOf = new Map<string, number>()
-    for (const q of filtered) scoreOf.set(q.id, reviewValue(q, reviews[q.id], todayStr).score)
+    // 並び順のキーは事前計算（比較の中で R を再計算しない）。
+    // 時間予算モード（課題1・提案B）が有効な間は「価値 ÷ 推定所要分」の降順にする。
+    // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
+    const rankOf = new Map<string, number>()
+    for (const q of filtered) {
+      const score = reviewValue(q, reviews[q.id], todayStr).score
+      rankOf.set(q.id, timeBudget === null
+        ? score
+        : valueDensity(score, estimateMinutes(q, reviews[q.id], timeStats)))
+    }
     return [...filtered].sort((a, b) => {
-      const va = scoreOf.get(a.id) ?? 0, vb = scoreOf.get(b.id) ?? 0
+      const va = rankOf.get(a.id) ?? 0, vb = rankOf.get(b.id) ?? 0
       if (va !== vb) return vb - va
       const ia = a.importance ?? 2, ib = b.importance ?? 2
       if (ia !== ib) return ib - ia
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr])
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, timeBudget, timeStats])
+
+  // 時間予算の線（課題1・提案B）。表示中のキューに対して、累積の推定所要が予算に達した
+  // 位置を求める。予算未指定のときはキュー全体の推定所要だけを使う。
+  const budgetPlan = useMemo(
+    () => planByBudget(filteredQuestions, reviews, timeStats, timeBudget ?? Infinity),
+    [filteredQuestions, reviews, timeStats, timeBudget]
+  )
 
   // 今日の復習の「推奨ライン」（reviewPlan.ts）。上限で切るのではなく、価値順に並んだ
   // 今日の due 全体を「今日はここまで」で線引きするための位置。1日全体の概念なので、
@@ -516,8 +541,16 @@ export default function App() {
         return !!(r?.due_date && r.due_date <= todayStr)
       })
       .map(q => ({ question: q, review: reviews[q.id] }))
-    return planDailyReviews(candidates, todayStr, currentPlan?.exam_date ?? null)
-  }, [allQuestions, reviews, todayStr, currentPlan])
+    const plan = planDailyReviews(candidates, todayStr, currentPlan?.exam_date ?? null)
+    // 推奨ラインぶんの推定所要分（提案C）。「7問」が10分なのか70分なのかを併記する。
+    const recommended = [...candidates]
+      .sort((a, b) =>
+        reviewValue(b.question, b.review, todayStr).score -
+        reviewValue(a.question, a.review, todayStr).score)
+      .slice(0, plan.recommendedCount)
+      .map(c => c.question)
+    return { ...plan, recommendedMinutes: sumEstimateMinutes(recommended, reviews, timeStats) }
+  }, [allQuestions, reviews, todayStr, currentPlan, timeStats])
 
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
   // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
@@ -623,8 +656,10 @@ export default function App() {
                 {saving
                   ? '保存中...'
                   : todayReviewPlan && todayReviewPlan.recommendedCount < todayDue
-                    ? `今日の推奨 ${todayReviewPlan.recommendedCount}問（期限 ${todayDue}）`
-                    : `今日の復習 ${todayDue}問`}
+                    ? `今日の推奨 ${todayReviewPlan.recommendedCount}問・約${formatMinutes(todayReviewPlan.recommendedMinutes)}（期限 ${todayDue}）`
+                    : todayDue > 0
+                      ? `今日の復習 ${todayDue}問・約${formatMinutes(todayReviewPlan.recommendedMinutes)}`
+                      : '今日の復習 0問'}
               </span>
               <button
                 onClick={() => setShowImport(true)}
@@ -807,6 +842,18 @@ export default function App() {
               </div>
             )}
 
+            {/* ===== 時間予算モード（課題1・提案B）: 復習タブのみ ===== */}
+            {activeTab === 'review' && filteredQuestions.length > 0 && (
+              <TimeBudgetBar
+                value={timeBudget}
+                onChange={setTimeBudget}
+                fitCount={budgetPlan.count}
+                fitMinutes={budgetPlan.minutes}
+                totalCount={filteredQuestions.length}
+                totalMinutes={budgetPlan.totalMinutes}
+              />
+            )}
+
             {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar
               modes={filterModes}
@@ -852,12 +899,21 @@ export default function App() {
                   // 1日全体の概念なので、今日タブ・全章・全状態を表示中のときだけ線を引く。
                   const showLine =
                     activeTab === 'review' &&
+                    timeBudget === null &&
                     selectedDate === todayStr &&
                     chapterCode === 'ALL' &&
                     filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
                     idx === todayReviewPlan.recommendedCount &&
                     todayReviewPlan.recommendedCount < filteredQuestions.length
+
+                  // 時間予算の線（課題1・提案B）。推奨ラインの一般化なので、予算を選んでいる
+                  // 間はこちらに置き換える。表示中のキューに対して引くため絞り込みは問わない。
+                  const showBudgetLine =
+                    activeTab === 'review' &&
+                    timeBudget !== null &&
+                    idx === budgetPlan.count &&
+                    budgetPlan.count < filteredQuestions.length
 
                   return (
                     <Fragment key={q.id}>
@@ -868,6 +924,15 @@ export default function App() {
                           ここまでが今日の推奨 · 以降は順番待ち（遅れではありません）
                         </span>
                         <div className="flex-1 h-px bg-gray-200" />
+                      </div>
+                    )}
+                    {showBudgetLine && (
+                      <div className="flex items-center gap-2 py-1 select-none">
+                        <div className="flex-1 h-px bg-blue-200" />
+                        <span className="text-[11px] text-blue-500 whitespace-nowrap">
+                          ここまでが{timeBudget}分ぶん · 以降は次の隙間で
+                        </span>
+                        <div className="flex-1 h-px bg-blue-200" />
                       </div>
                     )}
                     <QuestionCard
