@@ -12,6 +12,7 @@ import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget } from './lib/passTarget'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
+import { buildTodaySummary } from './lib/todaySummary'
 import {
   buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity, formatMinutes,
 } from './lib/estimateMinutes'
@@ -31,6 +32,7 @@ import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
 import TimeBudgetBar from './features/questions/TimeBudgetBar'
+import TodaySummaryBar from './features/questions/TodaySummary'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -709,6 +711,13 @@ export default function App() {
     return { ...plan, recommendedMinutes: sumEstimateMinutes(recommended, reviews, timeStats) }
   }, [allQuestions, reviews, todayStr, currentPlan, timeStats])
 
+  // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
+  // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
+  const todaySummary = useMemo(
+    () => buildTodaySummary(todayReviewPlan, todayNew, scoreEstimate, passTarget),
+    [todayReviewPlan, todayNew, scoreEstimate, passTarget]
+  )
+
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
   // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
   // 記録した直後（reviewedNowIds が空でない）だけ発火させ、
@@ -964,6 +973,9 @@ export default function App() {
           />
         ) : (
           <>
+            {/* ===== 今日の一手サマリ（課題9）: 復習タブのみ ===== */}
+            {activeTab === 'review' && <TodaySummaryBar summary={todaySummary} />}
+
             {/* ===== CHAPTER FILTER ===== */}
             <div className="flex gap-2 flex-wrap">
               <button
