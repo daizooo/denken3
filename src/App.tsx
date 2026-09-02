@@ -14,7 +14,7 @@ import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateSc
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import { buildTodaySummary } from './lib/todaySummary'
 import {
-  buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity, formatMinutes,
+  buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity,
 } from './lib/estimateMinutes'
 import {
   startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
@@ -31,8 +31,7 @@ import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
-import TimeBudgetBar from './features/questions/TimeBudgetBar'
-import TodaySummaryBar from './features/questions/TodaySummary'
+import TodayPanel from './features/questions/TodayPanel'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -63,6 +62,9 @@ export default function App() {
   const [filterOpen, setFilterOpen] = useState(false)
   // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし。
   const [timeBudget, setTimeBudget] = useState<number | null>(null)
+  // 「先の予定」（日付ストリップ）の開閉。既定は畳む（Phase H）。今日を見ている限り
+  // 使わない行が常時1行を占有していたため。今日以外を選んでいる間は常に開く。
+  const [datesOpen, setDatesOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editMemo, setEditMemo]   = useState('')
   // 各問題の記録用「実施日」。未設定なら今日を使う。
@@ -716,9 +718,16 @@ export default function App() {
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
   // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
+  // 今日すでに記録した問数（進捗バーの分子・Phase H）。todayReviewPlan と同じ母数
+  // （allQuestions）から数え、「完了＋残り」が今日の総量として1本に閉じるようにする。
+  const doneToday = useMemo(
+    () => allQuestions.filter(q => reviews[q.id]?.last_reviewed === todayStr).length,
+    [allQuestions, reviews, todayStr]
+  )
+
   const todaySummary = useMemo(
-    () => buildTodaySummary(todayReviewPlan, todayNew, scoreEstimate, passTarget),
-    [todayReviewPlan, todayNew, scoreEstimate, passTarget]
+    () => buildTodaySummary(todayReviewPlan, todayNew, scoreEstimate, passTarget, doneToday),
+    [todayReviewPlan, todayNew, scoreEstimate, passTarget, doneToday]
   )
 
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
@@ -781,20 +790,28 @@ export default function App() {
       }
       return r?.due_date === selectedDate
     }).length
-  const todayDue = allQuestions.filter(q => {
-    const r = reviews[q.id]
-    return !!(r?.due_date && r.due_date <= todayStr)
-  }).length
-  // 今日やること＝復習due＋新規着手枠（課題3）。タブのバッジとヘッダの要約に使う。
-  // 新規着手枠は科目全体で決まるが、ここは表示中（章フィルタ後）の件数に合わせる。
+  // 新規着手枠の見出しに出す件数（課題3）。新規着手枠は科目全体で決まるが、
+  // ここは表示中（章フィルタ後）の件数に合わせる。
   const todayNewShown = allQuestions.filter(q => todayNew.ids.has(q.id)).length
-  const todayQueue = todayDue + todayNewShown
   // 復習due と新規着手枠の境界（課題3）。新規着手枠は価値スコア0でキュー末尾に並ぶため、
   // 最初に現れる新規着手枠の位置がそのまま区切りになる（-1＝新規なし）。
   const newStartIdx = activeTab === 'review' && selectedDate === todayStr
     ? filteredQuestions.findIndex(q => todayNew.ids.has(q.id))
     : -1
   const dueShownCount = newStartIdx === -1 ? filteredQuestions.length : newStartIdx
+  const isTodayView = selectedDate === todayStr
+  // 章セレクトの選択肢（Phase H。旧: 本文上のチップ10個）。件数の意味はタブで変わる
+  // （復習タブ＝表示中の日付の件数 / 全問題タブ＝収録数）ので、そこは従来どおり。
+  const chapterOptions = [
+    { code: 'ALL', label: `全章（${activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問）` },
+    ...inputChapters.map(c => ({
+      code: c.code,
+      label: `${c.name}（${activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length}）`,
+    })),
+    ...currentChapters.filter(c => c.questions.length === 0).map(c => ({
+      code: c.code, label: `${c.name}（未入力）`, disabled: true,
+    })),
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
@@ -802,9 +819,9 @@ export default function App() {
 
         {/* ===== HEADER ===== */}
         <header className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BookOpen size={18} className="text-blue-600" />
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              <BookOpen size={18} className="text-blue-600 shrink-0" />
               {/* 資格切替（§7.8）。登録が2つ以上になったらセレクタを表示、1つの間は名称のみ。 */}
               {EXAMS.length >= 2 ? (
                 <select
@@ -819,17 +836,37 @@ export default function App() {
                 </select>
               ) : (
                 <span className="flex items-baseline gap-1.5">
-                  <span className="font-bold text-gray-800 text-base">ElectricPro</span>
-                  <span className="text-xs font-medium text-gray-500">{exam.name}</span>
+                  <span className="font-bold text-gray-800 text-base whitespace-nowrap">ElectricPro</span>
+                  {/* 資格名は狭い画面では出さない（科目セレクトが文脈を持つため）。 */}
+                  <span className="hidden sm:inline text-xs font-medium text-gray-500 whitespace-nowrap">{exam.name}</span>
                 </span>
               )}
+              {/* 科目（Phase H）。旧: 全幅4分割のタブ1行。切り替え頻度が低く、常時1行を
+                  占有する必要がないため、資格名の隣のセレクトに畳んだ。 */}
+              <select
+                value={subject}
+                onChange={e => { setSubject(e.target.value as Subject); setChapterCode('ALL') }}
+                title="科目の切り替え"
+                className="text-xs font-medium text-gray-700 bg-gray-100 border-none rounded-md px-1.5 py-1 cursor-pointer focus:outline-none"
+              >
+                {subjects.map(sub => {
+                  const count = chapters.filter(c => c.subject === sub)
+                    .reduce((sum, c) => sum + c.questions.length, 0)
+                  return (
+                    <option key={sub} value={sub}>{sub}{count > 0 ? `（${count}）` : ''}</option>
+                  )
+                })}
+              </select>
               {daysToExam !== null && daysToExam >= 0 && (
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  {subject}試験まで あと{daysToExam}日
+                <span
+                  className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap"
+                  title={`${subject}試験まで あと${daysToExam}日`}
+                >
+                  あと{daysToExam}日
                 </span>
               )}
             </div>
-            <div className="text-xs text-gray-400 flex items-center gap-2">
+            <div className="text-xs text-gray-400 flex items-center gap-2 shrink-0 ml-auto">
               {/* オフライン表示（課題7）。記録は送信待ちに積まれ、復帰時に自動で送られるので
                   「使えない」ではなく「あとで送る」ことが分かる文言にする。 */}
               {(!online || pending > 0) && (
@@ -842,20 +879,14 @@ export default function App() {
                   {online ? `未送信${pending}件` : `オフライン${pending > 0 ? `・未送信${pending}件` : ''}`}
                 </span>
               )}
-              {saving && <Save size={12} className="animate-pulse text-blue-400" />}
-              <span>
-                {saving
-                  ? '保存中...'
-                  : todayQueue === 0
-                    ? '今日の学習 0問'
-                    : `今日の学習 ${
-                        todayReviewPlan.recommendedCount < todayDue
-                          ? `復習${todayReviewPlan.recommendedCount}問（期限${todayDue}）`
-                          : `復習${todayDue}問`
-                      }${todayNewShown > 0 ? ` ＋新規${todayNewShown}問` : ''}・約${
-                        formatMinutes(todayReviewPlan.recommendedMinutes + todayNew.minutes)
-                      }`}
-              </span>
+              {/* 学習量の要約はここに出さない（Phase H）。今日パネルと同じ値の重複表示が
+                  「今日は39問なのか109問なのか」を読めなくしていたため、指標は1箇所に寄せた。 */}
+              {saving && (
+                <span className="flex items-center gap-1">
+                  <Save size={12} className="animate-pulse text-blue-400" />
+                  保存中...
+                </span>
+              )}
               <button
                 onClick={() => setShowImport(true)}
                 title="問題画像の取り込み"
@@ -882,25 +913,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* 科目タブ */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            {subjects.map(s => {
-              const count = chapters.filter(c => c.subject === s)
-                .reduce((sum, c) => sum + c.questions.length, 0)
-              return (
-                <button key={s}
-                  onClick={() => { setSubject(s); setChapterCode('ALL') }}
-                  className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-                    subject === s ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {s}
-                  {count > 0 && <span className="ml-1 text-gray-400">({count})</span>}
-                </button>
-              )
-            })}
-          </div>
-
           {/* 表示タブ */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
@@ -909,7 +921,9 @@ export default function App() {
                 activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              今日{todayQueue > 0 ? ` (${todayQueue})` : ''}
+              {/* バッジは「今日の推奨」。今日パネルの主数値と一致させる（Phase H）。
+                  期限到来の総数はパネル内の一覧件数として1度だけ出す。 */}
+              今日{todaySummary.remainingCount > 0 ? ` (${todaySummary.remainingCount})` : ''}
             </button>
             {(['list', 'dashboard', 'mock'] as const).map(t => {
               // 年度別タブは、ペーパー定義が無い科目では表示しない（§7.4）。
@@ -976,80 +990,26 @@ export default function App() {
           />
         ) : (
           <>
-            {/* ===== 今日の一手サマリ（課題9）: 復習タブのみ ===== */}
-            {activeTab === 'review' && <TodaySummaryBar summary={todaySummary} />}
-
-            {/* ===== CHAPTER FILTER ===== */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setChapterCode('ALL')}
-                className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                  chapterCode === 'ALL'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                }`}
-              >全章 ({activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問)</button>
-
-              {inputChapters.map(c => {
-                const count = activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length
-                return (
-                  <button key={c.code}
-                    onClick={() => setChapterCode(c.code)}
-                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                      chapterCode === c.code
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    {c.name} ({count})
-                  </button>
-                )
-              })}
-
-              {/* 未入力チャプターのプレースホルダー */}
-              {currentChapters.filter(c => c.questions.length === 0).map(c => (
-                <span key={c.code}
-                  className="px-3 py-1 rounded-full text-xs border border-dashed border-gray-300 text-gray-400 cursor-not-allowed"
-                  title={`${c.totalCount}問 - 未入力`}
-                >{c.name} (未)</span>
-              ))}
-            </div>
-
-            {/* ===== DATE STRIP (review only) ===== */}
+            {/* ===== 今日パネル（Phase H）: 復習タブのみ =====
+                旧: 今日の一手バー ＋ 章チップ（折り返し2行）＋ 日付ストリップ ＋ 時間予算バー
+                の4面。同じ数値が3組重複していたため、1枚に統合した。章は絞り込みへ移動。 */}
             {activeTab === 'review' && (
-              <div className="overflow-x-auto -mx-0.5 px-0.5">
-                <div className="flex gap-1.5 pb-1" style={{ minWidth: 'max-content' }}>
-                  {reviewSchedule.map(({ date, label, count }) => (
-                    <button
-                      key={date}
-                      onClick={() => setSelectedDate(date)}
-                      className={`flex flex-col items-center px-3 py-1.5 rounded-xl border text-xs transition-colors min-w-[52px] ${
-                        selectedDate === date
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : count > 0
-                          ? 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
-                          : 'bg-gray-50 text-gray-400 border-gray-100'
-                      }`}
-                    >
-                      <span className="font-medium whitespace-nowrap">{label}</span>
-                      <span className={`mt-0.5 font-bold ${
-                        selectedDate === date ? 'text-white' : count > 0 ? 'text-gray-600' : 'text-gray-300'
-                      }`}>{count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ===== 時間予算モード（課題1・提案B）: 復習タブのみ ===== */}
-            {activeTab === 'review' && filteredQuestions.length > 0 && (
-              <TimeBudgetBar
-                value={timeBudget}
-                onChange={setTimeBudget}
+              <TodayPanel
+                summary={todaySummary}
+                isToday={isTodayView}
+                dateLabel={formatMD(selectedDate)}
+                queueCount={filteredQuestions.length}
+                queueMinutes={budgetPlan.totalMinutes}
+                budget={timeBudget}
+                onBudgetChange={setTimeBudget}
                 fitCount={budgetPlan.count}
                 fitMinutes={budgetPlan.minutes}
-                totalCount={filteredQuestions.length}
-                totalMinutes={budgetPlan.totalMinutes}
+                dates={reviewSchedule}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                // 今日以外を見ている間は畳めない（今日へ戻る導線がこの列しかないため）。
+                datesOpen={datesOpen || !isTodayView}
+                onToggleDates={() => setDatesOpen(o => !o)}
               />
             )}
 
@@ -1064,6 +1024,9 @@ export default function App() {
               statusCounts={filterCounts.statusCounts}
               open={filterOpen}
               onToggleOpen={() => setFilterOpen(o => !o)}
+              chapterCode={chapterCode}
+              onChangeChapter={setChapterCode}
+              chapterOptions={chapterOptions}
             />
 
             {/* ===== QUESTION LIST ===== */}
