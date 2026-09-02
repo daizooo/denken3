@@ -19,6 +19,9 @@ import {
   startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
   MAX_DURATION_SECONDS, type TimerState,
 } from './lib/timer'
+import {
+  loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
+} from './lib/offlineStore'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
@@ -40,6 +43,9 @@ export default function App() {
   const [mockSessions, setMockSessions] = useState<MockSession[]>([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
+  // オフライン対応（課題7・Phase F）。接続状態と、まだ送れていない記録の件数。
+  const [online, setOnline]       = useState(() => navigator.onLine)
+  const [pending, setPending]     = useState(0)
   // スタート画面は常に復習タブを表示する。
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('review')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
@@ -71,6 +77,11 @@ export default function App() {
   // 問題IDごとの記録上限秒（課題13）。難易度帯の中央値から算出するが、その中央値は
   // updateStatus より後で組み立てられるため、依存配列ではなく ref 経由で読む。
   const durationCapsRef = useRef<Record<string, number>>({})
+  // reviews / plans が「どの対象（`${userId}:${examId}`）のデータか」。サーバ取得の成功と
+  // オフライン用スナップショットの流し込みで更新する。取得済みの対象を古いキャッシュで
+  // 上書きしない／別の資格のデータを取り違えて保存しない、の2つに使う（課題7）。
+  const reviewsLoadedKeyRef = useRef<string | null>(null)
+  const plansLoadedKeyRef = useRef<string | null>(null)
   const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -90,6 +101,9 @@ export default function App() {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setReviews({})
+        // 空になった状態をスナップショットとして書き戻さない（課題7）。
+        reviewsLoadedKeyRef.current = null
+        plansLoadedKeyRef.current = null
         setLoading(false)
       } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         // TOKEN_REFRESHED では user を更新しない（不要な再フェッチ防止）
@@ -123,6 +137,7 @@ export default function App() {
             } as Review
           })
           setReviews(map)
+          reviewsLoadedKeyRef.current = snapshotKey(user.id, examId)
         }
         setLoading(false)
       })
@@ -153,6 +168,7 @@ export default function App() {
           }
         })
         setPlans(map)
+        plansLoadedKeyRef.current = snapshotKey(user.id, examId)
       })
   }, [user, examId])
 
@@ -176,6 +192,72 @@ export default function App() {
       })
   }, [user, examId])
 
+  // ---- オフライン対応（課題7・Phase F）----
+  // 接続状態。ヘッダの表示と、記録を直接送るか送信待ちに積むかの判断に使う。
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine)
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+
+  // 起動時のハイドレート。サーバ取得を待たず、前回のスナップショットで即座に描画する
+  // （service worker がシェルを返せても、学習データが無ければ画面は空になる）。
+  // 取得の方が先に着いていた対象は上書きしない（スナップショットの方が古いため）。
+  useEffect(() => {
+    if (!user) return
+    const key = snapshotKey(user.id, examId)
+    let alive = true
+    loadSnapshot(key).then(snap => {
+      if (!alive || !snap) return
+      if (reviewsLoadedKeyRef.current !== key) {
+        setReviews(snap.reviews)
+        reviewsLoadedKeyRef.current = key
+      }
+      if (plansLoadedKeyRef.current !== key) {
+        setPlans(snap.plans)
+        plansLoadedKeyRef.current = key
+      }
+      setLoading(false)
+    })
+    return () => { alive = false }
+  }, [user, examId])
+
+  // スナップショットの更新。取得直後だけでなくローカルの記録でも書き戻すので、
+  // オフラインで付けた記録も次回起動時にそのまま見える。
+  // まだこの対象のデータが入っていない間（資格の切り替え直後・取得失敗中）は書かない。
+  useEffect(() => {
+    if (!user) return
+    const key = snapshotKey(user.id, examId)
+    if (reviewsLoadedKeyRef.current !== key) return
+    saveSnapshot(key, { reviews, plans })
+  }, [user, examId, reviews, plans])
+
+  // 送信待ちの掃き出し。起動時とオンライン復帰時に古い順で送る。
+  // 1件でも失敗したらそこで止める（順序を保ったまま次の機会へ持ち越す）。
+  // オフラインで起動したときも、前回の積み残し件数はヘッダに出す（送信は復帰時）。
+  const flushOutbox = useCallback(async () => {
+    if (!user) return
+    if (navigator.onLine) {
+      for (const w of await pendingWrites()) {
+        const { error } = await supabase.from('denken_reviews').upsert(w.row)
+        if (error) break
+        await removeWrite(w.key)
+      }
+    }
+    setPending(await pendingCount())
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    flushOutbox()
+    window.addEventListener('online', flushOutbox)
+    return () => window.removeEventListener('online', flushOutbox)
+  }, [user, flushOutbox])
+
   // タブが非表示の間は解答時間の計測を止める（離席・中断時間を混入させない・§7.6）。
   useEffect(() => {
     const onVisibility = () => {
@@ -195,20 +277,35 @@ export default function App() {
   }, [activeTab, selectedDate])
 
   // 資格を切り替えたら、その資格の先頭科目に戻し章フィルタもリセットする（§7.8）。
+  // 学習データも空に戻す。オフラインで取得に失敗したとき、前の資格の記録が
+  // そのまま残って見えてしまうのを防ぐ（課題7）。
   useEffect(() => {
     setSubject(subjectNamesOf(examId)[0])
     setChapterCode('ALL')
+    setReviews({})
+    setPlans({})
   }, [examId])
 
   // ---- 共通: Review を1件保存（ローカル即時反映＋DB upsert）----
+  // オフライン／送信失敗時は送信待ちに積む（課題7d）。ローカルの状態とスナップショットは
+  // 先に更新済みなので、画面上は成功と区別なく進み、復帰時に自動で送られる。
   const saveReview = useCallback(async (updated: Review) => {
     if (!user) return
     setReviews(prev => ({ ...prev, [updated.question_id]: updated }))
+    const row = { user_id: user.id, exam_id: examId, ...updated }
+    const outboxKey = `${user.id}:${examId}:${updated.question_id}`
+    if (!navigator.onLine) {
+      await queueWrite(outboxKey, row)
+      setPending(await pendingCount())
+      return
+    }
     setSaving(true)
-    const { error } = await supabase.from('denken_reviews').upsert({
-      user_id: user.id, exam_id: examId, ...updated,
-    })
-    if (error) console.error(error)
+    const { error } = await supabase.from('denken_reviews').upsert(row)
+    if (error) {
+      console.error(error)
+      await queueWrite(outboxKey, row)
+      setPending(await pendingCount())
+    }
     setSaving(false)
   }, [user, examId])
 
@@ -298,20 +395,13 @@ export default function App() {
   }, [user, reviews, persistReview, saveReview])
 
   // ---- メモを保存 ----
+  // 保存経路は saveReview に一本化する（オフライン時の送信待ちもそのまま効く・課題7d）。
   const saveDetails = useCallback(async (questionId: string) => {
     if (!user) return
     const current = reviews[questionId] ?? defaultReview(questionId)
-    const updated: Review = { ...current, memo: editMemo }
-
-    setReviews(prev => ({ ...prev, [questionId]: updated }))
-    setSaving(true)
-    const { error } = await supabase.from('denken_reviews').upsert({
-      user_id: user.id, exam_id: examId, ...updated,
-    })
-    if (error) console.error(error)
-    setSaving(false)
+    await saveReview({ ...current, memo: editMemo })
     setEditingId(null)
-  }, [user, examId, reviews, editMemo])
+  }, [user, reviews, editMemo, saveReview])
 
   // ---- Derived data ----
   const currentChapters = useMemo(
@@ -706,6 +796,18 @@ export default function App() {
               )}
             </div>
             <div className="text-xs text-gray-400 flex items-center gap-2">
+              {/* オフライン表示（課題7）。記録は送信待ちに積まれ、復帰時に自動で送られるので
+                  「使えない」ではなく「あとで送る」ことが分かる文言にする。 */}
+              {(!online || pending > 0) && (
+                <span
+                  className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                    online ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                  }`}
+                  title={online ? '未送信の記録があります（自動で送信します）' : 'オフラインです。記録は復帰時に自動で送信します'}
+                >
+                  {online ? `未送信${pending}件` : `オフライン${pending > 0 ? `・未送信${pending}件` : ''}`}
+                </span>
+              )}
               {saving && <Save size={12} className="animate-pulse text-blue-400" />}
               <span>
                 {saving
