@@ -1,14 +1,18 @@
+import { useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  LineChart, Line, Legend,
 } from 'recharts'
-import { TrendingUp, CalendarClock, Gauge, AlertTriangle, Target, Timer, Trophy } from 'lucide-react'
+import { TrendingUp, Gauge, AlertTriangle, Timer, Trophy } from 'lucide-react'
 import type { Chapter, Review, Status } from '../../domain/types'
 import type { PaceResult, PaceVerdict } from '../../lib/pace'
 import type { PassTarget } from '../../lib/passTarget'
 import type { ChapterWeakness, WeeklyLearningPoint, QuadrantItem, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
+import { buildChapterPriority } from '../../lib/chapterPriority'
+import { STATUS_COLOR } from '../shared/status'
 import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
+import ChapterPriorityTable from './ChapterPriorityTable'
 
 const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: string }> = {
   done:    { label: () => '目標 達成', cls: 'text-emerald-600' },
@@ -23,7 +27,7 @@ function PaceCard({ pace }: { pace: PaceResult }) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1.5">
-          <Gauge size={14} className="text-blue-500" />ペース分析
+          <Gauge size={14} className="text-blue-500" />間に合うか（ペース）
         </h3>
         <p className="text-xs text-gray-400">
           「設定」で試験日を登録すると、A以上への到達ペース・全問A以上の到達予測・今日の推奨ノルマが表示されます。
@@ -43,14 +47,13 @@ function PaceCard({ pace }: { pace: PaceResult }) {
     <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-          <Gauge size={14} className="text-blue-500" />ペース分析
+          <Gauge size={14} className="text-blue-500" />間に合うか（ペース）
         </h3>
-        {pace.daysToExam !== null && pace.daysToExam >= 0 && (
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            <CalendarClock size={13} className="text-gray-400" />
-            試験まで <b className="text-gray-700">{pace.daysToExam}</b> 日
-          </span>
-        )}
+        {/* 判定はこのカードの結論なので見出しの高さに置く。試験までの日数はヘッダが
+            常時出しているので、ここでは繰り返さない（課題15）。 */}
+        <span className={`text-xs font-semibold ${v.cls}`}>
+          {pace.verdict === 'done' ? `${goalLabel} 達成` : v.label(pace.verdictDays)}
+        </span>
       </div>
 
       {/* 主要指標 */}
@@ -69,26 +72,16 @@ function PaceCard({ pace }: { pace: PaceResult }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs border-t border-gray-100 pt-3">
-        <span
-          className="text-gray-500"
-          title={pace.goalMode === 'pass'
-            ? '想定得点が合格ライン＋マージンに届くために、あと何問をA以上にすればよいか'
-            : '未着手・C・B はすべて未修得として残りに数えます'}
-        >
-          {pace.goalMode === 'pass' ? (
-            <>合格まで <b className="text-gray-700">{pace.remainingQ}</b>問
-              （未修得 {pace.masteryRemainingQ}/{pace.totalQ}）</>
-          ) : (
-            <>未修得 <b className="text-gray-700">{pace.remainingQ}</b> / {pace.totalQ}問</>
-          )}
-          {pace.projectedFinishDate && (
-            <> · {goalLabel} 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
-          )}
-        </span>
-        <span className={`font-semibold ${v.cls}`}>
-          {pace.verdict === 'done' ? `${goalLabel} 達成` : v.label(pace.verdictDays)}
-        </span>
+      {/* 「合格まであと何問」は①のカードが持つ（同じ値を2箇所に出さない・課題15）。
+          ここは未修得の総量と到達予測だけを担う。 */}
+      <div
+        className="text-xs text-gray-500 border-t border-gray-100 pt-3"
+        title="未着手・C・B はすべて未修得として残りに数えます"
+      >
+        未修得 <b className="text-gray-700">{pace.masteryRemainingQ}</b> / {pace.totalQ}問
+        {pace.projectedFinishDate && (
+          <> · {goalLabel} 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
+        )}
       </div>
 
       {/* マイルストーン */}
@@ -147,48 +140,6 @@ function PaceCard({ pace }: { pace: PaceResult }) {
   )
 }
 
-function WeaknessRanking({ rows }: { rows: ChapterWeakness[] }) {
-  if (rows.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1.5">
-          <Target size={14} className="text-red-500" />章別 弱点ランキング
-        </h3>
-        <p className="text-xs text-gray-400">着手済みの問題がまだありません。</p>
-      </div>
-    )
-  }
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4">
-      <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
-        <Target size={14} className="text-red-500" />章別 弱点ランキング
-      </h3>
-      <div className="space-y-2.5">
-        {rows.map(r => (
-          <div key={r.code}>
-            <div className="flex items-center justify-between text-xs mb-0.5">
-              <span className="font-medium text-gray-700">{r.name}</span>
-              <span className="text-gray-400">
-                正答 {Math.round(r.correctRate * 100)}% · {r.attempted}/{r.total}問
-              </span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-red-400 rounded-full transition-all duration-500"
-                style={{ width: `${Math.round(r.score * 100)}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-gray-400 mt-0.5">{r.advice}</p>
-          </div>
-        ))}
-      </div>
-      <p className="text-[10px] text-gray-300 mt-3">
-        弱点スコア = 不正答率・取りこぼし率・重要度の加重。解答時間はデータ蓄積後（Phase 2）に加味します。
-      </p>
-    </div>
-  )
-}
-
 function LearningCurve({ points }: { points: WeeklyLearningPoint[] }) {
   if (points.length === 0) return null
   const data = points.map(p => ({
@@ -219,63 +170,115 @@ function LearningCurve({ points }: { points: WeeklyLearningPoint[] }) {
   )
 }
 
-// ---- 本番想定得点の推定（§7.7(4)）----
-function ScoreEstimateCard({ est, target }: { est: ScoreEstimate; target: PassTarget }) {
-  if (!est.hasData) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1.5">
-          <Trophy size={14} className="text-amber-500" />本番想定得点
-        </h3>
-        <p className="text-xs text-gray-400">問題に着手すると、直近の理解度から現時点の想定得点を推定します。</p>
-      </div>
-    )
-  }
-  const reached = est.passingGap <= 0
-  const top = est.chapters.filter(c => c.impact > 0.5).slice(0, 3)
+// ---- 合格までの現在地（§7.7(4) の想定得点 ＋ 理解度の内訳）----
+//
+// 統合前は「本番想定得点」カードと「概要カード（S/A/B/C の4枚）」と「理解度分布（円グラフ）」が
+// 別々に並び、さらに『合格まで』が3つの異なる基準で3箇所に出ていた（課題15）:
+//   - 想定得点カード「合格まで あと15点」        … 合格ライン基準
+//   - 想定得点カード「目標70点まで あと25点」    … 合格＋マージン基準
+//   - ペース分析「合格まで 32問」                … 問数
+// ここでは物差しを1本にする。基準は目標（合格＋マージン）に統一し、合格ラインは
+// 得点バーの目盛りとして残す。不足点はそのまま「あと何問A以上にするか」へ翻訳する。
+// 理解度の内訳は、同じデータの2表現（カウント4枚＋円グラフ）をやめて積み上げバー1本にした。
+const STATUS_ORDER: Status[] = ['S', 'A', 'B', 'C', '未着手']
+
+function CurrentStandingCard({
+  est, target, counts, totalQ, masteredQ,
+}: {
+  est: ScoreEstimate
+  target: PassTarget
+  counts: Record<Status, number>
+  totalQ: number
+  masteredQ: number
+}) {
+  const masteredPct = totalQ > 0 ? Math.round((masteredQ / totalQ) * 100) : 0
+  const shown = STATUS_ORDER.filter(st => counts[st] > 0)
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
       <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-        <Trophy size={14} className="text-amber-500" />本番想定得点
+        <Trophy size={14} className="text-amber-500" />合格までの現在地
       </h3>
-      <div className="flex items-end gap-3">
-        <div>
-          <span className={`text-4xl font-extrabold ${reached ? 'text-emerald-600' : 'text-gray-800'}`}>{est.estimate}</span>
-          <span className="text-sm font-bold text-gray-400"> / 100</span>
-        </div>
-        <p className={`text-xs font-medium mb-1 ${reached ? 'text-emerald-600' : 'text-red-500'}`}>
-          {reached ? `合格ライン${est.passingScore}点 到達見込み` : `合格まで あと${est.passingGap}点`}
-        </p>
-      </div>
-      {/* 合格ライン目標（課題2）: 不足点を「あと何問A以上にすればよいか」に翻訳する。 */}
-      <p className="text-[11px] text-gray-500">
-        {target.achieved
-          ? `目標 ${target.targetScore}点（合格＋マージン）に到達済み — 以降は全問A以上を目標に切り替えます`
-          : target.reachable
-            ? `目標 ${target.targetScore}点まで あと ${target.pointGap}点 ＝ 収録問題を あと ${target.requiredQ}問 A以上にする`
-            : `収録済みを全問A以上にしても 約${target.maxScore}点（目標 ${target.targetScore}点）— 未収録分の入力が要ります`}
-      </p>
-      <p className="text-[11px] text-gray-400">
-        直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
-        {est.actual != null && (
-          <span className="text-gray-500">
-            ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
-          </span>
-        )}
-      </p>
-      {top.length > 0 && (
-        <div className="pt-1 border-t border-gray-100">
-          <p className="text-[11px] font-medium text-gray-500 mb-1">得点を伸ばす近道（インパクト順）</p>
-          <ul className="space-y-1">
-            {top.map(c => (
-              <li key={c.code} className="flex items-center justify-between text-xs">
-                <span className="text-gray-600">{c.name}</span>
-                <span className="text-blue-600 font-medium">最大 +{c.impact.toFixed(1)}点</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+
+      {est.hasData ? (
+        <>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div>
+              <span className={`text-4xl font-extrabold ${target.achieved ? 'text-emerald-600' : 'text-gray-800'}`}>
+                {est.estimate}
+              </span>
+              <span className="text-sm font-bold text-gray-400"> / 100</span>
+            </div>
+            <p className={`text-xs font-medium mb-1 ${target.achieved ? 'text-emerald-600' : 'text-gray-500'}`}>
+              {target.achieved
+                ? `目標 ${target.targetScore}点に到達`
+                : <>目標 {target.targetScore}点まで <span className="font-bold text-blue-600">あと{target.pointGap}点</span></>}
+            </p>
+          </div>
+
+          {/* 得点バー。合格ラインと目標を同じ物差しの目盛りとして刻む。 */}
+          <div>
+            <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${target.achieved ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.max(0, Math.min(100, est.estimate))}%` }}
+              />
+              <span className="absolute top-0 bottom-0 w-px bg-gray-400/70" style={{ left: `${est.passingScore}%` }} />
+              <span className="absolute top-0 bottom-0 w-px bg-blue-500/70" style={{ left: `${Math.min(100, target.targetScore)}%` }} />
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">
+              目盛り: 合格 {est.passingScore}点 ／ 目標 {target.targetScore}点（合格＋マージン）
+            </p>
+          </div>
+
+          {/* 不足点を「あと何問A以上にするか」へ翻訳する（課題2）。 */}
+          <p className="text-[11px] text-gray-500">
+            {target.achieved
+              ? '目標に到達済み — 以降は全問A以上を目標に切り替えます'
+              : target.reachable
+                ? <>あと{target.pointGap}点 ＝ 収録問題を <b className="text-gray-700">あと{target.requiredQ}問</b> A以上にする</>
+                : `収録済みを全問A以上にしても 約${target.maxScore}点（目標 ${target.targetScore}点）— 未収録分の入力が要ります`}
+          </p>
+
+          <p className="text-[11px] text-gray-400">
+            直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
+            {est.actual != null && (
+              <span className="text-gray-500">
+                ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
+              </span>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-gray-400">問題に着手すると、直近の理解度から現時点の想定得点を推定します。</p>
       )}
+
+      {/* 理解度の内訳。旧「概要カード4枚」＋「理解度分布の円グラフ」を1本に畳んだもの。 */}
+      <div className="pt-3 border-t border-gray-100">
+        <div className="flex items-baseline justify-between gap-2 mb-1.5">
+          <p className="text-[11px] font-medium text-gray-500">理解度の内訳</p>
+          <p className="text-[11px] text-gray-400 whitespace-nowrap">
+            完答 <b className="text-gray-600">{masteredQ}</b>/{totalQ}問（{masteredPct}%）
+          </p>
+        </div>
+        <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
+          {shown.map(st => (
+            <div
+              key={st}
+              title={`${st} ${counts[st]}問`}
+              style={{ width: `${(counts[st] / Math.max(1, totalQ)) * 100}%`, background: STATUS_COLOR[st] }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+          {STATUS_ORDER.map(st => (
+            <span key={st} className="text-[11px] text-gray-500 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: STATUS_COLOR[st] }} />
+              {st} <b className="text-gray-700">{counts[st]}</b>
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -357,7 +360,7 @@ export default function DashboardView({
   data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve, quadrant, scoreEstimate,
   passTarget,
 }: {
-  data: { counts: Record<Status, number>; pieData: any[]; scheduleData: any[] }
+  data: { counts: Record<Status, number> }
   chapters: Chapter[]
   reviews: Record<string, Review>
   totalQ: number
@@ -369,108 +372,36 @@ export default function DashboardView({
   scoreEstimate: ScoreEstimate
   passTarget: PassTarget
 }) {
-  const pct = totalQ > 0 ? Math.round((masteredQ / totalQ) * 100) : 0
+  // 章別の3つの表（伸びしろ・弱点・進捗）を1行に束ねる（課題15）。既存の出力を
+  // 突き合わせるだけなので、新しい集計はここでも増やしていない。
+  const chapterRows = useMemo(
+    () => buildChapterPriority(chapters, reviews, weakness, scoreEstimate.chapters),
+    [chapters, reviews, weakness, scoreEstimate],
+  )
 
+  // 分析タブは「週末に読んで、次の1週間の使い方を決める」画面（§3 課題9）。
+  // 答えるべき問いの順に4枚だけ積む（課題15）:
+  //   ① いま何点で、あと何が足りないか   … 合格までの現在地
+  //   ② 間に合うのか                     … ペース
+  //   ③ どの章に時間を使うのか           … 章別の優先順位
+  //   ④ やり方に問題はないか             … 学習曲線・理解度×解答時間
   return (
     <div className="space-y-4">
+      <CurrentStandingCard
+        est={scoreEstimate}
+        target={passTarget}
+        counts={data.counts}
+        totalQ={totalQ}
+        masteredQ={masteredQ}
+      />
 
-      {/* ペース分析（最上部） */}
       <PaceCard pace={pace} />
 
-      {/* 本番想定得点（§7.7(4)） */}
-      <ScoreEstimateCard est={scoreEstimate} target={passTarget} />
+      <ChapterPriorityTable rows={chapterRows} />
 
-      {/* 概要カード */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'S（復習不要）', value: data.counts.S, color: 'text-purple-600' },
-          { label: 'A（完全正答）', value: data.counts.A, color: 'text-green-600' },
-          { label: 'B（方向性OK）', value: data.counts.B, color: 'text-blue-600' },
-          { label: 'C（要学習）', value: data.counts.C, color: 'text-red-500' },
-        ].map(item => (
-          <div key={item.label} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
-            <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{item.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* チャート行 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-              <TrendingUp size={14} className="text-blue-500" />理解度分布
-            </h3>
-            <span className="text-2xl font-bold text-blue-600">{pct}%</span>
-          </div>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={data.pieData} dataKey="value" cx="50%" cy="50%" outerRadius={65}
-                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
-                {data.pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">今後7日間の復習予定</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={data.scheduleData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="count" name="問題数" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 弱点ランキング */}
-      <WeaknessRanking rows={weakness} />
-
-      {/* 理解度×時間の4象限（§7.7(1)） */}
-      <QuadrantCard m={quadrant} />
-
-      {/* 学習曲線 */}
       <LearningCurve points={learningCurve} />
 
-      {/* 章別進捗 */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">章別進捗</h3>
-        <div className="space-y-2.5">
-          {chapters.map(c => {
-            const done = c.questions.filter(q =>
-              ['S', 'A', 'B'].includes(reviews[q.id]?.status ?? '')
-            ).length
-            const pct = c.questions.length > 0 ? (done / c.questions.length) * 100 : 0
-            const mastered = c.questions.filter(q => {
-              const s = reviews[q.id]?.status
-              return s === 'A' || s === 'S'
-            }).length
-
-            return (
-              <div key={c.code}>
-                <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-                  <span className="font-medium">{c.name}</span>
-                  <span>{mastered}完答 / {done}習得中 / {c.questions.length}問</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      <QuadrantCard m={quadrant} />
     </div>
   )
 }
