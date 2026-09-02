@@ -12,6 +12,7 @@ import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget } from './lib/passTarget'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
+import { buildTodaySummary } from './lib/todaySummary'
 import {
   buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity, formatMinutes,
 } from './lib/estimateMinutes'
@@ -31,6 +32,7 @@ import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
 import TimeBudgetBar from './features/questions/TimeBudgetBar'
+import TodaySummaryBar from './features/questions/TodaySummary'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -656,26 +658,29 @@ export default function App() {
   const filteredQuestions = useMemo(() => {
     const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
     // 復習タブは「価値順」で並べる（reviewPlan.ts）。
-    // 価値＝〔重要度〕×〔忘却リスク 1-R〕×〔理解度〕。頻出・重要で、いま忘れかけていて、
-    // 理解度の低い問題ほど先に。同点は重要度→難易度で割る。
+    // 価値＝〔忘却リスク 1-R〕×〔理解度〕。いま忘れかけていて、理解度の低い問題ほど先に。
+    // 同点は出題頻度→難易度で割る（課題11。重要度は83%が3の実質定数だったため外した）。
     if (activeTab !== 'review') return filtered
     // 並び順のキーは事前計算（比較の中で R を再計算しない）。
     // 時間予算モード（課題1・提案B）が有効な間は「価値 ÷ 推定所要分」の降順にする。
     // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
     const rankOf = new Map<string, number>()
+    const freqOf = new Map<string, number>()
     for (const q of filtered) {
-      const score = reviewValue(q, reviews[q.id], todayStr, currentPlan?.exam_date ?? null).score
+      const v = reviewValue(q, reviews[q.id], todayStr, currentPlan?.exam_date ?? null)
+      freqOf.set(q.id, v.frequency)
       rankOf.set(q.id, timeBudget === null
-        ? score
-        : valueDensity(score, estimateMinutes(q, reviews[q.id], timeStats)))
+        ? v.score
+        : valueDensity(v.score, estimateMinutes(q, reviews[q.id], timeStats)))
     }
     return [...filtered].sort((a, b) => {
       const va = rankOf.get(a.id) ?? 0, vb = rankOf.get(b.id) ?? 0
       if (va !== vb) return vb - va
       // 新規着手枠は価値スコア0（復習対象外）。ここで並べ替えず章の学習順を保つ（課題3）。
       if (va === 0 && vb === 0) return 0
-      const ia = a.importance ?? 2, ib = b.importance ?? 2
-      if (ia !== ib) return ib - ia
+      // 同じ価値なら、過去に多く出題された問題を先に（2回以上は全440問中80問・§8.4）。
+      const fa = freqOf.get(a.id) ?? 0, fb = freqOf.get(b.id) ?? 0
+      if (fa !== fb) return fb - fa
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
@@ -708,6 +713,13 @@ export default function App() {
       .map(c => c.question)
     return { ...plan, recommendedMinutes: sumEstimateMinutes(recommended, reviews, timeStats) }
   }, [allQuestions, reviews, todayStr, currentPlan, timeStats])
+
+  // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
+  // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
+  const todaySummary = useMemo(
+    () => buildTodaySummary(todayReviewPlan, todayNew, scoreEstimate, passTarget),
+    [todayReviewPlan, todayNew, scoreEstimate, passTarget]
+  )
 
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
   // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
@@ -964,6 +976,9 @@ export default function App() {
           />
         ) : (
           <>
+            {/* ===== 今日の一手サマリ（課題9）: 復習タブのみ ===== */}
+            {activeTab === 'review' && <TodaySummaryBar summary={todaySummary} />}
+
             {/* ===== CHAPTER FILTER ===== */}
             <div className="flex gap-2 flex-wrap">
               <button

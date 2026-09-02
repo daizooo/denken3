@@ -58,6 +58,15 @@ export function parseSourceTokens(title: string): string[] {
 }
 
 /**
+ * タイトルに書かれた出典の件数＝過去の出題回数（§8.4・課題11）。
+ * 収録済みの回に限らず平成の出典も数える（「よく出る問題か」の指標なので、
+ * 年度別ペーパーを収録しているかどうかとは無関係）。出典が無ければ 0。
+ */
+export function sourceFrequency(title: string): number {
+  return parseSourceTokens(title).length
+}
+
+/**
  * 出典表記1件を年度別ペーパーの問題IDへ解決する。
  * 令和・上期/下期が揃わない表記（平成・年度のみで期が無い等）は null。
  */
