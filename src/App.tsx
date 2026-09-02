@@ -22,6 +22,7 @@ import {
 import {
   loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
 } from './lib/offlineStore'
+import { clearProblemImageCache, prefetchProblemImages } from './lib/problemImageCache'
 import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
@@ -101,6 +102,8 @@ export default function App() {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setReviews({})
+        // 先読みした問題画像も捨てる（端末を共有したときに前のユーザーの画像を残さない・課題7c）。
+        void clearProblemImageCache()
         // 空になった状態をスナップショットとして書き戻さない（課題7）。
         reviewsLoadedKeyRef.current = null
         plansLoadedKeyRef.current = null
@@ -541,6 +544,25 @@ export default function App() {
     }
     return { ids, count: picked.length, minutes: sumEstimateMinutes(picked, reviews, timeStats) }
   }, [currentChapters, reviews, paceResult.recommendedNorm, todayStr, timeStats])
+
+  // 問題画像の先読み（課題7c・Phase F）。今日のキュー（復習due＋新規着手枠）の画像を
+  // オンラインのうちに Cache Storage へ置いておく。電波が弱い場面こそが隙間時間なので、
+  // 「開いてから待つ」をなくす。鍵は storage_path（署名URLは TTL 3600秒で毎回変わるため
+  // 鍵にできない・§9.4）。実処理と上限は lib/problemImageCache.ts。
+  const todayImageIds = useMemo(() => {
+    const qs = currentChapters.flatMap(c => c.questions)
+    return qs
+      .filter(q => {
+        const due = reviews[q.id]?.due_date
+        return todayNew.ids.has(q.id) || !!(due && due <= todayStr)
+      })
+      .map(q => q.id)
+  }, [currentChapters, reviews, todayNew, todayStr])
+
+  useEffect(() => {
+    if (!user || !online) return
+    return prefetchProblemImages(todayImageIds)
+  }, [user, online, todayImageIds])
 
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null

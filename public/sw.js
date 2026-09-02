@@ -11,7 +11,9 @@
  *     （index.html はハッシュが付かないので、オンラインなら必ず最新を見に行く）
  *   - 同一オリジンの静的ファイル: cache-first（URLが不変なので古い内容を掴む心配がない）
  *   - Supabase（別オリジン）の API・認証・画像: **一切介入しない**
- *     （認証トークンや署名URLをキャッシュしないため。問題画像のオフライン化は課題7c で別途）
+ *     （認証トークンや署名URLをキャッシュしないため）
+ *   - 問題画像 `/__problem-image/...`: cache-only（課題7c）。実体はページ側
+ *     （src/lib/problemImageCache.ts）が storage_path を鍵にして置く。SW は返すだけ。
  *
  * 更新: sw.js のバイト差分でブラウザが新SWを検出する。VERSION を上げると旧キャッシュを捨てる。
  * skipWaiting + clients.claim で即座に置き換え、ページ側（lib/swRegister.ts）が
@@ -20,6 +22,14 @@
 
 const VERSION = 'v1'
 const SHELL_CACHE = `electricpro-shell-${VERSION}`
+
+// 問題画像のキャッシュ（課題7c）。src/lib/problemImageCache.ts の IMAGE_CACHE と同じ名前。
+// シェルとは別の版で持つ ―― シェルの VERSION を上げても、取り込み済みの画像は捨てない。
+const IMAGE_CACHE = 'electricpro-problem-images-v1'
+const IMAGE_PREFIX = '/__problem-image/'
+
+// activate で消さないキャッシュ。ここに無い名前＝古い版として捨てる。
+const KEEP_CACHES = [SHELL_CACHE, IMAGE_CACHE]
 
 // 起動に最低限必要なものだけ。アイコン等は runtime caching に任せる
 // （install 時に1つでも取れないと install ごと失敗するため、リストは短く保つ）。
@@ -46,7 +56,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys()
-      await Promise.all(keys.filter(k => k !== SHELL_CACHE).map(k => caches.delete(k)))
+      await Promise.all(keys.filter(k => !KEEP_CACHES.includes(k)).map(k => caches.delete(k)))
       await self.clients.claim()
     })(),
   )
@@ -61,7 +71,22 @@ self.addEventListener('fetch', event => {
   // 認証トークン付きのレスポンスや TTL 付きの署名URLをキャッシュに残さない。
   if (url.origin !== self.location.origin) return
 
-  // ① ナビゲーション: network-first。オフラインならキャッシュ済みのアプリシェルを返す。
+  // ① 問題画像（課題7c）: cache-only。
+  // 鍵は storage_path から合成した不変のURLで、実体はページ側が Supabase から落として置く
+  // （署名URLは TTL 3600秒で毎回変わるため、それ自体は鍵にできない・§9.4）。
+  // このパスはサーバ上に実在しないので、ミス時はネットワークへ回さず 504 を返す
+  // （ページ側は未キャッシュなら合成URLを使わないので、通常ここには来ない）。
+  if (url.pathname.startsWith(IMAGE_PREFIX)) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.open(IMAGE_CACHE).then(c => c.match(request))
+        return cached ?? new Response('', { status: 504, statusText: 'not cached' })
+      })(),
+    )
+    return
+  }
+
+  // ② ナビゲーション: network-first。オフラインならキャッシュ済みのアプリシェルを返す。
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
@@ -80,7 +105,7 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // ② 静的ファイル: cache-first。URLが不変なので、掴んだキャッシュが古くなることはない。
+  // ③ 静的ファイル: cache-first。URLが不変なので、掴んだキャッシュが古くなることはない。
   if (isImmutableAsset(url)) {
     event.respondWith(
       (async () => {
@@ -97,5 +122,5 @@ self.addEventListener('fetch', event => {
     )
   }
 
-  // ③ それ以外の同一オリジン GET は既定どおりネットワークへ。
+  // ④ それ以外の同一オリジン GET は既定どおりネットワークへ。
 })

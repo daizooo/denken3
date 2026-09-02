@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X, Eye, EyeOff, ZoomIn, ZoomOut, PauseCircle } from 'lucide-react'
-import { fetchAssets, signedUrl, type QuestionAsset, type Region } from '../lib/assets'
+import { type QuestionAsset, type Region } from '../lib/assets'
+import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
 import { STATUS_LABEL } from '../features/shared/status'
 import type { Status } from '../domain/types'
 
@@ -84,14 +85,26 @@ export default function ProblemViewer({
     setAssets(null); setUrls({}); setShowAnswer(false); setErr(null)
     ;(async () => {
       try {
-        const a = await fetchAssets(questionId)
+        // 座標も画像URLも Cache Storage 経由で解決する（課題7c）。
+        // 先読み済みなら storage_path を鍵にした合成URLが返り、オフラインでも開く。
+        const a = await loadProblemAssets(questionId)
         if (!alive) return
         setAssets(a)
         const map: Record<string, string> = {}
         for (const x of a) {
-          if (!map[x.storage_path]) map[x.storage_path] = await signedUrl(x.storage_path)
+          if (map[x.storage_path]) continue
+          // 1枚ごとに失敗を許す。オフラインでは「先読み済みの枚だけ」でも開けた方がよい
+          // （未キャッシュの枚は署名URLの発行に失敗する）。
+          try {
+            map[x.storage_path] = await resolveImageSrc(x.storage_path)
+          } catch { /* この1枚は表示しない */ }
         }
-        if (alive) setUrls(map)
+        if (!alive) return
+        if (a.length > 0 && Object.keys(map).length === 0) {
+          setErr('画像を取得できませんでした。オフラインの場合は、電波のあるうちに一度開くと次から表示できます。')
+          return
+        }
+        setUrls(map)
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : '読み込みに失敗しました')
       }
