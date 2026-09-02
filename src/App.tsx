@@ -24,7 +24,6 @@ import {
   loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
 } from './lib/offlineStore'
 import { clearProblemImageCache, prefetchProblemImages } from './lib/problemImageCache'
-import { STATUS_COLOR } from './features/shared/status'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
@@ -744,24 +743,13 @@ export default function App() {
     if (next) setSelectedDate(next.date)
   }, [activeTab, reviewedNowIds, filteredQuestions, reviewSchedule, selectedDate])
 
+  // 分析タブに渡す理解度の内訳。円グラフ用の pieData と「今後7日間の復習予定」用の
+  // scheduleData は Phase I（課題15）で不要になったため作らない。前者は積み上げバー1本に
+  // 畳み、後者は復習タブの「先の予定」とペース分析の週次負荷予測が担う。
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { S: 0, A: 0, B: 0, C: 0, '未着手': 0 }
     allQuestions.forEach(q => { counts[reviews[q.id]?.status ?? '未着手']++ })
-
-    const pieData = (Object.entries(counts) as [Status, number][])
-      .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: k, value: v, color: STATUS_COLOR[k] }))
-
-    const today = todayJST()
-    const scheduleData = Array.from({ length: 7 }, (_, i) => {
-      const dStr = addDaysStr(today, i)
-      const count = allQuestions.filter(q => {
-        const due = reviews[q.id]?.due_date
-        return i === 0 ? due && due <= dStr : due === dStr
-      }).length
-      return { date: i === 0 ? '今日' : i === 1 ? '明日' : `${i}日後`, count }
-    })
-    return { counts, pieData, scheduleData }
+    return { counts }
   }, [allQuestions, reviews])
 
   if (loading) return (
