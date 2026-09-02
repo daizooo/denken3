@@ -26,11 +26,17 @@ function summarize(modes: Set<ModeKey>, statuses: Set<Status>): string[] {
   return out
 }
 
-// 問題の絞り込みパネル（学習場所 × 理解度）。復習・一覧の両タブで使う。
+// 問題の絞り込み（章 × 学習場所 × 理解度）。復習・一覧の両タブで使う。
 // 軸間はAND、軸内はOR（複数選択可）。空集合＝その軸は絞り込みなし。
+//
+// 章は Phase H（learning-metrics-ui-redesign）でここへ移した。以前は本文の上に
+// チップ10個を並べており、常に2行を折り返しで占有していた。既定は「全章」で
+// 切り替え頻度も低いため、常時見えるセレクト1個に畳んで縦の情報量を下げる。
+// 選択中の章は畳んだままでも見えるので、見失うことはない。
 export default function FilterBar({
   modes, statuses, onToggleMode, onToggleStatus, onClear,
   modeCounts, statusCounts, open, onToggleOpen,
+  chapterCode, onChangeChapter, chapterOptions,
 }: {
   modes: Set<ModeKey>
   statuses: Set<Status>
@@ -41,14 +47,36 @@ export default function FilterBar({
   statusCounts: Record<Status, number>
   open: boolean
   onToggleOpen: () => void
+  chapterCode: string
+  onChangeChapter: (code: string) => void
+  /** 章セレクトの選択肢。code='ALL' を先頭に含める。disabled は未入力チャプター。 */
+  chapterOptions: { code: string; label: string; disabled?: boolean }[]
 }) {
   const activeCount = modes.size + statuses.size
   const summary = summarize(modes, statuses)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100">
-      {/* ヘッダ（トグル） */}
+      {/* ヘッダ（章セレクト ＋ 絞り込みトグル） */}
       <div className="flex items-center gap-2 px-3 py-2">
+        {/* 章。常時見える1個のセレクトに畳んでいる（旧: チップ10個の折り返し2行）。 */}
+        <select
+          value={chapterCode}
+          onChange={e => onChangeChapter(e.target.value)}
+          title="章の絞り込み"
+          className={`text-xs font-medium rounded-md border px-1.5 py-1 max-w-[11rem] cursor-pointer focus:outline-none focus:border-blue-400 ${
+            chapterCode === 'ALL'
+              ? 'bg-white text-gray-600 border-gray-200'
+              : 'bg-blue-50 text-blue-700 border-blue-200'
+          }`}
+        >
+          {chapterOptions.map(o => (
+            <option key={o.code} value={o.code} disabled={o.disabled}>{o.label}</option>
+          ))}
+        </select>
+
+        <span className="w-px h-4 bg-gray-100" />
+
         <button
           onClick={onToggleOpen}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800"

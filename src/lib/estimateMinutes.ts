@@ -157,11 +157,19 @@ export function sumEstimateMinutes(
   return questions.reduce((sum, q) => sum + estimateMinutes(q, reviews[q.id], stats), 0)
 }
 
-// 「およそ◯分」の表示。1分未満は「1分未満」に丸める（0分と出さない）。
+// 所要時間の表示。1分未満は「1分未満」に丸める（0分と出さない）。
+// 60分以上は「3時間41分」の形にする。「221分」のままでは体感の長さに変換する手間が
+// 読み手に残り、今日どれだけ要るのかが一目で入ってこないため。
+// 端数のない時間は「3時間」と出す（「3時間0分」とは書かない）。
 export function formatMinutes(minutes: number): string {
   if (minutes <= 0) return '0分'
   if (minutes < 1) return '1分未満'
-  return `${Math.round(minutes)}分`
+  // 先に丸めてから時間・分へ分解する（59.7分を「0時間60分」と出さないため）。
+  const total = Math.round(minutes)
+  if (total < 60) return `${total}分`
+  const hours = Math.floor(total / 60)
+  const mins = total % 60
+  return mins === 0 ? `${hours}時間` : `${hours}時間${mins}分`
 }
 
 export interface BudgetPlan {

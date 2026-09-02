@@ -11,6 +11,11 @@
 //   - 想定得点    = analytics.estimateScore
 //   - 合格まで    = passTarget.pointGap（合格点＋マージンとの差）
 //
+// Phase H（learning-metrics-ui-redesign）で、これに「今日すでに記録した問数」を足した。
+// 残りだけでは「終わりが見える」感覚が出ず、ヘッダ・章チップ・日付タブの総数（109問）に
+// 目が行って「今日は39問なのか109問なのか」が読めなくなっていたため、
+// 進捗バー（doneCount / doneCount + remainingCount）で今日の総量を1本に固定する。
+//
 // 「残り」はどちらも記録済みを含まない（復習は due_date が先へ動いて候補から外れ、
 // 新規着手枠は今日の着手数だけ枠が減る）ので、記録するたびに減っていく。
 // 章フィルタには依存しない（科目全体の"今日"を表す）。
@@ -27,6 +32,8 @@ export interface TodaySummary {
   remainingMinutes: number
   /** 今日の分を終えているか（残り0問）。 */
   done: boolean
+  /** 今日すでに記録した問数（進捗バーの分子）。残りと足したものが今日の総量。 */
+  doneCount: number
   /** 現在の想定得点（点）。 */
   estimate: number
   /** 目標点（合格点＋マージン）。 */
@@ -42,6 +49,7 @@ export function buildTodaySummary(
   todayNew: { count: number; minutes: number },
   est: ScoreEstimate,
   target: PassTarget,
+  doneCount: number,
 ): TodaySummary {
   const remainingCount = todayReview.recommendedCount + todayNew.count
   return {
@@ -49,6 +57,7 @@ export function buildTodaySummary(
     remainingCount,
     remainingMinutes: todayReview.recommendedMinutes + todayNew.minutes,
     done: remainingCount === 0,
+    doneCount,
     estimate: est.estimate,
     targetScore: target.targetScore,
     pointGap: target.pointGap,
