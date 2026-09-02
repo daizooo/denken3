@@ -921,9 +921,9 @@ export default function App() {
                 activeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {/* バッジは「今日の推奨」。今日パネルの主数値と一致させる（Phase H）。
-                  期限到来の総数はパネル内の一覧件数として1度だけ出す。 */}
-              今日{todaySummary.remainingCount > 0 ? ` (${todaySummary.remainingCount})` : ''}
+              {/* 「今日」だと日付ストリップの「今日」列と紛らわしいので、タブは中身
+                  （復習キュー）で呼ぶ。バッジは今日の推奨件数＝パネルの主数値と一致。 */}
+              復習{todaySummary.remainingCount > 0 ? ` (${todaySummary.remainingCount})` : ''}
             </button>
             {(['list', 'dashboard', 'mock'] as const).map(t => {
               // 年度別タブは、ペーパー定義が無い科目では表示しない（§7.4）。
