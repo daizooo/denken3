@@ -5,8 +5,8 @@
 // ここでは"復習の選択"に対して行う。
 //
 // 中心は2つ:
-//   ① 価値順（reviewValue）: 期待得点への寄与＝〔重要度〕×〔忘却リスク(1-R)〕×〔理解度〕。
-//      頻出・重要で、いま忘れかけていて、理解度の低い問題ほど先に出す。
+//   ① 価値順（reviewValue）: 期待得点への寄与＝〔忘却リスク(1-R)〕×〔理解度〕。
+//      いま忘れかけていて、理解度の低い問題ほど先に出す。
 //   ② 今日の推奨ライン（planDailyReviews）: 溜まった復習を"上限で隠す"のではなく、
 //      価値順に並べたうえで「今日はここまでやれば計画通り」の線を引く。
 //      線より下は"遅延"ではなく"順番待ち"。忘却リスクの高い問題は必ず線の上に来る。
@@ -15,6 +15,7 @@
 
 import type { MasterQuestion, Review, Status } from '../domain/types'
 import { retentionFor, retrievability } from './fsrs'
+import { sourceFrequency } from './sourceLink'
 import { diffDays } from './date'
 
 // 理解度の重み（大きいほど価値が高い＝先に復習）。
@@ -25,7 +26,7 @@ import { diffDays } from './date'
 // 未着手だけが復習対象外（重み未設定）。
 const STATUS_WEIGHT: Partial<Record<Status, number>> = { C: 1.0, B: 0.7, A: 0.45, S: 0.25 }
 
-// 忘却リスクが十分低くても、重要度・理解度で最低限の差がつくようにする下駄。
+// 忘却リスクが十分低くても、理解度で最低限の差がつくようにする下駄。
 const RISK_FLOOR = 0.15
 
 // リスク帯のしきい値（想起確率 R）。FSRS の目標保持率 request_retention を基準にする。
@@ -44,11 +45,7 @@ export interface ReviewValue {
   r: number | null // 想起確率 R（0..1）。対象外は null
   risk: number // 忘却リスク 1-R（対象外は 0）
   band: RiskBand
-}
-
-// 重要度(1..3)の重み。未設定は2扱い。imp1=0.6 / imp2=1.0 / imp3=1.4。
-function importanceWeight(importance?: 1 | 2 | 3): number {
-  return 0.6 + 0.4 * ((importance ?? 2) - 1)
+  frequency: number // 過去の出題回数（同点時のタイブレーク専用・§8.4）
 }
 
 function bandOf(r: number | null, retention: number): RiskBand {
@@ -61,6 +58,12 @@ function bandOf(r: number | null, retention: number): RiskBand {
 // 1問の復習価値。復習タブの並び順の主キー。
 // examDate はリスク帯のしきい値（目標保持率）を決めるためだけに使う。
 // 未指定なら既定の保持率で判定する（試験日未設定時の従来どおりの挙動）。
+//
+// importance はスコアから外した（課題11）。分布が 3:366 / 2:70 / 1:4 と83%が3で、
+// 重みは実質つねに1.4の定数になっており、並び順に寄与していなかった。代替として
+// 検討した出題頻度も 1回:360 / 2回:75 / 3回:5 とほぼ同じ偏りで、定数を別の定数へ
+// 置き換えるだけになる（§8.4）。そこで頻度は主キーには入れず、価値が同点のときの
+// タイブレークとしてだけ返す（2回以上出題された80問を、同条件のときだけ前に出す）。
 export function reviewValue(
   question: MasterQuestion,
   review: Review | undefined,
@@ -69,12 +72,13 @@ export function reviewValue(
 ): ReviewValue {
   const status = review?.status ?? '未着手'
   const statusW = STATUS_WEIGHT[status]
+  const frequency = sourceFrequency(question.title)
   // 復習対象外（未着手＝新規着手枠）はスコア0で末尾へ。
-  if (statusW === undefined) return { score: 0, r: null, risk: 0, band: 'low' }
+  if (statusW === undefined) return { score: 0, r: null, risk: 0, band: 'low', frequency }
   const r = retrievability(review, today)
   const risk = r === null ? 0 : 1 - r
-  const score = statusW * importanceWeight(question.importance) * (RISK_FLOOR + risk)
-  return { score, r, risk, band: bandOf(r, retentionFor(today, examDate)) }
+  const score = statusW * (RISK_FLOOR + risk)
+  return { score, r, risk, band: bandOf(r, retentionFor(today, examDate)), frequency }
 }
 
 // リスク帯の表示メタ（QuestionCard 等で使う）。
