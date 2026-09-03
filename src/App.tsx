@@ -7,7 +7,7 @@ import ImportPanel from './components/ImportPanel'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, StudyMode, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
-import { deriveFromHistory, defaultReview } from './lib/fsrs'
+import { deriveFromHistory, defaultReview, finalCheckDue } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget } from './lib/passTarget'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
@@ -24,6 +24,8 @@ import {
   loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
 } from './lib/offlineStore'
 import { clearProblemImageCache, prefetchProblemImages } from './lib/problemImageCache'
+import { isMeaningful, type Attempt } from './lib/attempt'
+import { partCountFromTitle } from './lib/sourceLink'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
@@ -71,7 +73,9 @@ export default function App() {
   // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
   // solving=true は「問題を解く」で開いた（解答時間を計測中の）状態。
-  const [viewerQ, setViewerQ] = useState<{ id: string; title: string; solving: boolean } | null>(null)
+  const [viewerQ, setViewerQ] = useState<
+    { id: string; title: string; solving: boolean; partCount: 1 | 2 } | null
+  >(null)
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
   const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
@@ -339,7 +343,10 @@ export default function App() {
   })
 
   // ---- 実施日 + 理解度を記録（履歴に蓄積）----
-  const updateStatus = useCallback(async (questionId: string, status: Status) => {
+  // attempt: 解答前コミットの観測値（Phase 1）。ProblemViewer から渡される。
+  const updateStatus = useCallback(async (
+    questionId: string, status: Status, attempt?: Attempt,
+  ) => {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const date = dateFor(questionId)
@@ -347,6 +354,8 @@ export default function App() {
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
     // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
     const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
+    // 未選択のまま閉じた等、情報の無い試行は履歴に残さない。
+    if (isMeaningful(attempt)) entry.attempt = attempt
     const timer = timersRef.current[questionId]
     if (timer) {
       const cap = durationCapsRef.current[questionId] ?? MAX_DURATION_SECONDS
@@ -435,6 +444,18 @@ export default function App() {
   const boostReview = useCallback((sourceQuestionId: string) => {
     const current = reviews[sourceQuestionId] ?? defaultReview(sourceQuestionId)
     saveReview({ ...current, due_date: todayStr })
+  }, [reviews, saveReview, todayStr])
+
+  // 試験日を設定・変更したとき、S（復習不要）の試験前最終確認を張り直す（Phase 0）。
+  // S は due_date=null で復習キューに出ないため、記録の機会が来ず deriveFromHistory による
+  // 自己修復が起きない。試験日が無い状態で S を付けた問題が、後から試験日を入れても
+  // 永久に最終確認へ戻らないのを防ぐ（migration 015 と同じ是正をアプリ側でも行う）。
+  const refreshFinalChecks = useCallback((examDate: string | null) => {
+    const due = finalCheckDue(todayStr, examDate)
+    if (!due) return
+    for (const r of Object.values(reviews)) {
+      if (r.status === 'S' && !r.due_date) void saveReview({ ...r, due_date: due })
+    }
   }, [reviews, saveReview, todayStr])
 
   // S（復習不要）にした問題を、いつでも復習に戻す。
@@ -951,7 +972,10 @@ export default function App() {
             subjectId={subjectIdOf(examId, subject)}
             subjectName={subject}
             plan={currentPlan}
-            onSaved={p => setPlans(prev => ({ ...prev, [p.subject_id]: p }))}
+            onSaved={p => {
+              setPlans(prev => ({ ...prev, [p.subject_id]: p }))
+              refreshFinalChecks(p.exam_date)
+            }}
           />
         ) : activeTab === 'dashboard' ? (
           <DashboardView
@@ -1121,12 +1145,22 @@ export default function App() {
                         // 「問題を見る」= 確認のみ。タイマーは動かさない。
                         // 計測中の状態が残っていると解答時間に混ざるので破棄する。
                         delete timersRef.current[q.id]
-                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}`, solving: false })
+                        setViewerQ({
+                          id: q.id,
+                          title: `${q.chapterName} 問${q.number}　${q.title}`,
+                          solving: false,
+                          partCount: partCountFromTitle(q.title),
+                        })
                       }}
                       onSolveProblem={() => {
                         // 「問題を解く」= 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
                         timersRef.current[q.id] = startTimer(todayStr)
-                        setViewerQ({ id: q.id, title: `${q.chapterName} 問${q.number}　${q.title}`, solving: true })
+                        setViewerQ({
+                          id: q.id,
+                          title: `${q.chapterName} 問${q.number}　${q.title}`,
+                          solving: true,
+                          partCount: partCountFromTitle(q.title),
+                        })
                       }}
                       dateValue={dateFor(q.id)}
                       dateOpen={dateOpenId === q.id}
@@ -1153,9 +1187,12 @@ export default function App() {
           questionId={viewerQ.id}
           title={viewerQ.title}
           solving={viewerQ.solving}
+          partCount={viewerQ.partCount}
           onClose={() => setViewerQ(null)}
           // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
-          onRecord={s => { void updateStatus(viewerQ.id, s); setViewerQ(null) }}
+          onRecord={(s, a) => { void updateStatus(viewerQ.id, s, a); setViewerQ(null) }}
+          // 「わからない」: C を即時記録するが閉じない（解答・解説を読ませるため・設計 §2.3）。
+          onGiveUp={a => { void updateStatus(viewerQ.id, 'C', a) }}
           // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
           onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
         />

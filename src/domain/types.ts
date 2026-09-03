@@ -1,3 +1,5 @@
+import type { Attempt } from '../lib/attempt'
+
 // ==============================
 // ドメイン型定義
 // 資格(Exam) → 科目(Subject) → 章(Chapter) → 問題(Question) の階層。
@@ -85,6 +87,9 @@ export interface ReviewHistoryEntry {
   // 解答時間（秒）。「問題を見る」→A/B/C の計測（§7.6）。
   // 未計測（計測前データ・画像未登録・30分超などの外れ値）は付かない＝オプショナル。
   duration_seconds?: number
+  // 解答前コミットの観測値（選んだ選択肢・降参したか）。
+  // docs/design/calculation-active-learning.md §3.2。旧データには無いのでオプショナル。
+  attempt?: Attempt
 }
 
 export interface Review {

@@ -4,6 +4,8 @@ import { type QuestionAsset, type Region } from '../lib/assets'
 import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
 import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
+import AnswerBar from '../features/questions/AnswerBar'
+import { emptySelection, type Attempt } from '../lib/attempt'
 import type { Status } from '../domain/types'
 
 // 画像の実寸（見開き1枚）。切り出しの計算はこの比率を基準にする。
@@ -97,22 +99,32 @@ function answerRects(a: QuestionAsset): Rect[] {
 }
 
 export default function ProblemViewer({
-  questionId, title, onClose, onRecord, onAbort, solving = false,
+  questionId, title, onClose, onRecord, onGiveUp, onAbort, solving = false, partCount = 1,
 }: {
   questionId: string
   title: string
   onClose: () => void
   // 理解度をこの画面から直接記録する（課題8）。押したらそのまま閉じる。
-  onRecord?: (status: Status) => void
+  // 解答前コミット（Phase 1）で選んだ選択肢を attempt として一緒に渡す。
+  onRecord?: (status: Status, attempt?: Attempt) => void
+  // 「わからない」: 理解度 C を即時記録するが、画面は閉じない（解答を読ませるため）。
+  onGiveUp?: (attempt: Attempt) => void
   // 「問題を解く」で開いた計測を破棄して閉じる（課題13）。育児中の中断は常態で、
   // 中断時間が解答時間に混ざると時間予算の見積もりが狂う。
   onAbort?: () => void
-  // 解答時間を計測中か（「問題を解く」で開いたか）。中断ボタンの表示条件。
+  // 解答時間を計測中か（「問題を解く」で開いたか）。中断ボタンの表示条件であり、
+  // 解答前コミット（Phase 1）を要求するかの条件でもある。
+  // 「問題を見る」（確認のみ）はゲートせず、従来どおり自由に解答を開ける。
   solving?: boolean
+  // 小問数。B問題は 2（(a)(b)）。sourceLink.partCountFromTitle で導く。
+  partCount?: 1 | 2
 }) {
   const [assets, setAssets] = useState<QuestionAsset[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [showAnswer, setShowAnswer] = useState(false)
+  // 解答前コミット（設計 §2.1）。選んだ選択肢と、「わからない」で記録済みかどうか。
+  const [selected, setSelected] = useState<number[]>(() => emptySelection(partCount))
+  const [gaveUp, setGaveUp] = useState(false)
   const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('bunya')
   const [err, setErr] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -124,6 +136,7 @@ export default function ProblemViewer({
   useEffect(() => {
     let alive = true
     setAssets(null); setUrls({}); setShowAnswer(false); setErr(null)
+    setSelected(emptySelection(partCount)); setGaveUp(false)
     ;(async () => {
       try {
         // 座標も画像URLも Cache Storage 経由で解決する（課題7c）。
@@ -151,7 +164,7 @@ export default function ProblemViewer({
       }
     })()
     return () => { alive = false }
-  }, [questionId])
+  }, [questionId, partCount])
 
   // 表示は sort ではなく answer_x_pct（マスク位置）で振り分ける:
   //  - 問題ページ（answer_x_pct>0）: 左ページ（と、短い問題ならその上部）が問題、残りが解答。
@@ -166,6 +179,11 @@ export default function ProblemViewer({
     : sorted.flatMap(a => problemRects(a).map(rect => ({ path: a.storage_path, rect })))
 
   const visible = panes.filter(p => urls[p.path])
+
+  // 解答前コミットを要求するか（設計 §2.1）。
+  // 「問題を解く」で開いたときだけゲートする。「問題を見る」（確認のみ・計測なし）は
+  // 従来どおり自由に解答を開ける ―― 眺めるための導線を潰すと確認の用途が失われるため。
+  const gated = solving && !!onRecord
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
@@ -186,17 +204,21 @@ export default function ProblemViewer({
           className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:text-gray-300"
           title="拡大"
         ><ZoomIn size={18} /></button>
-        <button
-          onClick={() => setShowAnswer(s => !s)}
-          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
-            showAnswer
-              ? 'bg-blue-50 text-blue-600 border-blue-200'
-              : 'bg-blue-600 text-white border-blue-600'
-          }`}
-        >
-          {showAnswer ? <EyeOff size={14} /> : <Eye size={14} />}
-          {showAnswer ? '問題に戻る' : '解答を見る'}
-        </button>
+        {/* 解答前コミット中（gated）は、解答を開く導線を下部の AnswerBar 側へ一本化する。
+            解答表示後は「問題に戻る」として使えるよう残す（図を見直せるように）。 */}
+        {(!gated || showAnswer) && (
+          <button
+            onClick={() => setShowAnswer(s => !s)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+              showAnswer
+                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                : 'bg-blue-600 text-white border-blue-600'
+            }`}
+          >
+            {showAnswer ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showAnswer ? '問題に戻る' : '解答を見る'}
+          </button>
+        )}
         <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
           <X size={18} />
         </button>
@@ -230,21 +252,52 @@ export default function ProblemViewer({
         </div>
       </div>
 
+      {/* 解答前コミットのバー（Phase 1・設計 §2.1）。
+          選択肢を確定するか「わからない」を通すまで、解答を開けない。 */}
+      {gated && !showAnswer && (
+        <AnswerBar
+          partCount={partCount}
+          selected={selected}
+          onSelect={(pi, v) => setSelected(prev => prev.map((x, i) => (i === pi ? v : x)))}
+          onReveal={() => setShowAnswer(true)}
+          onGiveUp={() => {
+            setGaveUp(true)
+            setShowAnswer(true)
+            // 記録はここで確定させるが、画面は閉じない（解答・解説を読ませるため）。
+            onGiveUp?.({ selected, gaveUp: true })
+          }}
+        />
+      )}
+
+      {/* 「わからない」で記録済みのときは、理解度を二重に記録させない。 */}
+      {gaveUp && (
+        <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-white/95 border-t border-gray-100">
+          <span className="text-xs text-gray-500">
+            理解度 <b className="text-red-500">C</b>（答えを見た）で記録しました
+          </span>
+          <button
+            onClick={onClose}
+            className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+          >閉じる</button>
+        </div>
+      )}
+
       {/* 記録バー（課題8）。解いた直後にこの画面から理解度を記録して閉じる。
-          片手操作のため画面下部に置く。 */}
-      {onRecord && (
+          片手操作のため画面下部に置く。
+          ゲート中は解答を見るまで出さない（先に選択肢を確定させるため）。 */}
+      {onRecord && !gaveUp && (!gated || showAnswer) && (
         <div className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-white/95 border-t border-gray-100">
           <span className="text-[11px] text-gray-500 shrink-0">理解度</span>
           {(['A', 'B', 'C'] as Status[]).map(s => (
             <button
               key={s}
-              onClick={() => onRecord(s)}
+              onClick={() => onRecord(s, { selected })}
               title={STATUS_LABEL[s]}
               className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700 transition-colors"
             >{s}</button>
           ))}
           <button
-            onClick={() => onRecord('S')}
+            onClick={() => onRecord('S', { selected })}
             title={STATUS_LABEL['S']}
             className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-purple-500 border-purple-200 hover:border-purple-400 hover:text-purple-700 transition-colors"
           >S</button>
