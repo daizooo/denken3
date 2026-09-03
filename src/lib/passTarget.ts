@@ -68,6 +68,17 @@ export interface PassTarget {
   reachable: boolean         // 収録済み問題を全部 A にすれば目標に届くか
   maxScore: number           // 収録済みを全部 A にしたときの想定得点（到達上限）
   masteryRemainingQ: number  // 全問A以上までの残り（従来のゴール・参考値）
+  // requiredQ の中身（＝伸びの大きい順に積んだ最小集合の問題ID）。
+  //
+  // 【命名の注意・adaptive-fsrs-policy.md §3.3 訂正 / §7】この集合を「コア」と呼んではならない。
+  // 設計書の初版は層2のコアを「合格に必要な最小集合」と定義していたが、同§で訂正済みで、
+  // コアは〔前進コア＝未修得すべて〕＋〔維持コア＝既に A・S の問題〕と再定義された。
+  // 最小集合をコアとして扱うと「やる量を減らしてよい」と言う仕組みになり、原則 §0
+  // （不確実性は必ず「もっとやる」側へ倒す）に反する。実データでも最小集合はすべて
+  // 未着手問題になり、期限到来している106問（A:85 / B:21）が1問も入らない。
+  // したがってここは事実の集合（requiredIds）として返すだけにとどめ、コア集合の組み立ては
+  // policy.ts が行い、この集合は想定得点が CBT 実測で検証されたときにだけ使う。
+  requiredIds: Set<string>
 }
 
 // 目標到達に必要な最小の問題集合を求める。
@@ -82,7 +93,7 @@ export function planPassTarget(
   const weightOf = new Map(est.chapters.map(c => [c.code, c.weight]))
 
   // 未修得（A・S 以外）の1問ごとの「A以上へ引き上げたときの得点の伸び」。
-  const gains: number[] = []
+  const gains: { id: string; gain: number }[] = []
   for (const c of chapters) {
     const denom = Math.max(c.totalCount, c.questions.length)
     const weight = weightOf.get(c.code) ?? 0
@@ -91,13 +102,13 @@ export function planPassTarget(
       const status: Status = reviews[q.id]?.status ?? '未着手'
       const gain = (weight / denom) * (STATUS_PROB.A - STATUS_PROB[status]) * 100
       if (gain <= 0) continue // A・S は伸びしろ 0＝対象外
-      gains.push(gain)
+      gains.push({ id: q.id, gain })
     }
   }
-  gains.sort((a, b) => b - a)
+  gains.sort((a, b) => b.gain - a.gain)
 
   const masteryRemainingQ = gains.length
-  const maxGain = gains.reduce((s, g) => s + g, 0)
+  const maxGain = gains.reduce((s, g) => s + g.gain, 0)
   const maxScore = Math.round(est.estimate + maxGain)
   const pointGap = Math.max(0, targetScore - est.estimate)
   const achieved = pointGap === 0
@@ -107,9 +118,11 @@ export function planPassTarget(
   // 届かない場合（reachable=false）は収録済みの全未修得問題が必要ということ。
   let requiredQ = 0
   let acc = 0
+  const requiredIds = new Set<string>()
   for (const g of gains) {
     if (acc >= pointGap) break
-    acc += g
+    acc += g.gain
+    requiredIds.add(g.id)
     requiredQ++
   }
 
@@ -123,5 +136,6 @@ export function planPassTarget(
     reachable,
     maxScore,
     masteryRemainingQ,
+    requiredIds,
   }
 }

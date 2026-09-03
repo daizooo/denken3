@@ -10,6 +10,7 @@ import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST
 import { deriveFromHistory, defaultReview, finalCheckDue } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
+import { optimizePolicy } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import { buildTodaySummary } from './lib/todaySummary'
@@ -532,6 +533,24 @@ export default function App() {
     [currentChapters, reviews, scoreEstimate]
   )
 
+  // 適応型ポリシー（adaptive-fsrs-policy.md Phase A）。
+  // Phase A では**値を算出して設定タブに表示するだけ**で、FSRS のスケジューリングにも
+  // 今日のキューにも流さない。画面に出ていない値は自動で動かさない、という順序のため。
+  const policy = useMemo(
+    () => optimizePolicy({
+      chapters: currentChapters,
+      reviews,
+      scoreEstimate,
+      passTarget,
+      sessions: subjectSessions,
+      timeStats,
+      today: todayStr,
+      examDate: currentPlan?.exam_date ?? null,
+      bunyaTargetDate: currentPlan?.bunya_target_date ?? null,
+    }),
+    [currentChapters, reviews, scoreEstimate, passTarget, subjectSessions, timeStats, todayStr, currentPlan]
+  )
+
   // 適応型ペース分析（§7.2）。
   //
   // ゴールの既定は「全範囲を A 以上」＝最も安全な側に置く（adaptive-fsrs-policy.md §2 訂正）。
@@ -979,6 +998,7 @@ export default function App() {
             subjectId={subjectIdOf(examId, subject)}
             subjectName={subject}
             plan={currentPlan}
+            policy={policy}
             onSaved={p => {
               setPlans(prev => ({ ...prev, [p.subject_id]: p }))
               refreshFinalChecks(p.exam_date)

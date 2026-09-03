@@ -2,17 +2,21 @@ import { useEffect, useState } from 'react'
 import { CalendarDays, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { ExamPlan } from '../../domain/types'
+import type { Policy } from '../../lib/policy'
+import PolicyCard from './PolicyCard'
 
 // 試験日程設定（§7.1）。資格×科目ごとに denken_exam_plans を編集する。
 // CBT期・筆記日程はマスターに持たず手入力（年度で変わるため）。既知の確定日程は説明文に表示。
 export default function SettingsView({
-  userId, examId, subjectId, subjectName, plan, onSaved,
+  userId, examId, subjectId, subjectName, plan, policy, onSaved,
 }: {
   userId: string
   examId: string
   subjectId: string
   subjectName: string
   plan: ExamPlan | null
+  // 「いま効いているパラメータ」カード（adaptive-fsrs-policy.md Phase A・A-3）。
+  policy: Policy
   onSaved: (plan: ExamPlan) => void
 }) {
   const [examDate, setExamDate] = useState('')
@@ -124,6 +128,8 @@ export default function SettingsView({
           {msg && <span className="text-xs text-gray-500">{msg}</span>}
         </div>
       </div>
+
+      <PolicyCard policy={policy} />
 
       <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
         休止期間の事前登録はありません。産後などで学習ペースが変動しても、日々の実績から
