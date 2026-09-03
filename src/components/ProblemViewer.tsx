@@ -59,14 +59,22 @@ function bandOf(a: QuestionAsset): { start: number; span: number } {
   return { start: 0, span: 100 }
 }
 
-// 問題として見せる範囲。丸ごと解答のページ（answer_x_pct<=0）は問題側に無い。
-function problemRect(a: QuestionAsset): Rect | null {
-  if (a.answer_x_pct <= 0) return null
+// 問題として見せる範囲。1枚の見開きから最大2つ出る:
+//  - 左ページ（短い問題なら answer_y_pct まで）
+//  - 右ページ上部（answer_right_y_pct>0 ＝ 小問(b)や選択肢が右ページ上部へ続く見開き）
+// 丸ごと解答のページ（answer_x_pct<=0）は問題側に無い。
+function problemRects(a: QuestionAsset): Rect[] {
+  if (a.answer_x_pct <= 0) return []
   const b = bandOf(a)
-  return {
+  const out: Rect[] = [{
     x0: 0, x1: a.answer_x_pct,
     y0: b.start, y1: b.start + b.span * (a.answer_y_pct / 100),
+  }]
+  const rightTop = a.answer_right_y_pct ?? 0
+  if (a.answer_x_pct < 100 && rightTop > 0) {
+    out.push({ x0: a.answer_x_pct, x1: 100, y0: b.start, y1: b.start + b.span * (rightTop / 100) })
   }
+  return out
 }
 
 // 解答として見せる範囲。1枚の見開きから最大2つ出る:
@@ -155,7 +163,7 @@ export default function ProblemViewer({
   // スクロールで探しにいく必要がないので、ボタン1つで瞬時に入れ替わる（課題16-2）。
   const panes: { path: string; rect: Rect }[] = showAnswer
     ? sorted.flatMap(a => answerRects(a).map(rect => ({ path: a.storage_path, rect })))
-    : sorted.flatMap(a => { const r = problemRect(a); return r ? [{ path: a.storage_path, rect: r }] : [] })
+    : sorted.flatMap(a => problemRects(a).map(rect => ({ path: a.storage_path, rect })))
 
   const visible = panes.filter(p => urls[p.path])
 
