@@ -9,7 +9,7 @@ import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForS
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, finalCheckDue } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
-import { planPassTarget } from './lib/passTarget'
+import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue, planDailyReviews } from './lib/reviewPlan'
 import { buildTodaySummary } from './lib/todaySummary'
@@ -532,17 +532,24 @@ export default function App() {
     [currentChapters, reviews, scoreEstimate]
   )
 
-  // 適応型ペース分析（§7.2）。ゴールの既定は「合格ライン到達」で、達成したら
-  // 「全問A以上」へ自動昇格する（§6-1）。440問すべてA以上を分母にすると、
-  // 学習時間が逼迫した状況では到達不能な目標に対して毎日 behind と判定されるため。
+  // 適応型ペース分析（§7.2）。
+  //
+  // ゴールの既定は「全範囲を A 以上」＝最も安全な側に置く（adaptive-fsrs-policy.md §2 訂正）。
+  // 「合格に必要な最小集合」（pass モード）は、想定得点モデルが正しい前提で学習量を
+  // 減らす仕組みなので、そのモデルが CBT 実測で検証されるまでは使わない。
+  // 検証前に効かせると、未検証の楽観的な推定がそのまま「やらなくてよい」に化ける。
+  //
+  // 課題2（440問すべてA以上だと毎日 behind と判定される）への対処は、
+  // ゴールを下げることではなく進捗の見せ方で行う（Phase A / B）。
+  const goalValidated = useMemo(() => isEstimateValidated(subjectSessions), [subjectSessions])
   const paceResult = useMemo(
     () => analyzePace(
       subjectQuestions, reviews, currentPlan, todayStr,
-      passTarget.achieved
-        ? { mode: 'mastery', remainingQ: passTarget.masteryRemainingQ }
-        : { mode: 'pass', remainingQ: passTarget.requiredQ },
+      goalValidated && !passTarget.achieved
+        ? { mode: 'pass', remainingQ: passTarget.requiredQ }
+        : { mode: 'mastery', remainingQ: passTarget.masteryRemainingQ },
     ),
-    [subjectQuestions, reviews, currentPlan, todayStr, passTarget]
+    [subjectQuestions, reviews, currentPlan, todayStr, passTarget, goalValidated]
   )
 
   // 「今日の学習」の新規着手枠（課題3）。復習due だけの画面だと、5分の隙間に開いて
