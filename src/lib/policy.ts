@@ -100,6 +100,9 @@ export interface Policy {
   coreMaintainQ: number        // 維持コア（A・S）の問数
   requiredPaceQ: number        // 前進コア ÷ 残り日数（問/日）
   dailyFloor: number           // 停止中でも切らない最低ライン（問）
+  // 1問を A 以上へ引き上げるまでに要する演習回数（実績。無ければ既定2・上限5）。
+  // planToday が「1回あたりの伸び」を出すのに使う（前進と維持を同じ土俵に並べるため）。
+  attemptsPerMastery: number
 
   // 層3。id と学習モードから目標保持率を返す（Phase A では提案値。まだ FSRS へ流さない）。
   retentionOf(id: string, mode: EstimateModeKey): number
@@ -184,8 +187,8 @@ function requiredMinutesPerDay(
   reviews: Record<string, Review>,
   stats: TimeStats,
   horizonDays: number,
+  attempts: number,
 ): number {
-  const attempts = attemptsPerMastery(chapters, reviews)
   let minutes = 0
   for (const c of chapters) {
     for (const q of c.questions) {
@@ -324,7 +327,8 @@ export function optimizePolicy(params: {
     return endgame ? Math.max(base, RETENTION_ENDGAME) : base
   }
 
-  const required = requiredMinutesPerDay(chapters, reviews, timeStats, horizonDays)
+  const attempts = attemptsPerMastery(chapters, reviews)
+  const required = requiredMinutesPerDay(chapters, reviews, timeStats, horizonDays, attempts)
   const available = availableMinutesPerDay(chapters, reviews, today)
 
   return {
@@ -341,6 +345,7 @@ export function optimizePolicy(params: {
     coreMaintainQ,
     requiredPaceQ,
     dailyFloor,
+    attemptsPerMastery: attempts,
     retentionOf,
     effectiveRetention: retentionFor(today, examDate),
     endgame,

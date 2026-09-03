@@ -1,6 +1,7 @@
 import { CalendarDays, CheckCircle2, ChevronDown } from 'lucide-react'
 import { formatMinutes } from '../../lib/estimateMinutes'
 import type { TodaySummary } from '../../lib/todaySummary'
+import type { TodayPlan } from '../../lib/planToday'
 
 // 今日パネル（learning-metrics-ui-redesign / 課題14）。復習タブの最上部の1枚。
 //
@@ -11,9 +12,16 @@ import type { TodaySummary } from '../../lib/todaySummary'
 // ここでは1枚のカードに「何をどれだけ・いまどこ・どう始める・いつの分」だけを縦に積む:
 //   1行目 今日やること 39問・約221分        （＋想定得点は右端の従属表示）
 //   2行目 進捗バー（今日 12問 完了）
-//   3行目 時間で選ぶ 5/15/30/すべて
-//   4行目 先の予定（既定は畳む）
-// 数値の計算は増やさない。すべて既存の純関数（todaySummary / estimateMinutes）の値。
+//   3行目 内訳（前進 3 / 維持 5 · 順番待ち 103）   ← Phase B-3
+//   4行目 時間で選ぶ 5/15/30/すべて
+//   5行目 先の予定（既定は畳む）
+// 数値の計算は増やさない。すべて既存の純関数（todaySummary / planToday）の値。
+//
+// 【Phase B-3】3行目を足した理由（設計書 §3.5）。今日のラインは総量を減らす仕組みでは
+// なく、順序を決めるだけの線である。線より下が「消えた」のか「順番待ち」なのかが画面に
+// 出ていないと、利用者には量を削られたようにしか見えない ―― 逆に、順番待ちが見えないまま
+// 減った数字だけを出すのは、目標を下げることと体感上は同じになる（原則 §0）。
+// だから「翌日以降に必ず戻る」ことを件数つきで明示する。
 const BUDGET_OPTIONS: { minutes: number | null; label: string }[] = [
   { minutes: 5, label: '5分' },
   { minutes: 15, label: '15分' },
@@ -28,12 +36,14 @@ export interface DateSlot {
 }
 
 export default function TodayPanel({
-  summary, isToday, dateLabel,
+  summary, plan, isToday, dateLabel,
   queueCount, queueMinutes,
-  budget, onBudgetChange, fitCount, fitMinutes,
+  budget, onBudgetChange,
   dates, selectedDate, onSelectDate, datesOpen, onToggleDates,
 }: {
   summary: TodaySummary
+  /** 今日のライン（planToday・Phase B-1）。内訳と順番待ちの件数に使う。 */
+  plan: TodayPlan
   /** 表示中の日付が今日か。今日以外は進捗・得点を出さない（今日の概念のため）。 */
   isToday: boolean
   /** 今日以外のときの見出し（例: 9/5）。 */
@@ -43,9 +53,6 @@ export default function TodayPanel({
   queueMinutes: number
   budget: number | null
   onBudgetChange: (minutes: number | null) => void
-  /** 予算に収まる問題数と、その推定所要分。 */
-  fitCount: number
-  fitMinutes: number
   dates: DateSlot[]
   selectedDate: string
   onSelectDate: (date: string) => void
@@ -107,7 +114,32 @@ export default function TodayPanel({
         </div>
       )}
 
-      {/* 3行目: 時間で選ぶ。予算を選ぶと一覧が「価値÷所要分」の降順になり、線が引かれる。 */}
+      {/* 3行目: 今日の内訳と順番待ち（Phase B-3）。順番待ちは"遅れ"ではない。 */}
+      {isToday && plan.totalCount > 0 && (
+        <div className="px-4 py-2 flex items-baseline gap-x-2 gap-y-1 flex-wrap text-[11px]">
+          <span className="text-gray-400">内訳</span>
+          <span className="text-gray-500">
+            前進 <span className="font-bold text-gray-700 tabular-nums">{plan.forwardCount}</span>問
+            <span className="mx-1 text-gray-200">·</span>
+            維持 <span className="font-bold text-gray-700 tabular-nums">{plan.maintainCount}</span>問
+          </span>
+          {plan.waitingCount > 0 && (
+            <span className="text-gray-400">
+              <span className="mx-1 text-gray-200">/</span>
+              順番待ち <span className="font-bold text-gray-600 tabular-nums">{plan.waitingCount}</span>問
+              （約{formatMinutes(plan.waitingMinutes)}）· 翌日以降に戻ります
+            </span>
+          )}
+          {plan.urgentCount > 0 && (
+            <span className="text-red-500">
+              <span className="mx-1 text-gray-200">/</span>
+              優先 <span className="font-bold tabular-nums">{plan.urgentCount}</span>問は時間に関わらず必ず出します
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 4行目: 時間で選ぶ。予算を選ぶと一覧が「点数影響÷所要分」の降順になり、線が引かれる。 */}
       {queueCount > 0 && (
         <div className="px-4 py-2 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-500 whitespace-nowrap">時間で選ぶ</span>
@@ -132,17 +164,23 @@ export default function TodayPanel({
           {/* 予算を選んだときだけ結果を出す。未選択時に一覧の総数（109問・461分）を併記すると、
               主数値（今日39問・221分）と競合して「今日はどっち」が読めなくなるため出さない。
               一覧の総数は章セレクトが、今日ぶんとの境界は一覧内の区切り線が担う。 */}
-          {budget !== null && (
+          {isToday && budget !== null && (
             <span className="text-[11px] text-gray-400">
-              {fitCount < queueCount
-                ? <>この{budget}分で <span className="font-bold text-gray-600">{fitCount}問</span>（約{formatMinutes(fitMinutes)}）</>
-                : <>{budget}分で全{queueCount}問（約{formatMinutes(queueMinutes)}）</>}
+              {plan.waitingCount > 0
+                ? <>この{budget}分で <span className="font-bold text-gray-600">{plan.recommendedCount}問</span>（約{formatMinutes(plan.recommendedMinutes)}）</>
+                : <>{budget}分で全{plan.totalCount}問（約{formatMinutes(plan.totalMinutes)}）</>}
+              {/* 切れない分（忘却が進んだコア＝🔴優先と、最低ラインの1問）は予算を超えても
+                  線の上に残す（設計書 §3.5 ①③）。黙って超過させると「選んだ予算と違う」に
+                  なるので、超えていることを出す。 */}
+              {plan.overBudget && (
+                <span className="ml-1 text-red-500">切れない分で予算を超えています</span>
+              )}
             </span>
           )}
         </div>
       )}
 
-      {/* 4行目: 先の予定。既定は畳む（今日を見ている限り不要な行のため）。 */}
+      {/* 5行目: 先の予定。既定は畳む（今日を見ている限り不要な行のため）。 */}
       <div className="px-4 py-1.5">
         <button
           onClick={onToggleDates}

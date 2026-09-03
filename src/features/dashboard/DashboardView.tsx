@@ -7,12 +7,44 @@ import { TrendingUp, Gauge, AlertTriangle, Timer, Trophy } from 'lucide-react'
 import type { Chapter, Review, Status } from '../../domain/types'
 import type { PaceResult, PaceVerdict } from '../../lib/pace'
 import type { PassTarget } from '../../lib/passTarget'
+import type { Feasibility } from '../../lib/policy'
 import type { ChapterWeakness, WeeklyLearningPoint, QuadrantItem, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
 import { buildChapterPriority } from '../../lib/chapterPriority'
 import { STATUS_COLOR } from '../shared/status'
 import { formatDuration } from '../../lib/timer'
 import { formatMD } from '../../lib/date'
+import { formatMinutes } from '../../lib/estimateMinutes'
 import ChapterPriorityTable from './ChapterPriorityTable'
+
+// 実現可能性バナー（adaptive-fsrs-policy.md §3.6・Phase B-4）。
+//
+// コアだけでも供給（使える時間）が必要量に届かないとき、**黙って目標を下げてはならない**。
+// 事実を突きつけ、選ぶのは利用者に委ねる（アプリは自動では何も下げない）。
+// safe / tight のときは出さない ―― 常時出る警告は読み飛ばされ、本当に足りない日に効かなくなる。
+function FeasibilityBanner({ f }: { f: Feasibility }) {
+  if (f.verdict !== 'shortfall') return null
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-2">
+      <h3 className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+        <AlertTriangle size={14} />時間が足りません
+      </h3>
+      <p className="text-xs text-red-800 leading-relaxed">
+        全範囲を完走するには <strong>{formatMinutes(f.requiredMinutesPerDay)}/日</strong> 必要ですが、
+        直近の実績は <strong>{formatMinutes(f.availableMinutesPerDay)}/日</strong> です。
+      </p>
+      <p className="text-xs text-red-800 leading-relaxed">
+        <strong>目標もノルマも自動では下げません。</strong>
+        今日のキューは順序が変わるだけで、やらなかった分は翌日以降に必ず戻ります。
+        取れる手は次の3つで、選ぶのは利用者です。
+      </p>
+      <ul className="text-xs text-red-800 leading-relaxed list-disc pl-4 space-y-0.5">
+        <li>学習に使う時間を増やす</li>
+        <li>科目合格制を使い、今回は理論だけに絞って残りを次回受験へ回す（試験日は動かせません）</li>
+        <li>不足を承知でこのまま進む</li>
+      </ul>
+    </div>
+  )
+}
 
 const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: string }> = {
   done:    { label: () => '目標 達成', cls: 'text-emerald-600' },
@@ -358,7 +390,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
 
 export default function DashboardView({
   data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve, quadrant, scoreEstimate,
-  passTarget,
+  passTarget, feasibility,
 }: {
   data: { counts: Record<Status, number> }
   chapters: Chapter[]
@@ -371,6 +403,8 @@ export default function DashboardView({
   quadrant: QuadrantMatrix
   scoreEstimate: ScoreEstimate
   passTarget: PassTarget
+  /** コア完遂の実現可能性（policy.ts §3.6）。shortfall のときだけバナーを出す。 */
+  feasibility: Feasibility
 }) {
   // 章別の3つの表（伸びしろ・弱点・進捗）を1行に束ねる（課題15）。既存の出力を
   // 突き合わせるだけなので、新しい集計はここでも増やしていない。
@@ -387,6 +421,8 @@ export default function DashboardView({
   //   ④ やり方に問題はないか             … 学習曲線・理解度×解答時間
   return (
     <div className="space-y-4">
+      <FeasibilityBanner f={feasibility} />
+
       <CurrentStandingCard
         est={scoreEstimate}
         target={passTarget}

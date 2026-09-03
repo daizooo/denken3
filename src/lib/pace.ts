@@ -258,16 +258,26 @@ export function analyzePace(
     else verdict = 'onTrack'
   }
 
-  // 今日の推奨ノルマ（A以上へ引き上げる問数）: clamp(必要ペース, 現在ペース×0.8, 現在ペース×1.3)。
-  // 実績とかけ離れた無理な数字を出さない。実績が無い（currentPace=0）ときは
-  // 必要ペースをそのまま提示する。
+  // 今日の推奨ノルマ（A以上へ引き上げる問数）: max(必要ペース, 現在ペース×0.8)。
+  //
+  // 【Phase B・adaptive-fsrs-policy.md §3.1】上限 `現在ペース×1.3` を外した。
+  // 上限があると**現在ペースが下がるとノルマも下がる**（育児で停止が続けば
+  // currentPace→0 に引きずられ、必要ペースが 2.6問/日でも推奨は 1問になる）。
+  // 「勉強できないから要求を下げる」という、利用者が明確に禁止した挙動そのものであり、
+  // しかも同時に verdict は `behind` を出し続ける ――「要求は下げるのに判定は責める」
+  // 最悪の組み合わせになっていた。
+  //
+  // 下限（現在ペース×0.8）は残す。先行している人に必要ペースまで落とさせるのは、
+  // 同じ「下げる」を逆向きにやることになるため。
+  // 供給が足りないときの正しい対処はノルマを削ることではなく、その日の限られた時間を
+  // 最も点数に効く順に使うことで、それは planToday.ts が担う（総量は減らさない）。
   const lower = currentPace > 0 ? currentPace * 0.8 : 0
-  const upper = currentPace > 0 ? currentPace * 1.3 : requiredPace
   const recommendedNorm =
-    remainingQ === 0 ? 0 : Math.max(1, Math.ceil(clamp(requiredPace, lower, upper)))
+    remainingQ === 0 ? 0 : Math.max(1, Math.ceil(Math.max(requiredPace, lower)))
 
-  // 計画見直しが要るか: 必要ペースが現在ペースの上限（×1.3）を超え続ける、
-  // かつゴール到達の予測が目標を REPLAN_LATE_DAYS 日以上超過。
+  // 計画見直しが要るか: ゴール到達の予測が目標を REPLAN_LATE_DAYS 日以上超過し続ける。
+  // （旧コメントは「必要ペースが現在ペースの上限（×1.3）を超え続ける」としていたが、
+  //  実装は当時からこの verdict/verdictDays だけを見ており、その上限は Phase B で撤去した）
   const needsReplan =
     remainingQ > 0 &&
     verdict === 'behind' &&
