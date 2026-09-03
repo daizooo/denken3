@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Flag, Grid3x3, PauseCircle, ZoomIn, ZoomOut } from 'lucide-react'
 import type { MockAnswer, MockMode, MockSession, PaperDefinition, PaperQuestion } from '../../domain/types'
 import { isAnswered } from '../../lib/mock'
+import { useViewerZoom } from '../../lib/viewerZoom'
 import PaperImage from './PaperImage'
 
 // CBT解答画面（§7.4(2)）。本番CBTに準拠した操作で解く。
@@ -27,7 +28,8 @@ export default function CBTRunner({
 
   const [answers, setAnswers] = useState<Record<string, MockAnswer>>(() => ({ ...initial.answers }))
   const [idx, setIdx] = useState(0)
-  const [zoom, setZoom] = useState(false)
+  // 表示倍率は端末幅に合わせた大きさを基準にした微調整で、端末ごとに記憶する（課題16）。
+  const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('cbt')
   const [showGrid, setShowGrid] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
   // cbt: 残り秒 / free: 経過秒
@@ -152,8 +154,12 @@ export default function CBTRunner({
         )}
         <span className="text-xs text-gray-500">解答 {answeredCount}/{total}</span>
         <div className="flex-1" />
-        <button onClick={() => setZoom(z => !z)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100" title={zoom ? '縮小' : '拡大'}>
-          {zoom ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
+        <button onClick={zoomOut} disabled={!canZoomOut} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:text-gray-300" title="縮小">
+          <ZoomOut size={18} />
+        </button>
+        <span className="text-[10px] tabular-nums text-gray-400 w-9 text-center">{zoomLabel}</span>
+        <button onClick={zoomIn} disabled={!canZoomIn} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:text-gray-300" title="拡大">
+          <ZoomIn size={18} />
         </button>
         <button onClick={() => setShowGrid(true)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100" title="問題一覧">
           <Grid3x3 size={18} />
