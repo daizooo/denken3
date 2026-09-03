@@ -12,7 +12,8 @@ import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { optimizePolicy } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
-import { reviewValue, planDailyReviews } from './lib/reviewPlan'
+import { reviewValue } from './lib/reviewPlan'
+import { planToday, forwardSlotsToday } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
 import {
   buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity,
@@ -62,7 +63,8 @@ export default function App() {
   const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
   const [filterOpen, setFilterOpen] = useState(false)
-  // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし。
+  // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし（「すべて」）。
+  // Phase B-2 で denken_settings へ永続化する（従来はリロードで消えていた・設計書 §1.1）。
   const [timeBudget, setTimeBudget] = useState<number | null>(null)
   // 「先の予定」（日付ストリップ）の開閉。既定は畳む（Phase H）。今日を見ている限り
   // 使わない行が常時1行を占有していたため。今日以外を選んでいる間は常に開く。
@@ -91,6 +93,9 @@ export default function App() {
   // 上書きしない／別の資格のデータを取り違えて保存しない、の2つに使う（課題7）。
   const reviewsLoadedKeyRef = useRef<string | null>(null)
   const plansLoadedKeyRef = useRef<string | null>(null)
+  // 設定（時間予算）の読み込みが終わったか（Phase B-2）。読み込み前に保存すると、
+  // 初期値 null を書き戻して他端末で選んだ予算を消してしまうため、保存の門にする。
+  const settingsLoadedRef = useRef(false)
   const todayStr = todayJST()
   const dateFor = (id: string) => recordDate[id] ?? todayStr
 
@@ -202,6 +207,34 @@ export default function App() {
         })))
       })
   }, [user, examId])
+
+  // ---- Fetch settings（時間予算・Phase B-2）----
+  // 従来 timeBudget は useState だけに存在し、リロードで消えていた（設計書 §1.1）。
+  // 端末をまたいで同じ予算で今日のラインが引かれるよう denken_settings に置く。
+  useEffect(() => {
+    settingsLoadedRef.current = false
+    if (!user) return
+    supabase
+      .from('denken_settings')
+      .select('time_budget_minutes')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.error(error)
+        else setTimeBudget(data?.time_budget_minutes ?? null)
+        settingsLoadedRef.current = true
+      })
+  }, [user])
+
+  // 時間予算の変更（即時保存）。失敗しても画面の選択は保つ（次の変更で再送される）。
+  const changeTimeBudget = useCallback((minutes: number | null) => {
+    setTimeBudget(minutes)
+    if (!user || !settingsLoadedRef.current) return
+    void supabase
+      .from('denken_settings')
+      .upsert({ user_id: user.id, time_budget_minutes: minutes })
+      .then(({ error }) => { if (error) console.error(error) })
+  }, [user])
 
   // ---- オフライン対応（課題7・Phase F）----
   // 接続状態。ヘッダの表示と、記録を直接送るか送信待ちに積むかの判断に使う。
@@ -575,13 +608,19 @@ export default function App() {
   // 「今日の復習はありません」と出た日に、ユーザーが自分でタブを移動して絞り込みを
   // 開く必要がある。その操作こそが隙間時間を食うので、新規着手候補も同じキューに載せる。
   //
-  // 枠数＝推奨ノルマ − 今日すでに着手した数（記録するたびに枠が減り、やがて空になる。
+  // 枠数＝今日の前進枠 − 今日すでに着手した数（記録するたびに枠が減り、やがて空になる。
   // 補充し続けると「今日の分が終わった」状態に到達できない）。
   // 章フィルタに依らず科目全体で決めるので、章チップの件数と表示件数が食い違わない。
+  //
+  // 【Phase B-1】枠数の根拠を pace.recommendedNorm からポリシーへ移した。
+  // recommendedNorm は clamp(必要ペース, 現在ペース×0.8, 現在ペース×1.3) で決まるため、
+  // 停止が続いて現在ペースが 0 に近づくと枠も 0 へ張り付く（設計書 §3.1）。
+  // 「勉強できないから要求を下げる」という利用者が明確に禁止した挙動そのものなので、
+  // 今日の枠は現在ペースを見ず「残り ÷ 残り日数」だけから決める（forwardSlotsToday）。
   const todayNew = useMemo(() => {
     const subjectQs = currentChapters.flatMap(c => c.questions)
     const startedToday = subjectQs.filter(q => reviews[q.id]?.first_reviewed === todayStr).length
-    const slots = Math.max(0, paceResult.recommendedNorm - startedToday)
+    const slots = forwardSlotsToday(policy, startedToday)
     const ids = new Set<string>()
     const picked: typeof subjectQs = []
     for (const q of subjectQs) {
@@ -593,7 +632,7 @@ export default function App() {
       picked.push(q)
     }
     return { ids, count: picked.length, minutes: sumEstimateMinutes(picked, reviews, timeStats) }
-  }, [currentChapters, reviews, paceResult.recommendedNorm, todayStr, timeStats])
+  }, [currentChapters, reviews, policy, todayStr, timeStats])
 
   // 問題画像の先読み（課題7c・Phase F）。今日のキュー（復習due＋新規着手枠）の画像を
   // オンラインのうちに Cache Storage へ置いておく。電波が弱い場面こそが隙間時間なので、
@@ -703,12 +742,47 @@ export default function App() {
     return { modeCounts, statusCounts }
   }, [baseQuestions, reviews, matchMode, matchStatus])
 
+  // 今日のライン（planToday.ts・Phase B-1）。
+  //
+  // 旧 planDailyReviews は締切からの逆算 ceil(due総数 ÷ catchUpDays) だけで決めており、
+  // 14日停止から復帰した日に「今日36問・約4時間」の崖が立っていた（設計書 §2.2）。
+  // 代わりに「点数影響 ÷ 所要時間」の降順に並べ、その日の時間（予算、未選択なら完走に
+  // 必要な 分/日）で線を引く。**総量は減らさない。線より下は順番待ちで翌日以降に戻る。**
+  //
+  // 1日全体の概念なので、絞り込み（学習場所×理解度）には依らない。復習due と新規着手枠を
+  // 同じ土俵に並べる（維持コアと前進コアの1問あたりの点数影響はほぼ同じ大きさ・§3.3）。
+  const todayPlan = useMemo(
+    () => planToday({
+      candidates: allQuestions
+        .filter(q => {
+          const r = reviews[q.id]
+          return !!(r?.due_date && r.due_date <= todayStr) || todayNew.ids.has(q.id)
+        })
+        .map(q => ({ question: q, review: reviews[q.id] })),
+      policy,
+      budgetMinutes: timeBudget,
+      stats: timeStats,
+      today: todayStr,
+      examDate: currentPlan?.exam_date ?? null,
+    }),
+    [allQuestions, reviews, todayNew, policy, timeBudget, timeStats, todayStr, currentPlan]
+  )
+
   const filteredQuestions = useMemo(() => {
     const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
     // 復習タブは「価値順」で並べる（reviewPlan.ts）。
     // 価値＝〔忘却リスク 1-R〕×〔理解度〕。いま忘れかけていて、理解度の低い問題ほど先に。
     // 同点は出題頻度→難易度で割る（課題11。重要度は83%が3の実質定数だったため外した）。
     if (activeTab !== 'review') return filtered
+    // 今日は planToday が決めた順（点数影響 ÷ 所要時間の降順・Phase B-1）をそのまま使う。
+    // 復習due と新規着手枠を1本に並べた順序なので、ここで別の基準に並べ替えない。
+    if (selectedDate === todayStr) {
+      const rank = todayPlan.rank
+      return [...filtered].sort(
+        (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
+      )
+    }
+    // 今日以外の日付は従来どおり価値順（reviewPlan.ts）。
     // 並び順のキーは事前計算（比較の中で R を再計算しない）。
     // 時間予算モード（課題1・提案B）が有効な間は「価値 ÷ 推定所要分」の降順にする。
     // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
@@ -732,7 +806,7 @@ export default function App() {
       if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
       return 0
     })
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, timeBudget, timeStats, currentPlan])
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, timeBudget, timeStats, currentPlan])
 
   // 時間予算の線（課題1・提案B）。表示中のキューに対して、累積の推定所要が予算に達した
   // 位置を求める。予算未指定のときはキュー全体の推定所要だけを使う。
@@ -740,27 +814,6 @@ export default function App() {
     () => planByBudget(filteredQuestions, reviews, timeStats, timeBudget ?? Infinity),
     [filteredQuestions, reviews, timeStats, timeBudget]
   )
-
-  // 今日の復習の「推奨ライン」（reviewPlan.ts）。上限で切るのではなく、価値順に並んだ
-  // 今日の due 全体を「今日はここまで」で線引きするための位置。1日全体の概念なので、
-  // チャプター/状態フィルタに依らず、科目内の today due 全体に対して算出する。
-  const todayReviewPlan = useMemo(() => {
-    const candidates = allQuestions
-      .filter(q => {
-        const r = reviews[q.id]
-        return !!(r?.due_date && r.due_date <= todayStr)
-      })
-      .map(q => ({ question: q, review: reviews[q.id] }))
-    const plan = planDailyReviews(candidates, todayStr, currentPlan?.exam_date ?? null)
-    // 推奨ラインぶんの推定所要分（提案C）。「7問」が10分なのか70分なのかを併記する。
-    const recommended = [...candidates]
-      .sort((a, b) =>
-        reviewValue(b.question, b.review, todayStr, currentPlan?.exam_date ?? null).score -
-        reviewValue(a.question, a.review, todayStr, currentPlan?.exam_date ?? null).score)
-      .slice(0, plan.recommendedCount)
-      .map(c => c.question)
-    return { ...plan, recommendedMinutes: sumEstimateMinutes(recommended, reviews, timeStats) }
-  }, [allQuestions, reviews, todayStr, currentPlan, timeStats])
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
   // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
@@ -772,8 +825,8 @@ export default function App() {
   )
 
   const todaySummary = useMemo(
-    () => buildTodaySummary(todayReviewPlan, todayNew, scoreEstimate, passTarget, doneToday),
-    [todayReviewPlan, todayNew, scoreEstimate, passTarget, doneToday]
+    () => buildTodaySummary(todayPlan, scoreEstimate, passTarget, doneToday),
+    [todayPlan, scoreEstimate, passTarget, doneToday]
   )
 
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
@@ -825,15 +878,10 @@ export default function App() {
       }
       return r?.due_date === selectedDate
     }).length
-  // 新規着手枠の見出しに出す件数（課題3）。新規着手枠は科目全体で決まるが、
-  // ここは表示中（章フィルタ後）の件数に合わせる。
-  const todayNewShown = allQuestions.filter(q => todayNew.ids.has(q.id)).length
-  // 復習due と新規着手枠の境界（課題3）。新規着手枠は価値スコア0でキュー末尾に並ぶため、
-  // 最初に現れる新規着手枠の位置がそのまま区切りになる（-1＝新規なし）。
-  const newStartIdx = activeTab === 'review' && selectedDate === todayStr
-    ? filteredQuestions.findIndex(q => todayNew.ids.has(q.id))
-    : -1
-  const dueShownCount = newStartIdx === -1 ? filteredQuestions.length : newStartIdx
+  // 【Phase B-1】復習due と新規着手枠の区切り（課題3の小見出し）は撤去した。
+  // planToday が両者を「点数影響 ÷ 所要時間」の1本の順序に統合したため、キューの途中に
+  // 「ここから新規着手」の境界が存在しなくなった（新規着手枠は末尾に固まらない）。
+  // 前進／維持の内訳は今日パネルの1行が担う（B-3）。
   const isTodayView = selectedDate === todayStr
   // 章セレクトの選択肢（Phase H。旧: 本文上のチップ10個）。件数の意味はタブで変わる
   // （復習タブ＝表示中の日付の件数 / 全問題タブ＝収録数）ので、そこは従来どおり。
@@ -1017,6 +1065,7 @@ export default function App() {
             quadrant={quadrant}
             scoreEstimate={scoreEstimate}
             passTarget={passTarget}
+            feasibility={policy.feasibility}
           />
         ) : activeTab === 'mock' ? (
           <MockExamView
@@ -1035,14 +1084,13 @@ export default function App() {
             {activeTab === 'review' && (
               <TodayPanel
                 summary={todaySummary}
+                plan={todayPlan}
                 isToday={isTodayView}
                 dateLabel={formatMD(selectedDate)}
                 queueCount={filteredQuestions.length}
                 queueMinutes={budgetPlan.totalMinutes}
                 budget={timeBudget}
-                onBudgetChange={setTimeBudget}
-                fitCount={budgetPlan.count}
-                fitMinutes={budgetPlan.minutes}
+                onBudgetChange={changeTimeBudget}
                 dates={reviewSchedule}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -1096,28 +1144,18 @@ export default function App() {
                 {filteredQuestions.map((q, idx) => {
                   const review = reviews[q.id] ?? defaultReview(q.id)
                   const isEditing = editingId === q.id
-                  // 今日の推奨ラインの区切り（reviewPlan.ts）。ここから下は"遅延"ではなく順番待ち。
-                  // 1日全体の概念なので、今日タブ・全章・全状態を表示中のときだけ線を引く。
+                  // 今日のラインの区切り（planToday.ts・Phase B-1）。
+                  // ここから下は"遅延"ではなく順番待ちで、翌日以降に必ず戻る。
+                  // 1日全体の概念なので、今日タブ・全章・全状態を表示中のときだけ線を引く
+                  // （絞り込み中は表示順が母数と一致せず、線の位置に意味が無くなるため）。
                   const showLine =
                     activeTab === 'review' &&
-                    timeBudget === null &&
-                    selectedDate === todayStr &&
+                    isTodayView &&
                     chapterCode === 'ALL' &&
                     filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
-                    idx === todayReviewPlan.recommendedCount &&
-                    todayReviewPlan.recommendedCount < dueShownCount
-
-                  // 時間予算の線（課題1・提案B）。推奨ラインの一般化なので、予算を選んでいる
-                  // 間はこちらに置き換える。表示中のキューに対して引くため絞り込みは問わない。
-                  const showBudgetLine =
-                    activeTab === 'review' &&
-                    timeBudget !== null &&
-                    idx === budgetPlan.count &&
-                    budgetPlan.count < filteredQuestions.length
-
-                  // 復習と新規着手の区切り（課題3）。小見出し1行だけで示す。
-                  const showNewHeading = newStartIdx >= 0 && idx === newStartIdx
+                    idx === todayPlan.recommendedCount &&
+                    todayPlan.recommendedCount < filteredQuestions.length
 
                   return (
                     <Fragment key={q.id}>
@@ -1125,25 +1163,9 @@ export default function App() {
                       <div className="flex items-center gap-2 py-1 select-none">
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                          ここまでが今日の推奨 · 以降は順番待ち（遅れではありません）
-                        </span>
-                        <div className="flex-1 h-px bg-gray-200" />
-                      </div>
-                    )}
-                    {showBudgetLine && (
-                      <div className="flex items-center gap-2 py-1 select-none">
-                        <div className="flex-1 h-px bg-blue-200" />
-                        <span className="text-[11px] text-blue-500 whitespace-nowrap">
-                          ここまでが{timeBudget}分ぶん · 以降は次の隙間で
-                        </span>
-                        <div className="flex-1 h-px bg-blue-200" />
-                      </div>
-                    )}
-                    {showNewHeading && (
-                      <div className="flex items-center gap-2 py-1 select-none">
-                        <div className="flex-1 h-px bg-gray-200" />
-                        <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                          ここから新規着手 {todayNewShown}問（今日のノルマ）
+                          {timeBudget !== null
+                            ? `ここまでが${timeBudget}分ぶん · 以降は順番待ち（翌日以降に戻ります）`
+                            : 'ここまでが今日の推奨 · 以降は順番待ち（翌日以降に戻ります）'}
                         </span>
                         <div className="flex-1 h-px bg-gray-200" />
                       </div>
