@@ -22,7 +22,7 @@
 // したがって `retentionOf()` の戻り値は現時点で提案値であり、`effectiveRetention`
 // （いま実際に FSRS へ渡っている値）とは別物として扱う。混同させないため両方を返す。
 
-import type { Chapter, MasterQuestion, MockSession, Review, Status } from '../domain/types'
+import type { Chapter, MockSession, Review, Status } from '../domain/types'
 import type { ScoreEstimate } from './analytics'
 import type { PassTarget } from './passTarget'
 import type { EstimateModeKey, TimeStats } from './estimateMinutes'
@@ -206,14 +206,25 @@ function requiredMinutesPerDay(
  * 推定値で補うと「使えた時間」が実際より大きく出て、供給過大＝必要量過小の方向へ倒れる。
  * 原則 §0 に従い、供給側は控えめに見積もる。実績ゼロの日も 0分として算入するので、
  * 停止期間は自動的に平均を押し下げる（休止を宣言させない・pace.ts と同じ考え方）。
+ *
+ * 集計対象は**この科目の収録問題だけ**。`reviews` は資格（exam_id）単位で読み込まれており
+ * 他科目の進捗も入っているため、`Object.values(reviews)` を走らせると他科目の学習時間まで
+ * 「この科目に使える時間」として数えてしまう。必要側（requiredMinutesPerDay）は科目内の
+ * 問題だけで積んでいるので、供給側だけ科目をまたぐと供給過大＝shortfall の見逃しになる。
  */
-function availableMinutesPerDay(reviews: Record<string, Review>, today: string): number {
+function availableMinutesPerDay(
+  chapters: Chapter[],
+  reviews: Record<string, Review>,
+  today: string,
+): number {
   const daily = new Map<string, number>()
-  for (const r of Object.values(reviews)) {
-    for (const e of r.review_history ?? []) {
-      const sec = e.duration_seconds
-      if (typeof sec !== 'number' || sec <= 0) continue
-      daily.set(e.date, (daily.get(e.date) ?? 0) + sec / 60)
+  for (const c of chapters) {
+    for (const q of c.questions) {
+      for (const e of reviews[q.id]?.review_history ?? []) {
+        const sec = e.duration_seconds
+        if (typeof sec !== 'number' || sec <= 0) continue
+        daily.set(e.date, (daily.get(e.date) ?? 0) + sec / 60)
+      }
     }
   }
   if (daily.size === 0) return 0
@@ -271,11 +282,9 @@ export function optimizePolicy(params: {
   const passMargin = passMarginFor(scoreEstimate, sessions)
   const targetScore = Math.min(100, scoreEstimate.passingScore + passMargin)
 
-  // コア完遂の目標日: 明示指定 > (試験日 - 90日) > 試験日 > なし。
+  // コア完遂の目標日: 明示指定 > (試験日 - 90日) > なし（試験日も未設定のとき）。
   const horizonDate =
-    bunyaTargetDate ??
-    (examDate ? addDaysStr(examDate, -DEFAULT_BUNYA_LEAD_DAYS) : null) ??
-    examDate
+    bunyaTargetDate ?? (examDate ? addDaysStr(examDate, -DEFAULT_BUNYA_LEAD_DAYS) : null)
   const horizonDays = horizonDate ? Math.max(1, diffDays(today, horizonDate)) : 1
 
   // ---- 層2: コア集合 ----
@@ -316,7 +325,7 @@ export function optimizePolicy(params: {
   }
 
   const required = requiredMinutesPerDay(chapters, reviews, timeStats, horizonDays)
-  const available = availableMinutesPerDay(reviews, today)
+  const available = availableMinutesPerDay(chapters, reviews, today)
 
   return {
     today,
@@ -337,9 +346,4 @@ export function optimizePolicy(params: {
     endgame,
     feasibility: feasibilityOf(required, available),
   }
-}
-
-// 学習モードのキー（estimateMinutes と同じ集約）。retentionOf の呼び出し側で使う。
-export function modeKeyOf(q: MasterQuestion): EstimateModeKey {
-  return q.studyMode ?? 'unset'
 }
