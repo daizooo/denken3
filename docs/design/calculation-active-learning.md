@@ -1,10 +1,34 @@
-# 計算問題のアクティブラーニング化と FSRS 分離・電験2種スケーラビリティ設計
+# 計算問題のアクティブラーニング化 ―― 解答前コミットと FSRS の計算/暗記分離
 
-対象: `denken3`（React + Vite + Supabase / PWA）
-起点となる課題: **電験のキモである計算問題が「解説を読むだけ」で終わっており、想起（retrieval）が
-起きていない。** 本書はコードベースの実地調査に基づき、最短合格に向けた改修案・DB拡張案・
-実装ロードマップを定める。既存設計書（`expansion-design.md` / `study-time-scarcity.md`）の
-続きに位置づけ、その決定事項は引き継ぐ。
+対象: `denken3`（React + Vite + Supabase / PWA）／スコープ: **電験3種のみ**
+起点の課題: **計算問題が「解説を読むだけ」で終わり、想起（retrieval）が起きていない。**
+
+既存設計書（`expansion-design.md` / `study-time-scarcity.md`）の続きに位置づけ、その決定事項は引き継ぐ。
+
+---
+
+## 0. 前提の整理（本書で厳密に分ける2系統）
+
+本設計で最も間違えやすいのがここなので、先に固定する。**2つの演習系統は画像の出所も構造も
+正答データの有無も違い、打ち手が別になる。**
+
+| | **分野別**（日々の復習の主戦場） | **年度別**（CBT模試） |
+|---|---|---|
+| 出所 | オーム社「分野別過去問」 | **電験王**（Web記事） |
+| データ | `src/data/denken3/riron/ohmsha-bunya/*.ts` → `MasterQuestion` | `src/data/denken3/*/papers/*.ts` → `PaperQuestion` |
+| 画像 | **見開きスキャン**（左=問題／右=解答）。1問↔複数枚 | **1問1枚の縦長**（タイトル→問題→ワンポイント解説→解答→関連記事） |
+| 表示 | `ProblemViewer` + `CropImage`（矩形切り出し） | `PaperImage`（縦位置%で切り出し） |
+| 座標 | `answer_x_pct` / `answer_y_pct` / `answer_right_y_pct` / `region_y_pct` | `question_start_pct` / `answer_y_pct` / `explanation_end_pct` |
+| **正答データ** | **無い**（`MasterQuestion` に `correct` フィールドが存在しない） | **有る**（`PaperQuestionPart.correct: 1..5`）→ 自動採点済み |
+| 進捗 | `denken_reviews`（FSRS 対象） | `denken_mock_sessions`（FSRS 対象外） |
+| UI 導線 | 復習タブ → 問題を解く → `ProblemViewer` | 模試タブ → `CBTRunner` → `ResultView` |
+
+**「ワンポイント解説」は電験王＝年度別にしかない。** 分野別の見開きスキャンにその帯は存在しない。
+段階的開示（ヒント）を分野別へ持ち込む案は成立しないため、本書では採らない。
+
+**電験2種は本書の非スコープ**（1年以上先）。型を今から広げる作業も行わない。
+必要になった時点で別設計とする。ただし後述の設計はいずれも「追加のみ」で構成しており、
+2種を足す際に既存データの書き換えを強いる構造は作らない。
 
 ---
 
@@ -14,192 +38,144 @@
 
 | 資産 | 実体 | なぜ強いか |
 |---|---|---|
-| ロジックの純関数分離 | `src/lib/{fsrs,reviewPlan,estimateMinutes,pace,mock}.ts` | React・Supabase 非依存。学習モデルを差し替えても UI を触らずに済む |
-| **履歴からの決定的再生** | `deriveFromHistory()` + `ReviewHistoryEntry.prev` | 評価軸を後から足しても、`review_history` を再生すれば全フィールドが再導出できる。**本改修の最大の土台** |
-| 時間予算（分）ベースの計画 | `estimateMinutes.ts` / `planByBudget()` / `TodayPanel` | 学習時間が希少な利用者に対し、既に「問題数」でなく「分」で線を引けている |
-| 画像表示のパラメータ化 | `denken_question_assets`（`question_start_pct` / `answer_y_pct` / `explanation_end_pct`）+ `PaperImage` / `ProblemViewer` | 画像を物理加工せず、**%座標だけで見せる範囲を切り替えられる**。段階的開示はこの仕組みの再利用で実現できる |
-| 1問↔複数画像 | `denken_question_assets.sort` | 長文・複数枚（電験2種）の**DB側は既に対応済み**。制約は TS 型の `imageFile: string` 単数のみ |
-| 資格スコープ | migration 008（`exam_id` を PK へ） | 2種を足しても既存進捗を壊さない |
-| 学習モードの型 | `StudyMode = 'calc' \| 'memory'` | 計算/暗記の区別が**型とデータには既にある** |
+| **履歴からの決定的再生** | `deriveFromHistory()` + `ReviewHistoryEntry.prev` | 評価軸を後から足しても `review_history` の再生で全フィールドが再導出できる。**本改修の土台** |
+| ロジックの純関数分離 | `src/lib/{fsrs,reviewPlan,estimateMinutes,pace,mock}.ts` | 学習モデルを差し替えても UI を触らずに済む |
+| 時間予算（分）ベースの計画 | `estimateMinutes.ts` / `planByBudget()` / `TodayPanel` | 学習時間が希少な状況で、既に「問題数」でなく「分」で線を引けている |
+| **5択ボタンUIの既存実装** | `CBTRunner.tsx` の `[1..5]` ボタン（44px 角・親指操作前提） | 分野別へそのまま移植できる。**新規に作るUIが実質ゼロ** |
+| 出典パーサ | `sourceLink.ts`（`SOURCE_TOKEN` / `parseSourceTokens`） | タイトルの `（H16-A4/R6下-A7）` から回・セクション・問番号を解決済み。A/B問題の判別に再利用できる |
+| 年度別⇄分野別リンク | `sourceLinks`（108問中82問=76% が解決済み） | **分野別の正答データを年度別から逆輸入する経路が既にある**（§6） |
+| 画像表示のパラメータ化 | `denken_question_assets` の各 %座標 | 画像を物理加工せず表示範囲を切り替えられる |
 
 ### 1.2 伸びしろ（最短合格に向けた真の課題）
 
-**① 客観的な正誤データが1件も存在しない**（最重要）
+**① 分野別に「解答へのコミット」が無い**（最重要）
 
-分野別の学習フローは `ProblemViewer` の「問題を見る → 解答を見る → A/B/C」だけで、
-
-- 解答を**見た後**に自己評価する順序のため、後知恵バイアス（「あ、そう解くんだった＝A」）を構造的に防げない
-- 最終解答の数値すら入力しないため、**DB には「本人の自己申告」しかなく、正誤の実測が無い**
-- `MasterQuestion` に正答フィールドが無い（年度別 `PaperQuestionPart.correct` のみ）
-
-FSRS の入力（Rating）が全面的に自己申告に依存している。計算問題は「解けた気」と「解けた」の
-乖離が最も大きい領域であり、ここが最短合格の最大のボトルネック。
+現行フローは `問題を見る／解く → 解答を見る → A/B/C`。**解答を見た後に自己評価する順序**のため、
+「あ、そう解くんだった＝A」という後知恵バイアスを構造的に防げない。しかも選んだ選択肢すら
+記録されず、**分野別には解答に関する観測値が1件も残っていない**。
 
 **② FSRS が計算/暗記を区別していない**
 
-`studyMode` は `estimateMinutes.ts`（所要時間の推定）でしか使われていない。`fsrs.ts` の
-`retentionFor()` は日付のみ、初期難易度は `createEmptyCard()` の D=5 固定。計算問題（手順の
-運動記憶・一度崩れると復旧コストが大きい）と暗記問題（事実の再生・回転数が効く）を同一の
-忘却モデルで回している。
+`studyMode`（`'calc' | 'memory'`）は型とデータには存在するが、`estimateMinutes.ts`（所要時間推定）
+でしか使われていない。`fsrs.ts` の `retentionFor()` は日付のみを見ており、初期難易度も
+`createEmptyCard()` の D=5 固定。手順の運動記憶（計算）と事実の再生（暗記）を同一モデルで回している。
 
-**③ Rating が3値で、`Rating.Hard` を使っていない**
+**③ `Rating.Hard` を使っていない**
 
-`RATING_MAP` は `A=Easy / B=Good / C=Again`。とくに **B（方向性OK・計算ミス）を Good に
-写している**が、計算ミスは本番では 0 点であり、Good（順調）として間隔を伸ばすのは合格確率の
-観点で誤り。ts-fsrs は 4 段階を前提としており、`Hard` を空けているのは情報の捨てすぎ。
+`RATING_MAP` は `A=Easy / B=Good / C=Again` の3値。とくに **B（方向性OK・計算ミス）を Good に
+写している**が、計算ミスは本番0点であり、Good（順調）として間隔を伸ばすのは合格確率の観点で誤り。
+ts-fsrs は4段階を前提としており、`Hard` を空けているのは情報の捨てすぎ。
 
 **④ 所要時間を測っているのに、時間の観点で出題していない**
 
-`duration_seconds` / CBT の `seconds` は蓄積されているが、`reviewValue()` の主キーは
-「理解度 × 忘却リスク」のみ。電験は 90 分／18 問で**時間切れが典型的な落ち方**であり、
-「正解できるが遅い問題」が可視化されていない。
-
-**⑤ 電験2種の唯一のハード障壁は `PaperQuestionPart.correct: 1|2|3|4|5`**
-
-択一が型レベルで固定されている。逆に言えば、**ここ以外は追加で拡張可能**
-（複数枚画像は `sort` で対応済み、`MockAnswer` / `MockSession.answers` は JSONB）。
+`duration_seconds` は蓄積されているが `reviewValue()` の主キーは「理解度 × 忘却リスク」のみ。
+電験は90分/18問で**時間切れが典型的な落ち方**であり、「正解できるが遅い問題」が見えていない。
 
 ---
 
-## 2. 計算問題の UI/UX 改修案
+## 2. 解答フローの改訂 ―― 選択肢コミット方式
 
-### 2.0 設計原則 —— 「読むだけ」を防ぐ最小の一手は何か
-
-デジタルノート・手書きキャンバスが真っ先に思いつくが、**この利用者の制約
-（育児中・隙間時間・片手操作・中断が常態: `study-time-scarcity.md` 課題13）** に照らすと、
-手書き入力は摩擦が大きく、記録そのものが止まるリスクが高い。
-
-学習効果 ÷ 入力コストが最大なのは、手書きではなく **「答えを見る前に、最終答を1つ確定させること」**。
-テスト効果（testing effect）は解答過程の量ではなく**想起を試みたかどうか**で立ち上がる。
-したがって必須入力は最終答 1 つに限定し、立式・ミス種別は任意とする。
-
-### 2.1 Answer-First Gate（解答前コミット）— `ProblemViewer` の改修
-
-現行の「解答を見る」ボタンを **2 段階**に置き換える。
+### 2.1 採用する流れ
 
 ```
-[問題表示]
-  ↓  下部バー: 大きなテンキー + 単位ドロップダウン ／ または (1)〜(5)
-  ↓  ┌ 答えを確定 ─→ [解答表示] ─→ 自己採点 ○/× ─→ 理解度 A/B/C/S
-  └─→ ヒント（ワンポイント解説だけ表示）… 任意・1回まで
-  └─→ 「わからない（降参）」 ─→ [解答表示] ─→ 自動で C 相当
+分野別（ProblemViewer）:
+
+  [問題表示]  ← 見開き左ページ（問題＋選択肢）
+      │
+      ├─ (1)(2)(3)(4)(5) から1つタップ ──→ [解答表示] ──→ 理解度 A / B / C / S
+      │                                                      （既存の記録バー）
+      └─ 「わからない」タップ ───────────→ [解答表示] ＋ **即時 C を記録**
 ```
 
-要点:
+**選択肢タップを済ませるまで「解答を見る」を活性化しない。** これが唯一の強制点。
 
-- **「解答を見る」を無条件では押せなくする。** 押すには「答えを確定」か「わからない」のどちらかを
-  通す。降参もデータ（`gave_up: true`）であり、罰ではない。
-- 分野別（`MasterQuestion`）は正答データを持たないので**採点は自己申告の ○/×**。ただし
-  *答えを先に確定させてから* ○/× を押すため、後知恵バイアスが構造的に入らない。
-  年度別（`PaperQuestion.parts[].correct`）は自動採点できる。
-- 入力 UI は **OS キーボードを呼ばない自前テンキー**（画面の半分を潰さないため）。
-  `[7 8 9] [4 5 6] [1 2 3] [0 . -] [×10^n] [削除]` + 単位チップ（A / V / W / Ω / F / H / % / なし）。
-- 記録バー（現行の A/B/C/S）はそのまま残す。**タップ数は「答え入力 → ○/× → 理解度」の
-  最小 3 アクション**に収める。
+### 2.2 なぜ数値入力（テンキー）ではなく選択肢か
 
-新規ファイル（既存の巨大ファイルへ足さない・CLAUDE.md §1）:
+当初案は「最終答の数値をテンキーで入力」だったが、選択肢方式のほうが優れている。
 
-```
-src/features/questions/AnswerGate.tsx   … 下部バーの2段階UI（テンキー・単位・確定/降参/ヒント）
-src/lib/attempt.ts                      … 試行データの純ロジック（正規化・比較・grade補正）
-```
-
-`src/lib/attempt.ts`（骨子）:
-
-```ts
-// 1回の解答試行。review_history のエントリに同梱して保存する（DBスキーマ変更なし）。
-export interface Attempt {
-  answer?: string        // 入力した最終答（'3.14', '1/2π' 等。正規化前の生値）
-  unit?: string          // 'A' | 'V' | ... | ''
-  correct?: boolean      // 自己採点（年度別は自動採点）
-  hintUsed?: boolean     // ワンポイント解説を開いたか
-  gaveUp?: boolean       // 答えを入力せず解答を見たか
-  setup?: string         // 立式（任意・1行。例 'I = E/(r+R)'）
-  errorKind?: ErrorKind  // 誤答の型（任意）
-}
-
-// 計算問題の誤りは「立式」と「実行」で対策がまったく違う。型で切り分ける。
-export type ErrorKind =
-  | 'setup'      // 立式ミス（公式の選択を誤った）… 理解の穴 → 教科書へ戻す
-  | 'transform'  // 式変形ミス
-  | 'arithmetic' // 計算・電卓ミス
-  | 'unit'       // 単位・接頭語（k/m/μ）ミス
-  | 'read'       // 問題文・図の読み違い
-```
-
-### 2.2 段階的開示（Graduated Prompting）— `PaperImage` / `denken_question_assets` の1カラム追加
-
-電験王の問題画像は縦に
-**`タイトル → 問題文 → ワンポイント解説 → 解答 → 関連記事`** の順で並んでおり
-（`types.ts` の `PaperQuestion` コメント）、すでに 3 つの %座標で切り出している。
-
-ここに **`hint_y_pct`（ワンポイント解説の終わり＝解答本文の始まり）** を 1 本足すだけで、
-既存の切り出し機構をそのまま使って 3 段階開示が成立する。
-
-| 段階 | 表示範囲 | 用途 |
+| 観点 | 数値入力 | **選択肢（採用）** |
 |---|---|---|
-| 問題 | `question_start_pct` 〜 `answer_y_pct` | 現行と同じ |
-| **ヒント** | `question_start_pct` 〜 **`hint_y_pct`** | ワンポイント解説だけを追加開示。**解答は見えない** |
-| 解答・解説 | `question_start_pct` 〜 `explanation_end_pct` | 現行の `showAnswer=true` と同じ |
+| 入力コスト | 数タップ＋単位選択 | **1タップ** |
+| 本番再現性 | 低い（本番CBTは5択） | **高い（本番と同一形式）** |
+| 表記ゆれ | `3.14 / 3.1 / π` の同一性判定が必要＝自己採点ボタンが要る | **無い。番号は一意** |
+| 実装 | 自前テンキーの新規実装 | **`CBTRunner` の既存ボタンを移植** |
+| 記録の後方互換 | — | 選んだ番号は、**正答データが後から入れば遡って採点できる**（§6） |
 
-`PaperImage` の改修は `showAnswer: boolean` を `reveal: 'question' \| 'hint' \| 'answer'` に
-広げ、`endPct` の選択を 3 分岐にするだけ（既存の呼び出しは `showAnswer` を残したまま
-`reveal` を任意 props として**追加**し、非破壊で移行する）。
+数値入力の唯一の優位は「当てずっぽうで20%当たらない」点だが、これは**理解度A/B/Cとの
+クロスで解決する**（§2.4）。入力コストは記録量に直結し、記録が止まればすべての施策が無効になる。
+片手・隙間時間・中断が常態（`study-time-scarcity.md` 課題13）という制約下では、
+**1タップであることが他のすべての利点に優先する。**
 
-分野別（見開き画像・`ProblemViewer`）は電験王と構造が違い、ワンポイント解説の帯が無い。
-こちらのヒントは **`answerRects()` の先頭矩形の上部 25% だけを開示**する（解答の書き出し＝
-「まず○○の等価回路に直す」に相当する部分）を暫定とし、精度が要る問題だけ
-`denken_question_assets.hint_y_pct` を SQL の UPDATE 1 行で個別調整する
-（`docs/data-correction-workflow.md` §5-A と同じ運用）。
+### 2.3 「わからない」は、実はタップ数を減らす
 
-### 2.3 計算用紙 —— 「立式1行」に絞る
+| 経路 | 現行 | 改訂後 |
+|---|---|---|
+| 解けた | 解答を見る → A ＝ **2タップ** | 選択肢 → 解答を見る → A ＝ **3タップ** |
+| **解けない** | 解答を見る → C ＝ **2タップ** | **わからない ＝ 1タップ**（Cを自動記録＋解答表示） |
 
-フル手書きキャンバスは Phase 3 以降の任意機能とし、Phase 1 では **立式 1 行のテキスト入力**
-（`Attempt.setup`）にとどめる。理由:
+正答経路は +1 タップだが、**降参経路は −1 タップ**になる。学習初期・難問ほど降参の頻度は高いので、
+体感の総タップ数はほぼ変わらない。「わからない」を罰ではなく**最速の道**に置くことで、
+「なんとなく解答を見て、なんとなくAを付ける」という最悪の経路を UI 上から消せる。
 
-- 電験3種の計算問題は「どの式を立てるか」でほぼ勝負が決まり、以降は電卓作業である
-- 立式だけなら片手・15 秒で入力でき、**復習時に自分の立式と正答の立式を並べられる**
-- 手書き画像は検索も比較もできず、ストレージ（非公開バケット）と同期のコストだけが増える
+### 2.4 当てずっぽうは「選択 × 理解度」のクロスで自動的に判別できる
 
-立式は任意入力。ただし **`errorKind === 'setup'` を選んだときだけ入力を促す**
-（理解の穴が出た瞬間に、その場で言語化させるのが最も定着する）。
+追加のUI（「自信あり/勘」ボタン等）は**要らない**。既存の理解度がその役割を果たす。
 
-### 2.4 `QuestionCard` の改修（一覧側）
+| 選択 | 理解度 | 意味 |
+|---|---|---|
+| 正答と一致 | A | 本当に解けた |
+| 正答と一致 | **C** | **当てずっぽうが当たった**（危険。FSRS は Again 扱いで正しい） |
+| 不一致 | B | 立式は合っていたが計算ミス → 本番0点 |
+| 不一致 | C | 解けていない |
 
-カードは**情報を増やさず、入口を変える**。
+つまり **理解度は「自己申告」ではなく「選択という客観行動に対する注釈」**へ意味が変わる。
+これが選択肢コミット方式の本質的な効用で、後知恵バイアスが入る余地が消える。
 
-- 「問題を見る」「問題を解く」の 2 ボタンを維持しつつ、`studyMode === 'calc'` の問題では
-  「問題を解く」を主ボタン（塗り）にする。計算問題を眺めるだけの導線を弱める。
-- 履歴チップに `Attempt` の情報を 1 文字で足す:
-  `初回 9/3 ⏱3分7秒 ✓`（正答）/ `✗立式`（誤答・型つき）/ `⚑`（ヒント使用）。
-  既存の履歴チップ内へ **追記のみ**（行を増やさない）。
-- リスク帯（`bandMeta`）の隣に**「⏱ 遅い」バッジ**を出す（2.5 参照）。
+### 2.5 B問題（(a)(b) の2小問）の扱い
 
-### 2.5 「解けるが遅い」の可視化
+分野別にも B問題がある（例 `dc_5`「抵抗直列回路／抵抗並列回路（H10-B11）」）。
+`sourceLink.ts` の `SOURCE_TOKEN` が既にセクション(A|B)を解析しているので、
+**タイトルから小問数を導く純関数を1本足す**だけでよい。
 
-`estimateSeconds()` は既に「難易度 × studyMode の実測中央値」を持っている。本番の 1 問あたり
-持ち時間（理論: 90 分 ÷ 18 問 ≒ 5 分、B 問題は 2 小問で 10 分）と比較し、
-**正答かつ持ち時間超**の問題に「時間内に解けない」タグを付ける。
+```ts
+// sourceLink.ts へ末尾追加。タイトルの出典表記に B問題が含まれれば 2、それ以外は 1。
+// 解決できない表記（出典なし・年度のみ）は安全側の 1 に倒す（選択肢の行が1本になるだけ）。
+export function partCountFromTitle(title: string): 1 | 2 { /* … */ }
+```
 
-これは `reviewValue()` の主キーには入れない（`study-time-scarcity.md` 課題11 と同じ轍を踏まない）。
-**復習タブの絞り込み（`FilterBar`）に「⏱ 時間切れ」チップを 1 つ足す**にとどめ、
-直前期（試験 30 日前）に一括で洗い出せるようにする。
+選択値は `number[]` で保持する（`MockAnswer.selected` と同じ形）。1小問なら1要素。
+**将来 B問題の扱いを変えても、保存形式は変えずに済む。**
+
+### 2.6 年度別（CBT模試）側は何を変えるか ―― Phase 1 では何も変えない
+
+年度別は既に「選択肢を選ぶ → 試験終了 → 自動採点 → 解説」という、本設計が目指す形に
+**もともとなっている**。`CBTRunner` は正答を持ち、`ResultView` が ○× と解説を出す。
+
+したがって Phase 1 の改修対象は**分野別のみ**。年度別に手を入れるのは Phase 3 の
+「ワンポイント解説による段階的開示」だけで、それも本番再現性を壊さないよう
+**`free` モード（時間無制限）と結果画面からの復習に限定**する（§5 Phase 3）。
+
+### 2.7 `QuestionCard`（一覧）の改修
+
+情報を増やさず、入口を変えるだけに留める。
+
+- `studyMode === 'calc'` の問題は「問題を解く」を主ボタン（塗り）にする。計算問題を眺めるだけの導線を弱める
+- 履歴チップに選択番号を1文字追記: `初回 9/3 ⏱3分7秒 ③` / 降参は `✋`。**行は増やさない**
 
 ---
 
-## 3. DB・アルゴリズム拡張案
+## 3. データ設計
 
-### 3.1 方針 —— 「観測値」だけを足し、「派生値」は持たない
+### 3.1 原則 ―― 観測値だけを足す。派生値は持たない
 
-- `studyMode` は `src/data/` のマスタ側にあるので、DB へ複製しない（二重管理を避ける）
-- 新しく保存すべきは **試行の観測値**（入力した答え・正誤・ヒント・降参・誤りの型）だけ
-- それらは **`denken_reviews.review_history`（JSONB）に同梱する** →
-  **マイグレーション不要・他 PR とのコンフリクトゼロ**（CLAUDE.md §2・§4）
+- `studyMode` はマスタ（`src/data/`）にあるので DB へ複製しない（二重管理を避ける）
+- 新たに保存するのは**その試行で実際に起きたこと**だけ ―― 選んだ番号・降参したか
+- 保存先は **`denken_reviews.review_history`（JSONB）** →
+  **マイグレーション不要・他PRとのコンフリクトなし**（CLAUDE.md §2・§4）
 
-### 3.2 `src/domain/types.ts` の変更（追記のみ）
+### 3.2 `src/domain/types.ts` の変更（2行）
 
 ```ts
-// ReviewHistoryEntry へ追記（既存フィールドは触らない・すべて optional）
 export interface ReviewHistoryEntry {
   date: string
   status: Status
@@ -209,22 +185,48 @@ export interface ReviewHistoryEntry {
 }
 ```
 
-`Attempt` は `src/lib/attempt.ts`（§2.1）に定義し、`types.ts` からは `import type` で参照する。
-`types.ts` は全 PR が触る共有ファイルなので**変更を 2 行に抑える**。
+`types.ts` は全PRが触る共有ファイルなので、変更を最小に抑え、本体は新規ファイルへ置く。
 
-### 3.3 `src/lib/fsrs.ts` の変更（知識/計算の分離）
+```ts
+// src/lib/attempt.ts（新規）
+// 1回の解答試行で観測されたこと。判断・採点は一切含めない（生の事実のみ）。
+export interface Attempt {
+  selected?: number[]   // 選んだ選択肢。B問題は [a, b]。未選択の要素は 0
+  gaveUp?: boolean      // 「わからない」で解答を開いたか
+}
+```
 
-**やらないこと**: ts-fsrs の重み `w[]` を calc / memory で丸ごと分けること。
-利用者 1 名・数百問の規模では過学習になり、決定的再生（`deriveFromHistory`）の再現性検証も
-難しくなる。**分けるのは「入力パラメータ」だけ**にする。
+**この2フィールドだけで始める。** 誤りの型（立式/計算/単位…）・立式テキストは
+Phase 1 のデータを見てから判断する（§7）。
 
-**(a) 目標保持率を studyMode で分ける**
+### 3.3 マイグレーション
+
+**Phase 1・Phase 2 とも不要。** 追加が必要になるのは Phase 3 の段階的開示のみ:
+
+```sql
+-- 016_hint_y_pct.sql（Phase 3・番号はコミット直前に再確認する / CLAUDE.md §4）
+-- 年度別（電験王）画像の「ワンポイント解説」が終わる縦位置(%)。
+-- 既定 100 = ヒント段階なし（現行と同じ2段階表示に落ちる）。分野別では使わない。
+ALTER TABLE denken_question_assets
+  ADD COLUMN IF NOT EXISTS hint_y_pct NUMERIC NOT NULL DEFAULT 100;
+```
+
+---
+
+## 4. FSRS の計算/暗記分離
+
+### 4.1 やらないこと
+
+**ts-fsrs の重み `w[]` を calc / memory で丸ごと分けること。** 利用者1名・数百問の規模では
+過学習になり、`deriveFromHistory` の決定的再生の検証も難しくなる。**分けるのは入力パラメータだけ。**
+
+### 4.2 目標保持率を studyMode で分ける
 
 ```ts
 export const RETENTION_BY_MODE: Record<EstimateModeKey, number> = {
   calc:   0.90,  // 手順の運動記憶。崩れると復旧コストが大きい → 高めに保つ
   memory: 0.82,  // 事実の再生。回転数を稼いだほうが総得点が伸びる
-  unset:  0.85,  // 現行既定と同値（機械・電力・法規・未分類の挙動を変えない）
+  unset:  0.85,  // 現行既定と同値（電力・機械・法規・未分類の挙動を変えない）
 }
 
 export function retentionFor(
@@ -239,200 +241,156 @@ export function retentionFor(
 ```
 
 `schedulerFor(retention)` は既に retention 別に FSRS インスタンスをキャッシュしているため、
-**この 1 関数の引数追加だけで分離が通る**。`calcFSRS` / `deriveFromHistory` は `mode` を
-受け取って素通しするだけ（引数はいずれも末尾に optional で追加＝既存呼び出しは無改修）。
+**この1関数の引数追加だけで分離が通る**。引数は末尾に optional で足すので既存呼び出しは無改修。
 
-`reviewPlan.ts` の `bandOf()` も同じ `retentionFor(today, examDate, mode)` を使うため、
-リスク帯（🔴/🟡/🟢）が自動的にモード別のしきい値へ連動する（`study-time-scarcity.md` 課題5 と同じ思想）。
+`reviewPlan.ts` の `bandOf()` も同じ関数を使うため、リスク帯（🔴/🟡/🟢）が自動的にモード別の
+しきい値へ連動する（`study-time-scarcity.md` 課題5 と同じ思想）。
 
-**(b) `Rating.Hard` を導入し、Rating を客観データで補正する**
+**calc を上げて memory を下げるのは、総復習量を増やさないため。** 片方だけ上げると
+時間予算を圧迫し、`TodayPanel` の「今日やること（分）」が膨らむ。
+
+### 4.3 `Rating.Hard` の導入と、観測値による補正
 
 新規ファイル `src/lib/grade.ts`（`fsrs.ts` を肥大化させない）:
 
 ```ts
-// 自己申告の Status に、その試行の観測値（正誤・ヒント・降参・所要時間）を掛けて
-// ts-fsrs の Grade を決める。自己申告だけを信じない、が要点。
+// 自己申告の Status に、その試行の観測値を掛けて ts-fsrs の Grade を決める。
+// slow = 実測所要が本番の1問あたり持ち時間を超えたか（estimateMinutes 由来）。
 export function gradeOf(status: Status, a: Attempt | undefined, slow: boolean): Grade {
-  if (status === 'C') return Rating.Again
-  if (a?.gaveUp) return Rating.Again
-  // B（方向性OK・計算ミス）は本番0点。Good ではなく Hard に落とす。
-  if (status === 'B') return a?.errorKind === 'setup' ? Rating.Again : Rating.Hard
-  // A（見ずに解けた）でも、自己採点が×／ヒント使用／持ち時間超なら1段下げる。
-  if (a?.correct === false) return Rating.Again
-  if (a?.hintUsed || slow) return Rating.Good
+  if (status === 'C' || a?.gaveUp) return Rating.Again
+  // B（方向性OK・計算ミス）は本番0点。Good ではなく Hard へ落とす。
+  if (status === 'B') return Rating.Hard
+  // A（見ずに解けた）でも、本番の持ち時間を超えていれば1段下げる。
+  if (slow) return Rating.Good
   return Rating.Easy
 }
 ```
 
-現行の `RATING_MAP` は `Attempt` の無い旧データ向けのフォールバックとして残す
-（`deriveFromHistory` の決定的再生が旧履歴でも同じ結果を返す＝後方互換）。
+現行の `RATING_MAP` は `attempt` を持たない旧データ向けのフォールバックとして残し、
+**旧履歴の再生結果が完全一致することをマージ条件にする**（後方互換）。
 
-**(c) 初期難易度のシード**
+正答データが入った問題（§6）では、`selected` と正答の突き合わせを `gradeOf` の入力に足せる
+（`A申告 かつ 不一致 → Again`）。**その拡張点だけ空けておき、Phase 2 では使わない。**
 
-`createEmptyCard()` の D=5 固定を、`calc` かつ `difficulty === 3` の問題では D を上げる
-（初回から間隔を短く始める）。ts-fsrs の内部重みは触らず、生成後のカードの
-`difficulty` を差し替えるだけにする。
+### 4.4 初期難易度のシード
 
-### 3.4 マイグレーション（追加のみ・破壊的変更なし）
+`createEmptyCard()` の D=5 固定を、`calc` かつ `difficulty === 3` の問題では引き上げる
+（初回から間隔を短く始める）。ts-fsrs の内部重みは触らず、生成後のカードの `difficulty` を
+差し替えるだけにする。
 
-現行の最新は **014**。採番は実装完了・コミット直前に再確認する（CLAUDE.md §4）。
+### 4.5 「解けるが遅い」の可視化
 
-```sql
--- 015_hint_y_pct.sql  （Phase 1）
--- 段階的開示のヒント境界。ワンポイント解説の終わり＝解答本文が始まる縦位置(%)。
--- 既定 100 = ヒント段階なし（現行と同じ2段階表示に落ちる）。
-ALTER TABLE denken_question_assets
-  ADD COLUMN IF NOT EXISTS hint_y_pct NUMERIC NOT NULL DEFAULT 100;
-```
+`estimateSeconds()` は既に「難易度 × studyMode の実測中央値」を持っている。本番の1問あたり
+持ち時間（理論: 90分 ÷ 18問 ≒ 5分、B問題は2小問で10分）と比較し、**正答かつ持ち時間超**の
+問題にタグを付ける。
 
-Phase 2 は**マイグレーション不要**（観測値は `review_history` JSONB）。
-
-将来、試行データの集計が JSONB では重くなった段階で、正規化テーブルへ切り出す:
-
-```sql
--- 017_attempts.sql （Phase 3・必要になってから）
--- review_history から生成できる派生テーブル。真実の源は引き続き review_history 側に置き、
--- こちらは分析クエリ専用の投影とする（二重管理を避けるため、書き込みは常に両方へ）。
-CREATE TABLE IF NOT EXISTS denken_attempts (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID NOT NULL DEFAULT auth.uid(),
-  exam_id       TEXT NOT NULL,
-  question_id   TEXT NOT NULL,
-  attempted_on  DATE NOT NULL,
-  status        TEXT NOT NULL,
-  correct       BOOLEAN,
-  hint_used     BOOLEAN NOT NULL DEFAULT FALSE,
-  gave_up       BOOLEAN NOT NULL DEFAULT FALSE,
-  error_kind    TEXT,
-  seconds       INTEGER,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-
-### 3.5 電験2種（記述式）へのスケーラビリティ
-
-**唯一のハード障壁は `PaperQuestionPart.correct: 1|2|3|4|5`。** ここだけを今のうちに
-判別可能ユニオンへ広げておけば、以降は追加だけで記述式に届く。
-
-```ts
-// types.ts（既存 PaperQuestionPart を kind 付きユニオンへ。'choice' が既定＝既存データ無改修）
-export interface RubricItem {
-  id: string        // 'r1'
-  label: string     // '等価回路を描き、インピーダンスを Z = R + jX で表せている'
-  points: number
-}
-
-export type PaperQuestionPart =
-  | { kind?: 'choice'; label?: PartLabel; correct: 1|2|3|4|5; points: number }
-  | { kind: 'numeric'; label?: PartLabel; correct: number; tolerance: number; unit: string; points: number }
-  | { kind: 'descriptive'; label?: PartLabel; rubric: RubricItem[]; points: number }
-
-// 既存データ（kind 無し）を choice として扱う唯一の入口。分岐はここに閉じる。
-export function partKind(p: PaperQuestionPart): 'choice' | 'numeric' | 'descriptive' {
-  return ('kind' in p && p.kind) ? p.kind : 'choice'
-}
-```
-
-対応する残りの拡張点（すべて追加のみ）:
-
-| 論点 | 対応 | 影響ファイル |
-|---|---|---|
-| 長文・複数枚画像 | `PaperQuestion.imageFiles?: string[]` を**末尾に追加**（`imageFile` は残す）。DB は `denken_question_assets.sort` で既に 1問↔複数画像に対応済み | `types.ts`（1行）、新規 `PaperImageStack.tsx` |
-| 記述式の自己採点 | `MockAnswer.rubric?: Record<string, boolean>` を追加。`answers` は JSONB なので**DB変更なし** | `types.ts`（1行）、新規 `RubricGrader.tsx` |
-| 数値記述の採点 | `scorePaper()` に `partKind` 分岐を足す。`numeric` は `Math.abs(got - correct) <= tolerance` | `lib/mock.ts` |
-| 部分点 → FSRS | ルーブリック達成率 → Status のマッピング（`>=0.9→A / >=0.6→B / それ未満→C`）を `grade.ts` に 1 関数 | `lib/grade.ts` |
-| 二次試験（記述）の制度差 | `ExamFeatures` に `descriptive: boolean` を**末尾追加** | `types.ts`（1行） |
-| 二次の合格ライン | `ExamDefinition.passingScore` を流用（変更不要） | — |
-
-**あえて今やらないこと（YAGNI）**: ルーブリックの独立テーブル化、記述解答の全文保存、
-AI 採点。いずれも 2 種の学習データが 1 件も無い段階で作り込むと、実際の運用で作り直しになる。
-**今回入れるのは「型のユニオン化」1 点のみ**——これは diff が小さく、かつ後から入れると
-既存の年度別データ全件の書き換えが要るため、先にやる価値がある。
+`reviewValue()` の主キーには入れない（`study-time-scarcity.md` 課題11 と同じ轍を踏まない）。
+**`FilterBar` に「⏱ 時間切れ」チップを1つ末尾追加**するに留め、直前期に一括で洗い出せるようにする。
 
 ---
 
-## 4. 実装ロードマップ
+## 5. 実装ロードマップ
 
-各 Phase は独立してマージできる単位に切ってある（CLAUDE.md §1）。
-新規ファイル中心・共有ファイルは末尾追記のみ。
+### Phase 1 —— 分野別の解答前コミット（migration 不要）
 
-### Phase 1 —— 明日入れられる、学習効果が最も高い UI 改修
-
-**狙い: 「読むだけ」を構造的に不可能にし、客観データの蓄積を今日から始める。**
+**狙い: 「読むだけ」を構造的に不可能にし、観測値の蓄積を今日から始める。FSRS は一切変えない。**
 
 | # | 内容 | 変更 |
 |---|---|---|
-| 1-1 | `Attempt` 型と純ロジック | **新規** `src/lib/attempt.ts` |
-| 1-2 | 解答前コミット UI（テンキー・単位・確定/降参/ヒント） | **新規** `src/features/questions/AnswerGate.tsx` |
-| 1-3 | `ProblemViewer` に Gate を組み込み、`showAnswer` を `reveal` 3 段階へ | `ProblemViewer.tsx`（既存の `onRecord` に `attempt` 引数を**追加**） |
+| 1-1 | `Attempt` 型（`selected` / `gaveUp` のみ） | **新規** `src/lib/attempt.ts` |
+| 1-2 | 選択肢バー（`CBTRunner` の5択ボタンを移植）・「わからない」・解答ボタンの活性制御 | **新規** `src/features/questions/AnswerBar.tsx` |
+| 1-3 | `ProblemViewer` に `AnswerBar` を組み込み。`onRecord(status)` → `onRecord(status, attempt)` | `ProblemViewer.tsx` |
 | 1-4 | 履歴エントリに `attempt` を同梱 | `types.ts`（1行）、`App.tsx` の `updateStatus`（数行） |
-| 1-5 | ヒント境界カラム | **新規** `supabase/migrations/015_hint_y_pct.sql`、`lib/assets.ts` の `QuestionAsset`（1行） |
-| 1-6 | `PaperImage` の `reveal` 対応（年度別のヒント表示） | `PaperImage.tsx`（`endPct` を3分岐） |
-| 1-7 | `QuestionCard` の履歴チップに ✓/✗/⚑ を追記、calc の主ボタン化 | `QuestionCard.tsx` |
+| 1-5 | B問題の小問数判定 | `sourceLink.ts` に `partCountFromTitle()` を**末尾追加** |
+| 1-6 | 履歴チップに選択番号・降参マークを追記、calc の主ボタン化 | `QuestionCard.tsx` |
 
-Phase 1 の時点では FSRS の挙動は**一切変えない**（`attempt` は記録するだけ）。
-UI 改修と学習モデル変更を同一 PR に混ぜると、効果の切り分けができなくなるため。
+新規2ファイル＋既存4ファイルの小改修。**年度別・DBスキーマ・FSRS には触らない。**
 
-### Phase 2 —— FSRS のチューニングと分析
+### Phase 2 —— FSRS のチューニング（migration 不要）
 
-前提: Phase 1 で `attempt` が 2〜3 週間ぶん貯まっていること。
+前提: Phase 1 の記録が2〜3週間ぶん貯まり、記録件数が落ちていないこと（§7 のロールバック基準）。
 
 | # | 内容 | 変更 |
 |---|---|---|
-| 2-1 | `Rating.Hard` 導入と観測値による Grade 補正 | **新規** `src/lib/grade.ts`、`fsrs.ts`（`calcFSRS` の rating 決定を差し替え） |
-| 2-2 | 目標保持率の studyMode 分離 | `fsrs.ts` の `retentionFor()`（引数追加）、`reviewPlan.ts` の `bandOf()` 呼び出し |
-| 2-3 | 初期難易度のシード（calc × 難易度3） | `fsrs.ts`（`createEmptyCard` 直後で `difficulty` を差し替え） |
-| 2-4 | 「解けるが遅い」の絞り込みチップ | `FilterBar.tsx`（`MODE_OPTIONS` の隣へ**末尾追加**） |
-| 2-5 | 分析タブに「誤りの型」の内訳（立式 / 式変形 / 計算 / 単位 / 読み違い） | `DashboardView.tsx`（カード1枚を末尾追加） |
-| — | マイグレーション | **不要**（観測値は JSONB） |
+| 2-1 | `Rating.Hard` 導入と観測値による Grade 補正 | **新規** `src/lib/grade.ts`、`fsrs.ts`（rating 決定を差し替え） |
+| 2-2 | 目標保持率の studyMode 分離 | `fsrs.ts` の `retentionFor()`、`reviewPlan.ts` の呼び出し |
+| 2-3 | 初期難易度のシード（calc × 難易度3） | `fsrs.ts` |
+| 2-4 | 「⏱ 時間切れ」絞り込みチップ | `FilterBar.tsx`（末尾追加） |
+| 2-5 | 分析タブに「選択 × 理解度」のクロス集計（当てずっぽうの検出） | `DashboardView.tsx`（カード1枚を末尾追加） |
 
-**移行時の検証**: `deriveFromHistory()` を旧・新の両実装で全問回し、`attempt` を持たない
-履歴に対して結果が完全一致することを確認してからマージする（決定的再生の後方互換）。
+**マージ条件**: `attempt` を持たない旧履歴に対し `deriveFromHistory()` の結果が
+改修前と完全一致することを全問で確認する。
 
-### Phase 3 —— 電験2種対応へ向けた基盤構築
+### Phase 3 —— 年度別の復習体験（migration 016）
 
 | # | 内容 | 変更 |
 |---|---|---|
-| 3-1 | `PaperQuestionPart` の判別可能ユニオン化 + `partKind()` | `types.ts`、`lib/mock.ts`（`scorePaper` に分岐） |
-| 3-2 | `imageFiles?: string[]` と複数枚表示 | `types.ts`（1行）、**新規** `PaperImageStack.tsx` |
-| 3-3 | 数値記述（`numeric`）の解答 UI と採点 | `CBTRunner.tsx`（`AnswerGate` のテンキーを再利用） |
-| 3-4 | ルーブリック自己採点 | **新規** `features/mock-exam/RubricGrader.tsx`、`ResultView.tsx` |
-| 3-5 | ルーブリック達成率 → Status → FSRS | `lib/grade.ts` に 1 関数追加 |
-| 3-6 | `ExamFeatures.descriptive` と `denken2` の `ExamDefinition` 雛形 | `types.ts`（1行）、**新規** `src/data/denken2/index.ts` |
-
-Phase 3 は 3-1 だけ先に単独 PR で出すことを推奨する（他が全部後回しでも、将来の
-データ書き換えを避けられる）。
+| 3-1 | ワンポイント解説による段階的開示。`PaperImage` の `showAnswer: boolean` → `reveal: 'question' \| 'hint' \| 'answer'`（`showAnswer` は残して非破壊移行） | `PaperImage.tsx`、`lib/assets.ts`（1行）、**新規** `016_hint_y_pct.sql` |
+| 3-2 | ヒントは `free` モードと `ResultView` からの復習でのみ有効化（`cbt` モードでは出さない＝本番再現性を守る） | `CBTRunner.tsx`、`ResultView.tsx` |
+| 3-3 | 正答データの逆輸入（§6） | **新規** `src/lib/correctAnswer.ts` |
 
 ---
 
-## 5. 批判的検証 —— この案の偏りと、その打ち消し方
+## 6. 分野別の正答データを、年度別から逆輸入する（Phase 3・機会）
 
-| リスク | 検証 | 打ち手（本設計に織り込み済み） |
+分野別には正答が無いため、Phase 1 で記録する選択番号は当面「書くだけ」になる。
+しかし **`sourceLinks` が既に 108問中82問（76%）で年度別問題を解決している**（Phase E の成果）。
+年度別は `PaperQuestionPart.correct` を持つので、**リンク済みの分野別問題の正答は、
+データ入力ゼロで導出できる。**
+
+```
+分野別 'dc_21'（タイトル: …（R1-A6/R5下-5））
+  → sourceLinks の逆引き → 年度別 'r5-2_a05'
+  → PaperQuestion.parts[0].correct = 3
+  → 'dc_21' の正答は 3（候補）
+```
+
+**ただし前提の検証が必須。** オーム社の分野別過去問は原典の過去問を再録したものであり、
+選択肢の並び順は通常保たれるが、**保証は無い**。並びが違えば「✗ 不正解（正答は3）」を
+誤表示することになり、学習を直接損なう。
+
+したがって扱いは次のとおりとする:
+
+1. Phase 3 で逆引きを実装し、**まず内部の検証専用**として使う
+2. Phase 1 で貯まった「理解度A（＝解けた）を付けたときの選択番号」と突き合わせる。
+   A のときの選択が逆輸入した正答と一致していれば、その問題は並び順が保たれている証拠になる
+3. 一定数（例: 20問）で一致が確認できてから、はじめて ○× 表示と `gradeOf` への入力に使う
+
+**Phase 1 で選択番号を記録し始めること自体が、この検証データを生む。**
+逆に言えば、Phase 1 を先に回さないとこの経路は開かない。
+
+---
+
+## 7. 批判的検証 ―― この案の弱点と、その打ち消し方
+
+| リスク | 検証 | 打ち手 |
 |---|---|---|
-| **入力が増えて記録が止まる**（最大のリスク） | 隙間時間・片手操作・中断常態という制約下で、入力コストは学習量に直結する | 必須入力は「最終答 1 つ」のみ。立式・誤りの型は任意。テンキーは自前実装で OS キーボードを呼ばない。**Phase 1 リリース後、1 週間の記録件数が Phase 1 前を下回ったら 1-2 を即ロールバック**する基準を先に決めておく |
-| 自己採点は結局 self-report であり、客観データではない | そのとおり。分野別には正答データが無い | 「答えを先に確定させる」順序で後知恵バイアスだけは構造的に潰す。完全な客観正誤が要るのは年度別（`correct` あり）で、そちらは自動採点になる |
-| `retention` をモード別に上げると復習量が増え、時間予算を圧迫する | calc を 0.90 にすると計算問題の復習間隔が縮む | memory を 0.82 へ**下げて相殺する**（総量を増やさない）。リリース後 `TodayPanel` の「今日やること（分）」が改修前より増えていないかを実測で確認し、増えていれば calc 0.88 / memory 0.80 へ再調整 |
-| B → Hard 化で間隔が縮み、A 問題の回転が落ちる | 計算ミスを厳しく扱うと総復習量が増える | B のうち `errorKind === 'setup'`（理解の穴）だけ Again、それ以外は Hard に留める段階付けで過剰反応を避ける |
-| FSRS を触ると過去の学習履歴が壊れる | `deriveFromHistory` は全履歴を再生するため、パラメータ変更は全問の予定日を動かす | `attempt` を持たない旧エントリは従来の `RATING_MAP` で処理し、**旧データの再生結果を完全一致で保つ**。Phase 2 のマージ条件にこの検証を入れる |
-| 2種の設計を今やるのは早すぎるのでは | 概ね正しい | だから Phase 3 で作るのは**型のユニオン化 1 点**に絞った。ルーブリックテーブル・AI 採点は明示的に非スコープ |
-| 段階的開示（ヒント）が「答えを見る前の言い訳」になり、想起努力を削ぐ | 起こり得る | ヒント使用を `hintUsed` として記録し、Grade を 1 段下げる（`Easy → Good`）。ヒントは「無料」ではないことを学習モデル側で表現する |
+| **+1タップで記録が止まる**（最大のリスク） | 隙間時間・片手・中断常態では入力コストが記録量に直結する | 増えるのは正答経路の1タップのみで、降参経路は逆に1タップ減る。**Phase 1 リリース後1週間の記録件数が改修前を下回ったら 1-2/1-3 を即ロールバック**する基準を先に決めておく |
+| 5択は当てずっぽうで20%当たる | そのとおり。選択だけでは実力を測れない | 理解度とのクロスで判別する（§2.4）。「一致 かつ C」＝当てずっぽうであり、FSRS は C を Again として正しく扱う。追加UIは不要 |
+| 選択肢は消去法（桁・単位・符号）で解けてしまう | 学習段階では計算力がつかない側面はある | ただし**本番CBTがまさに5択**であり、本番と同一条件で練習する価値のほうが大きい。消去法で解いた自覚があれば理解度B/Cを付ければよく、その判断は本人ができる |
+| 分野別は正答が無いので、選択番号が当面「書くだけ」になる | 事実 | §6 の逆輸入で回収できる見込みがあり、そのための検証データを Phase 1 自体が生む。仮に逆輸入が成立しなくても、**コミットさせること自体が後知恵バイアスを消す**という主効果は独立して得られる |
+| `retention` を calc 0.90 に上げると復習量が増え、時間予算を圧迫する | 正しい懸念 | memory を 0.82 へ**下げて相殺する**。リリース後に `TodayPanel` の「今日やること（分）」が改修前を超えていないか実測し、超えていれば calc 0.88 / memory 0.80 へ再調整 |
+| B → Hard 化で間隔が縮み、総復習量が増える | 起こり得る | まず一律 Hard で入れ、実測で復習量が膨らむようなら「計算ミスの再発回数」で段階を付ける。**最初から条件分岐を作り込まない** |
+| FSRS を触ると過去の学習履歴が壊れる | `deriveFromHistory` は全履歴を再生するため、パラメータ変更は全問の予定日を動かす | `attempt` を持たない旧エントリは従来の `RATING_MAP` で処理し、**旧データの再生結果を完全一致で保つ**。Phase 2 のマージ条件に明記 |
+| 立式入力・誤りの型（立式/計算/単位）を落としたのは情報の損失では | 損失ではある。ただし Phase 1 の必須要件ではない | Phase 1 のデータ（B の頻度・どの章に偏るか）を見てから導入を判断する。**先に入れて記録が止まるほうが損失が大きい** |
+| 年度別に手を入れないのは機会損失では | 年度別は既に「選択→採点→解説」の形になっており、本設計の主眼（読むだけの防止）は既に満たされている | 年度別で不足しているのは復習時のヒント段階のみ。Phase 3 で、本番再現性を壊さない範囲（`free` モードと結果画面）に限って足す |
 
 ---
 
-## 6. 期待効果（何をもって成功とするか）
+## 8. 成功の判定基準
 
-| 指標 | 現状 | Phase 1 後の目標 | 計測方法 |
+| 指標 | 現状 | Phase 1 後の目標 | 計測 |
 |---|---|---|---|
-| 客観的な正誤データ | 0 件 | 全試行に付与 | `review_history[].attempt.correct` の付与率 |
-| 自己評価と実正誤の乖離 | 測れない | A 申告のうち `correct === false` の割合を可視化 | 分析タブ |
-| 記録件数（学習量） | 現行 | **下回らないこと**（ロールバック基準） | 週次の履歴エントリ数 |
-| 誤りの型の分布 | 不明 | 立式ミス比率を把握し、教科書に戻す判断に使う | 分析タブ（Phase 2） |
+| **記録件数（学習量）** | 現行 | **下回らないこと**（ロールバック基準） | 週次の履歴エントリ数 |
+| 分野別の解答観測値 | 0件 | 全試行に付与 | `review_history[].attempt` の付与率 |
+| 降参率 | 測れない | 可視化し、章別の弱点特定に使う | `attempt.gaveUp` の比率 |
+| 当てずっぽう検出 | 不可能 | 「選択一致 かつ 理解度C」を集計 | 分析タブ（Phase 2・正答データ整備後） |
 
 ---
 
-## 7. 参照
+## 9. 参照
 
 - `docs/design/expansion-design.md` — 年度別演習・多資格対応・試験日程ベースのペース分析
-- `docs/design/study-time-scarcity.md` — 時間予算・FSRS 保持率・課題13（計測上限）
+- `docs/design/study-time-scarcity.md` — 時間予算・FSRS 保持率・課題5・課題11・課題13
 - `docs/data-correction-workflow.md` §5-A — 表示座標は `denken_question_assets` が唯一の正
 - `CLAUDE.md` — コンフリクト最小化方針（新規ファイル優先・末尾追加・migration 採番）
