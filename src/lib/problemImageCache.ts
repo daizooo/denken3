@@ -21,7 +21,7 @@
 // オフラインで描画できない。同じ Cache Storage に JSON として置く
 // （/__problem-assets/{question_id}・SW は介在せず、このモジュールが直接読み書きする）。
 import { supabase } from './supabase'
-import { BUCKET, fetchAssets, hasKnownAsset, signedUrl, type QuestionAsset } from './assets'
+import { BUCKET, fetchAssets, hasKnownAsset, normalizeAsset, signedUrl, type QuestionAsset } from './assets'
 
 // public/sw.js の IMAGE_CACHE と同じ名前（import できないので両方にこのコメントを置く）。
 // シェル（electricpro-shell-<VERSION>）とは別に持ち、シェルの版を上げても画像を捨てない。
@@ -173,7 +173,8 @@ export async function loadProblemAssets(questionId: string): Promise<QuestionAss
   } catch (e) {
     const cached = cache ? await cache.match(assetsUrl(questionId)) : null
     if (!cached) throw e
-    return (await cached.json()) as QuestionAsset[]
+    // 正規化前に書かれた古いキャッシュ（数値が文字列のまま）もここで揃える。
+    return ((await cached.json()) as QuestionAsset[]).map(normalizeAsset)
   }
 }
 

@@ -95,6 +95,27 @@ export interface QuestionAsset {
   explanation_end_pct: number // 解説・解答の本文が終わる縦位置。ここより下（宣伝バナー等）は常に隠す
 }
 
+// PostgREST は numeric 列を文字列で返す（"50"）。表示の計算は加算も使うため、
+// 数値へ正規化しないと `"45" + 55` が文字列連結（"4555"）になり切り出し範囲が壊れる
+// （2問同居の下バンドで発生）。DBから読む唯一の入口であるここで潰しておく。
+function num(v: unknown, fallback: number): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+export function normalizeAsset(a: QuestionAsset): QuestionAsset {
+  return {
+    ...a,
+    answer_x_pct: num(a.answer_x_pct, 50),
+    answer_y_pct: num(a.answer_y_pct, 100),
+    answer_right_y_pct: num(a.answer_right_y_pct, 0),
+    region_y_pct: num(a.region_y_pct, 50),
+    sort: num(a.sort, 0),
+    question_start_pct: num(a.question_start_pct, 0),
+    explanation_end_pct: num(a.explanation_end_pct, 100),
+  }
+}
+
 /** 指定問題の画像アセットを sort 昇順で取得 */
 export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> {
   const { data, error } = await supabase
@@ -103,7 +124,7 @@ export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> 
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
   if (error) throw error
-  return (data ?? []) as QuestionAsset[]
+  return ((data ?? []) as QuestionAsset[]).map(normalizeAsset)
 }
 
 /** 非公開バケットの短期署名付きURLを発行 */

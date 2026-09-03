@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, Eye, EyeOff, ZoomIn, ZoomOut, PauseCircle } from 'lucide-react'
 import { type QuestionAsset, type Region } from '../lib/assets'
 import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
@@ -6,63 +6,94 @@ import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
 import type { Status } from '../domain/types'
 
-// 画像の実寸（見開き1枚）。切り出し・拡大率の計算はすべてこの比率を基準にする。
+// 画像の実寸（見開き1枚）。切り出しの計算はこの比率を基準にする。
 const IMG_W = 2360
 const IMG_H = 1640
-// 1ページぶんを描く横幅の上限(px)。広い画面で問題が無制限に巨大化しないための天井で、
+// 1ページぶんを描く横幅の上限(px)。広い画面で無制限に巨大化しないための天井で、
 // 端末幅がこれより狭ければ端末幅に合わせる（＝スマホ・タブレットは常に画面幅いっぱい）。
 const FIT_MAX_PX = 820
 
-// 見開き画像1枚（またはその上/下部分）を、解答マスク付きで表示する。
-// マスクは最大2枚:
-//  - 右ページ（横 answerXPct% より右・縦 answerRightYPct% より下）を隠す
-//    （answerXPct=100 の全面問題ではマスクなし。answerRightYPct>0 は右ページ上部が問題の続きの見開き）
-//  - 短い問題（answerYPct<100）は左ページ下部（縦 answerYPct% より下・左ページ内）も隠す
-//    ただし解答を隠している間は、白いマスクを見せる代わりにその高さごと切り落とす
-//    （拡大表示では空白のスクロールが長くなるだけのため）。
-function AssetImage({
-  url, region, regionYPct, answerXPct, answerYPct, answerRightYPct, showAnswer,
-}: {
-  url: string; region: Region; regionYPct: number
-  answerXPct: number; answerYPct: number; answerRightYPct: number; showAnswer: boolean
-}) {
-  // region 指定時は regionYPct を境に上/下だけを見せる（既定は半分）。
-  const bandH = region === 'top' ? IMG_H * (regionYPct / 100)
-    : region === 'bottom' ? IMG_H * (1 - regionYPct / 100)
-      : IMG_H
-  // 解答を隠している間だけ、左ページ下部（解答の始まり）を高さごと切り落とす。
-  const cropBottom = !showAnswer && answerYPct < 100
-  const boxH = cropBottom ? bandH * (answerYPct / 100) : bandH
-  // 下バンドは、画像を上バンドの高さぶんだけ上へずらして見せる。
-  // top は「箱の高さ」に対する％で解決されるため、切り落とし後の箱の高さで割る。
-  const top = region === 'bottom' ? -((IMG_H * (regionYPct / 100)) / boxH) * 100 : 0
-  const maskBg = 'rgba(255,255,255,0.98)'
+// 画像内の切り出し範囲（画像全体に対する%）。表示はすべてこの矩形単位で行う。
+interface Rect { x0: number; x1: number; y0: number; y1: number }
+
+// 矩形1つを、外枠の幅いっぱいに引き伸ばして描く（課題16）。
+// 見開きの左ページだけ・右ページだけ、といった範囲が常に画面幅ちょうどになるため、
+// 端末が変わっても縮尺が合う。切り出しは画像を動かして枠で隠すだけで、加工はしない。
+function CropImage({ url, rect }: { url: string; rect: Rect }) {
+  const w = rect.x1 - rect.x0
+  const h = rect.y1 - rect.y0
   return (
-    <div style={{ position: 'relative', width: '100%', aspectRatio: `${IMG_W} / ${boxH}`, overflow: 'hidden', background: '#fff' }}>
+    <div
+      style={{
+        position: 'relative', width: '100%', overflow: 'hidden',
+        aspectRatio: `${IMG_W * w} / ${IMG_H * h}`, background: '#fff',
+      }}
+    >
       <img
         src={url}
         draggable={false}
         alt=""
-        style={{ position: 'absolute', top: `${top}%`, left: 0, width: '100%', display: 'block' }}
+        style={{
+          position: 'absolute', display: 'block',
+          // 幅・位置はいずれも外枠に対する%。切り出し幅 w% が枠いっぱいになる倍率で描き、
+          // 左上が (x0,y0) に来るようにずらす。
+          // maxWidth: 'none' は必須。Tailwind の preflight が img に max-width:100% を当てており、
+          // これが無いと 100% を超える拡大が枠幅で頭打ちになり、切り出しが効かず画像全体が出る。
+          maxWidth: 'none',
+          width: `${(100 / w) * 100}%`,
+          left: `${-(rect.x0 / w) * 100}%`,
+          top: `${-(rect.y0 / h) * 100}%`,
+        }}
       />
-      {!showAnswer && (
-        <>
-          {/* 右ページ（解答）。answerXPct=100（全面問題）はマスク不要。 */}
-          {answerXPct < 100 && (
-            <div
-              style={{
-                position: 'absolute', top: `${answerRightYPct}%`, bottom: 0, left: `${answerXPct}%`, right: 0,
-                background: maskBg, borderLeft: '1px dashed #e5e7eb',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <span style={{ color: '#9ca3af', fontSize: 12, writingMode: 'vertical-rl' }}>解答（タップで表示）</span>
-            </div>
-          )}
-        </>
-      )}
     </div>
   )
+}
+
+// 2問同居画像（region top/bottom）の、この問題が使う縦の帯。
+// answer_y_pct / answer_right_y_pct はこの帯に対する%で入っている。
+function bandOf(a: QuestionAsset): { start: number; span: number } {
+  const ry = a.region_y_pct ?? 50
+  const region: Region = a.region
+  if (region === 'top') return { start: 0, span: ry }
+  if (region === 'bottom') return { start: ry, span: 100 - ry }
+  return { start: 0, span: 100 }
+}
+
+// 問題として見せる範囲。1枚の見開きから最大2つ出る:
+//  - 左ページ（短い問題なら answer_y_pct まで）
+//  - 右ページ上部（answer_right_y_pct>0 ＝ 小問(b)や選択肢が右ページ上部へ続く見開き）
+// 丸ごと解答のページ（answer_x_pct<=0）は問題側に無い。
+function problemRects(a: QuestionAsset): Rect[] {
+  if (a.answer_x_pct <= 0) return []
+  const b = bandOf(a)
+  const out: Rect[] = [{
+    x0: 0, x1: a.answer_x_pct,
+    y0: b.start, y1: b.start + b.span * (a.answer_y_pct / 100),
+  }]
+  const rightTop = a.answer_right_y_pct ?? 0
+  if (a.answer_x_pct < 100 && rightTop > 0) {
+    out.push({ x0: a.answer_x_pct, x1: 100, y0: b.start, y1: b.start + b.span * (rightTop / 100) })
+  }
+  return out
+}
+
+// 解答として見せる範囲。1枚の見開きから最大2つ出る:
+//  - 左ページ下部（短い問題で解答が下に始まる場合・answer_y_pct<100）
+//  - 右ページ（標準の見開き・answer_right_y_pct から下）
+// 全面問題（answer_x_pct=100 かつ answer_y_pct=100）はこの画像に解答が無く、
+// 続きの「丸ごと解答ページ」が受け持つ。
+function answerRects(a: QuestionAsset): Rect[] {
+  const b = bandOf(a)
+  const end = b.start + b.span
+  if (a.answer_x_pct <= 0) return [{ x0: 0, x1: 100, y0: b.start, y1: end }]
+  const out: Rect[] = []
+  if (a.answer_y_pct < 100) {
+    out.push({ x0: 0, x1: a.answer_x_pct, y0: b.start + b.span * (a.answer_y_pct / 100), y1: end })
+  }
+  if (a.answer_x_pct < 100) {
+    out.push({ x0: a.answer_x_pct, x1: 100, y0: b.start + b.span * ((a.answer_right_y_pct ?? 0) / 100), y1: end })
+  }
+  return out
 }
 
 export default function ProblemViewer({
@@ -72,8 +103,7 @@ export default function ProblemViewer({
   title: string
   onClose: () => void
   // 理解度をこの画面から直接記録する（課題8）。押したらそのまま閉じる。
-  // choice は「解答」で選んだ選択肢番号（未選択なら undefined）。
-  onRecord?: (status: Status, choice?: number) => void
+  onRecord?: (status: Status) => void
   // 「問題を解く」で開いた計測を破棄して閉じる（課題13）。育児中の中断は常態で、
   // 中断時間が解答時間に混ざると時間予算の見積もりが狂う。
   onAbort?: () => void
@@ -83,14 +113,17 @@ export default function ProblemViewer({
   const [assets, setAssets] = useState<QuestionAsset[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [showAnswer, setShowAnswer] = useState(false)
-  // 解答を見る前に選ぶ自分の答え（課題16）。記録時に履歴へ残す。
-  const [choice, setChoice] = useState<number | null>(null)
   const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('bunya')
   const [err, setErr] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 問題⇄解答を切り替えたら先頭から見せる（前の位置に留まると、切り替えたのに
+  // 画面が変わっていないように見える）。
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0, left: 0 }) }, [showAnswer, questionId])
 
   useEffect(() => {
     let alive = true
-    setAssets(null); setUrls({}); setShowAnswer(false); setChoice(null); setErr(null)
+    setAssets(null); setUrls({}); setShowAnswer(false); setErr(null)
     ;(async () => {
       try {
         // 座標も画像URLも Cache Storage 経由で解決する（課題7c）。
@@ -121,18 +154,18 @@ export default function ProblemViewer({
   }, [questionId])
 
   // 表示は sort ではなく answer_x_pct（マスク位置）で振り分ける:
-  //  - 問題ページ（answer_x_pct>0）: 常時表示。1枚ごとに右（と下）を解答マスク。
-  //    標準見開き=50、全面問題=100、B問題の(a)(b)は2枚とも問題ページ。
-  //  - 解答ページ（answer_x_pct=0）: 見開き丸ごと解答。「解答を見る」まで非表示。
+  //  - 問題ページ（answer_x_pct>0）: 左ページ（と、短い問題ならその上部）が問題、残りが解答。
+  //  - 解答ページ（answer_x_pct=0）: 見開き丸ごと解答。解答表示に切り替えるまで出さない。
   const bySort = (a: QuestionAsset, b: QuestionAsset) => a.sort - b.sort
-  const problemPages = (assets ?? []).filter(a => a.answer_x_pct > 0).sort(bySort)
-  const answerPages = (assets ?? []).filter(a => a.answer_x_pct <= 0).sort(bySort)
+  const sorted = (assets ?? []).slice().sort(bySort)
 
-  // 端末に自動で合わせる肝（課題16）。見開きのうち実際に読む範囲（左ページ = answer_x_pct%）が
-  // 画面幅いっぱいになるよう、画像そのものを 100/answer_x_pct 倍に引き伸ばして描く。
-  // 標準の見開き（50）なら2倍＝左ページが画面幅ちょうど。全面問題（100）は等倍。
-  // これで「スマホは小さすぎ／タブレットだけ丁度いい」が無くなり、＋を押す必要がなくなる。
-  const pageScale = (answerXPct: number) => (answerXPct > 0 && answerXPct < 100 ? 100 / answerXPct : 1)
+  // 問題／解答の切り替えは、同じ画像の「どの範囲を画面幅で描くか」を差し替えるだけ。
+  // スクロールで探しにいく必要がないので、ボタン1つで瞬時に入れ替わる（課題16-2）。
+  const panes: { path: string; rect: Rect }[] = showAnswer
+    ? sorted.flatMap(a => answerRects(a).map(rect => ({ path: a.storage_path, rect })))
+    : sorted.flatMap(a => problemRects(a).map(rect => ({ path: a.storage_path, rect })))
+
+  const visible = panes.filter(p => urls[p.path])
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
@@ -162,7 +195,7 @@ export default function ProblemViewer({
           }`}
         >
           {showAnswer ? <EyeOff size={14} /> : <Eye size={14} />}
-          {showAnswer ? '解答を隠す' : '解答を見る'}
+          {showAnswer ? '問題に戻る' : '解答を見る'}
         </button>
         <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
           <X size={18} />
@@ -170,7 +203,7 @@ export default function ProblemViewer({
       </div>
 
       {/* 本体 */}
-      <div className="flex-1 overflow-auto p-3">
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3">
         <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
           {err && (
             <div className="bg-white rounded-xl p-6 text-center text-sm text-red-500">{err}</div>
@@ -184,64 +217,18 @@ export default function ProblemViewer({
               ヘッダーの「取り込み」から画像を登録してください。
             </div>
           )}
-          {/* 解答は同じ倍率のまま右ページに続く（縮小して見開き全体を出すと字が読めなくなるため）。
-              横スクロールで辿れることは画面から読み取れないので一言だけ出す。 */}
-          {!err && showAnswer && problemPages.some(a => a.answer_x_pct < 100) && (
-            <p className="text-[11px] text-white/70 mb-2">解答は右ページです（横にスクロール）。</p>
+          {!err && assets !== null && assets.length > 0 && visible.length === 0 && (
+            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+              {showAnswer ? '解答の画像が登録されていません。' : '問題の画像が登録されていません。'}
+            </div>
           )}
-          {!err && problemPages.map((a, i) => (
-            urls[a.storage_path]
-              ? <div
-                  key={`p${i}`}
-                  className="rounded-xl shadow-lg mb-3"
-                  // 解答を隠している間は右ページを幅ごと切り落とす（＝左ページが画面幅ちょうど）。
-                  // 解答表示中は同じ倍率のまま右へスクロールして読めるようにする。
-                  style={{ overflowX: showAnswer ? 'auto' : 'hidden', overflowY: 'hidden' }}
-                >
-                  <div style={{ width: `${pageScale(a.answer_x_pct) * 100}%` }}>
-                    <AssetImage
-                      url={urls[a.storage_path]}
-                      region={a.region}
-                      regionYPct={a.region_y_pct ?? 50}
-                      answerXPct={a.answer_x_pct}
-                      answerYPct={a.answer_y_pct}
-                      answerRightYPct={a.answer_right_y_pct ?? 0}
-                      showAnswer={showAnswer}
-                    />
-                  </div>
-                </div>
-              : null
-          ))}
-          {/* 見開き丸ごと解答のページ（解答表示時のみ・マスクなし） */}
-          {!err && showAnswer && answerPages.map((a, i) => (
-            urls[a.storage_path]
-              ? <div key={`c${i}`} className="rounded-xl overflow-hidden shadow-lg mb-3">
-                  <img src={urls[a.storage_path]} alt="" draggable={false} style={{ width: '100%', display: 'block' }} />
-                </div>
-              : null
+          {!err && visible.map((p, i) => (
+            <div key={`${showAnswer ? 'a' : 'q'}${i}`} className="rounded-xl overflow-hidden shadow-lg mb-3">
+              <CropImage url={urls[p.path]} rect={p.rect} />
+            </div>
           ))}
         </div>
       </div>
-
-      {/* 解答選択（課題16）。解答を見る前に自分の答えを1つ決める＝本番CBTと同じ手順。
-          分野別は正答データを持たないので自動採点はせず、選んだ番号を記録に残して
-          解答画像と見比べてから理解度を押す。 */}
-      {onRecord && (
-        <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/95 border-t border-gray-100">
-          <span className="text-[11px] text-gray-500 shrink-0">解答</span>
-          {[1, 2, 3, 4, 5].map(v => (
-            <button
-              key={v}
-              onClick={() => setChoice(c => (c === v ? null : v))}
-              className={`flex-1 h-9 rounded-lg text-sm font-bold border-2 transition-colors ${
-                choice === v
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-              }`}
-            >{v}</button>
-          ))}
-        </div>
-      )}
 
       {/* 記録バー（課題8）。解いた直後にこの画面から理解度を記録して閉じる。
           片手操作のため画面下部に置く。 */}
@@ -251,13 +238,13 @@ export default function ProblemViewer({
           {(['A', 'B', 'C'] as Status[]).map(s => (
             <button
               key={s}
-              onClick={() => onRecord(s, choice ?? undefined)}
+              onClick={() => onRecord(s)}
               title={STATUS_LABEL[s]}
               className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700 transition-colors"
             >{s}</button>
           ))}
           <button
-            onClick={() => onRecord('S', choice ?? undefined)}
+            onClick={() => onRecord('S')}
             title={STATUS_LABEL['S']}
             className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-purple-500 border-purple-200 hover:border-purple-400 hover:text-purple-700 transition-colors"
           >S</button>
