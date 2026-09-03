@@ -127,3 +127,27 @@ export function buildSourceLinks(chapters: Chapter[], papers: PaperDefinition[])
 
   return { links, incomplete, errors }
 }
+
+/**
+ * 分野別問題の小問数を、タイトルの出典表記から導く（Phase 1・解答前コミット）。
+ * 電験三種の B問題は (a)(b) の2小問構成なので、選択肢バーを2行にする必要がある。
+ *
+ *   '抵抗直列回路／抵抗並列回路（H10-B11）' → 2
+ *   '抵抗直並列回路（H29-A5）'             → 1
+ *
+ * セクション記号が落ちた表記（'R5下-15'）は問番号から補う（A問題は1〜14）。
+ * 出典が無い・年度だけ、といった解決できない表記は安全側の 1 に倒す
+ * （選択肢の行が1本になるだけで、記録も表示も壊れない）。
+ */
+export function partCountFromTitle(title: string): 1 | 2 {
+  for (const token of parseSourceTokens(title)) {
+    const m = SOURCE_TOKEN.exec(token)
+    if (!m) continue
+    const section = m[4]
+    if (section === 'B') return 2
+    if (section === 'A') continue
+    const number = m[5] ? Number(m[5]) : null
+    if (number !== null && number > MAX_SECTION_A) return 2
+  }
+  return 1
+}

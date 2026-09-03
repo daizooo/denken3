@@ -4,6 +4,7 @@ import { hasKnownAsset } from '../../lib/assets'
 import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
+import { formatSelected } from '../../lib/attempt'
 import { STATUS_BG, STATUS_LABEL, STUDYMODE_BADGE } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
@@ -161,10 +162,15 @@ export default function QuestionCard({
                 <ImageIcon size={13} /> 問題を見る
               </button>
               {/* 解答時間の計測を開始してから問題を開く（§7.6）。 */}
+              {/* 計算問題は「解く」を主ボタン（塗り）にする。眺めるだけの導線を弱める（設計 §2.7）。 */}
               <button
                 onClick={onSolveProblem}
                 title="解答時間を計測して問題を解きます"
-                className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 hover:border-blue-400 px-2 py-1.5 rounded-lg transition-colors"
+                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg transition-colors ${
+                  q.studyMode === 'calc'
+                    ? 'bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 font-semibold'
+                    : 'text-blue-600 border border-blue-200 hover:border-blue-400'
+                }`}
               >
                 <PencilLine size={13} /> 問題を解く
               </button>
@@ -243,6 +249,14 @@ export default function QuestionCard({
                     {entry.duration_seconds !== undefined && (
                       <span className="text-gray-400" title="解答にかかった時間">
                         ⏱{formatDuration(entry.duration_seconds)}
+                      </span>
+                    )}
+                    {/* 解答前コミットの結果（Phase 1）。降参は ✋、選んだ選択肢は丸数字。 */}
+                    {entry.attempt?.gaveUp ? (
+                      <span className="text-gray-400" title="わからない（解答を見た）">✋</span>
+                    ) : entry.attempt?.selected && (
+                      <span className="text-gray-500" title="選んだ選択肢">
+                        {formatSelected(entry.attempt.selected)}
                       </span>
                     )}
                     <button
