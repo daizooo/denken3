@@ -85,9 +85,6 @@ export interface ReviewHistoryEntry {
   // 解答時間（秒）。「問題を見る」→A/B/C の計測（§7.6）。
   // 未計測（計測前データ・画像未登録・30分超などの外れ値）は付かない＝オプショナル。
   duration_seconds?: number
-  // 問題画面で選んだ選択肢（1〜5・課題16）。分野別は正答データを持たないため採点はせず、
-  // 「解答を見る前に答えを1つ決めた」という記録としてだけ残す。未選択なら付かない。
-  choice?: number
 }
 
 export interface Review {

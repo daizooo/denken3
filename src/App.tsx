@@ -339,8 +339,7 @@ export default function App() {
   })
 
   // ---- 実施日 + 理解度を記録（履歴に蓄積）----
-  // choice: 問題画面で選んだ選択肢（1〜5・課題16）。選んでいなければ undefined。
-  const updateStatus = useCallback(async (questionId: string, status: Status, choice?: number) => {
+  const updateStatus = useCallback(async (questionId: string, status: Status) => {
     if (!user || status === '未着手') return
     const current = reviews[questionId] ?? defaultReview(questionId)
     const date = dateFor(questionId)
@@ -348,7 +347,6 @@ export default function App() {
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
     // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
     const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
-    if (choice != null) entry.choice = choice
     const timer = timersRef.current[questionId]
     if (timer) {
       const cap = durationCapsRef.current[questionId] ?? MAX_DURATION_SECONDS
@@ -1157,7 +1155,7 @@ export default function App() {
           solving={viewerQ.solving}
           onClose={() => setViewerQ(null)}
           // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
-          onRecord={(s, choice) => { void updateStatus(viewerQ.id, s, choice); setViewerQ(null) }}
+          onRecord={s => { void updateStatus(viewerQ.id, s); setViewerQ(null) }}
           // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
           onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
         />
