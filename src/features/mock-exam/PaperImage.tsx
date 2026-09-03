@@ -8,14 +8,21 @@ import { legacyPaperImagePath, paperImagePath } from '../../lib/mock'
 // 切り出す（上部の無関係な部分を常に隠し、CBT解答中はさらに answerYPct から下＝解説以降も隠す）。
 // endPct は showAnswer=false のとき answerYPct、true のとき explanationEndPct
 // （結果画面で解説・解答は見せるが、末尾の宣伝バナー・共有ボタン・おすすめ記事は隠す）。
-// zoom で横幅を拡大（ピンチ/横スクロール前提・§7.4(2)）。
+// 表示幅は端末幅に自動で合わせ（画像は元が縦長1枚のため横は常に画面幅ちょうど）、
+// 広い画面では FIT_MAX_PX で頭打ちにして拡大しすぎを防ぐ。zoom はそこからの倍率で、
+// 1超では横スクロール前提で引き伸ばす（§7.4(2)・課題16）。
 //
 // 3つの座標は denken_question_assets が唯一の正（docs/data-correction-workflow.md §5-A）。
 // questionId を渡すと fetchAssets() でDBの値を読み、画像URLと同時に解決してから描画する
 // （props より後に届いて切り出し位置が飛ぶことがない）。props の値は「まだDBに行が無い
 // ＝画像未取り込みの回」向けの既定値で、取り込み時に ImportPanel がその値をDBへ投入する。
+
+// 1問ぶんを描く横幅の上限(px)。これより広い画面では中央寄せで頭打ちにする
+// （元画像より大きく引き伸ばしてもぼやけるだけのため）。
+const FIT_MAX_PX = 820
+
 export default function PaperImage({
-  userId, subjectId, paperId, filename, questionId, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = false,
+  userId, subjectId, paperId, filename, questionId, questionStartPct = 0, answerYPct = 100, explanationEndPct = 100, showAnswer = true, zoom = 1,
 }: {
   userId: string
   subjectId: string
@@ -26,7 +33,7 @@ export default function PaperImage({
   answerYPct?: number
   explanationEndPct?: number
   showAnswer?: boolean
-  zoom?: boolean
+  zoom?: number
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [err, setErr] = useState(false)
@@ -83,7 +90,8 @@ export default function PaperImage({
     <div className="overflow-auto rounded-xl bg-white shadow-sm">
       <div
         style={{
-          position: 'relative', width: zoom ? '180%' : '100%', maxWidth: zoom ? 'none' : '100%',
+          position: 'relative', margin: '0 auto',
+          width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom,
           overflow: 'hidden', aspectRatio,
         }}
       >
