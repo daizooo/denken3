@@ -27,7 +27,7 @@
 // のまま。ユーザーが実際に進める順序と一致するので、章別の内訳は返さない
 // （現行モデルでは内訳に情報量がなく、並び順を「最適な章配分」と誤読させるだけ）。
 
-import type { Chapter, Review, Status } from '../domain/types'
+import type { Chapter, MockSession, Review, Status } from '../domain/types'
 import { STATUS_PROB, type ScoreEstimate } from './analytics'
 
 // ペースの目標モード。`pass` を既定とし、達成したら `mastery` へ自動昇格する（§6-1）。
@@ -36,6 +36,27 @@ export type GoalMode = 'pass' | 'mastery'
 // 合格点に上乗せする安全マージン（点）。想定得点は推定であり、本番のブレもあるため
 // 合格点ちょうどを目標にはしない（§6-1 の決定事項）。
 export const DEFAULT_PASS_MARGIN = 10
+
+// ---- 最小集合モードのゲート（adaptive-fsrs-policy.md §2 訂正・2026-09-03）----
+//
+// `pass`（合格に必要な最小集合だけをゴールにする）モードは、想定得点モデルが正しいことを
+// 前提に「やる量を減らしてよい」と言う仕組みである。モデルが未検証のままこれを効かせると、
+// 楽観的な推定がそのまま学習量の削減に直結する ―― つまり、つまみを下げていないのに
+// 実質的に合格ラインを下げたのと同じことが起きる。
+//
+// そこで、想定得点が本番形式の実測（CBT模試）で検証されるまで `pass` は使わない。
+// 検証前の既定ゴールは `mastery`（全範囲を A 以上）＝ 最も安全な側。
+//
+// 最低2回を要件にするのは、1回では実力なのか出題の当たり外れなのか切り分けられないため。
+export const MIN_VALIDATION_SESSIONS = 2
+
+/** 想定得点を実測で較正できるだけの CBT 結果が揃っているか。 */
+export function isEstimateValidated(sessions: MockSession[]): boolean {
+  const finished = sessions.filter(
+    s => s.status === 'finished' && s.mode === 'cbt' && s.score != null,
+  )
+  return finished.length >= MIN_VALIDATION_SESSIONS
+}
 
 export interface PassTarget {
   hasData: boolean
