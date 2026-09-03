@@ -37,6 +37,9 @@ function CropImage({ url, rect }: { url: string; rect: Rect }) {
           position: 'absolute', display: 'block',
           // 幅・位置はいずれも外枠に対する%。切り出し幅 w% が枠いっぱいになる倍率で描き、
           // 左上が (x0,y0) に来るようにずらす。
+          // maxWidth: 'none' は必須。Tailwind の preflight が img に max-width:100% を当てており、
+          // これが無いと 100% を超える拡大が枠幅で頭打ちになり、切り出しが効かず画像全体が出る。
+          maxWidth: 'none',
           width: `${(100 / w) * 100}%`,
           left: `${-(rect.x0 / w) * 100}%`,
           top: `${-(rect.y0 / h) * 100}%`,
