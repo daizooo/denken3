@@ -162,7 +162,12 @@ export function planToday(params: {
   // ---- 1. 各問題の点数影響・所要時間・密度 ----
   const scored = candidates.map(c => {
     const status = c.review?.status ?? '未着手'
-    const v = reviewValue(c.question, c.review, today, examDate)
+    // 帯（🔴優先）の判定は、その問題に適用されている目標保持率を基準にする（Phase C・層3）。
+    // コアは 0.90 でスケジュールされるので、しきい値もそれに追従させないと帯が鈍る。
+    const v = reviewValue(
+      c.question, c.review, today, examDate,
+      policy.retentionOf(c.question.id, c.question.studyMode ?? 'unset'),
+    )
     const minutes = estimateMinutes(c.question, c.review, stats)
     const impact = impactOf(status, v.r, policy.attemptsPerMastery)
     return {

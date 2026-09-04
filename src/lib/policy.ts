@@ -15,12 +15,17 @@
 //      既定ゴールは全範囲完走（passTarget.isEstimateValidated がゲート）
 // ==========================================================================
 //
-// 【Phase A の範囲】値を算出して**返すだけ**。FSRS のスケジューリングにはまだ流さない。
-// 利用者の一次不満は「幾度となく最適化したが、いま何が効いているのか分からない」であり、
-// 自動で動かすことはそれを悪化させ得る。だから可視化（Phase A）を自動化（Phase C）より
-// 先に置く ―― **画面に出ていない値は自動で動かさない。**
-// したがって `retentionOf()` の戻り値は現時点で提案値であり、`effectiveRetention`
-// （いま実際に FSRS へ渡っている値）とは別物として扱う。混同させないため両方を返す。
+// 【適用状況】Phase A では値を算出して返すだけだったが、**Phase C で `retentionOf()` が
+// 実際のスケジューリングへ流れるようになった。** 流す条件（設計書 §3.4）は
+// 「その日に適用した保持率を履歴エントリへ書き残すこと」で、App.tsx の記録時に
+// `ReviewHistoryEntry.policy.retention` として保存し、`deriveFromHistory` がそれを
+// 最優先で読む。旧データは従来式へフォールバックするため後方互換が保たれる。
+//
+// 順序は Phase A（可視化）→ Phase C（自動化）を守った ―― **画面に出ていない値は
+// 自動で動かさない。** 利用者の一次不満は「幾度となく最適化したが、いま何が効いているのか
+// 分からない」であり、可視化より先に自動化すればそれを悪化させるだけだったため。
+// `effectiveRetention` は日付だけで決まる従来式の値で、いまは
+// 「policy を持たない旧履歴を再生するときのフォールバック」を表す。
 
 import type { Chapter, MockSession, Review, Status } from '../domain/types'
 import type { ScoreEstimate } from './analytics'
@@ -104,9 +109,13 @@ export interface Policy {
   // planToday が「1回あたりの伸び」を出すのに使う（前進と維持を同じ土俵に並べるため）。
   attemptsPerMastery: number
 
-  // 層3。id と学習モードから目標保持率を返す（Phase A では提案値。まだ FSRS へ流さない）。
+  // 層3。id と学習モードから目標保持率を返す（Phase C で FSRS のスケジューリングへ適用済み）。
   retentionOf(id: string, mode: EstimateModeKey): number
-  effectiveRetention: number   // いま実際に FSRS へ渡っている目標保持率（fsrs.retentionFor）
+  // 層3のコア/バッファ分岐が有効か。バッファが0問の間は無効で、従来式の値を返す（下の解説）。
+  layer3Active: boolean
+  // 日付だけで決まる従来式の保持率（fsrs.retentionFor）。
+  // policy を持たない旧履歴を再生するときのフォールバック値。
+  fallbackRetention: number
   endgame: boolean             // 直前期（試験 RETENTION_ENDGAME_DAYS 日前以内）か
 
   feasibility: Feasibility
@@ -259,11 +268,11 @@ function feasibilityOf(required: number, available: number): Feasibility {
 /**
  * 毎日1回まわす純関数。三層のポリシー（設計書 §3.3）と実現可能性（§3.6）を算出する。
  *
- * Phase A では**値を返すだけ**で、FSRS のスケジューリングにも今日のキューにも流さない。
- * `retentionOf()` を実際の scheduling に効かせるのは Phase C で、そのときは
- * `ReviewHistoryEntry.policy` に適用値を書き残す必要がある（§3.4）。この仕組み無しに
- * 層3を実装すると、ポリシーが日々変わるたびに `deriveFromHistory` の再生結果が変わり、
- * 過去の予定日が毎日書き換わる ―― まさに利用者が困っている「現状が分からない」の悪化。
+ * Phase C 以降、`retentionOf()` は実際の scheduling に効いている。効かせる前提条件は
+ * `ReviewHistoryEntry.policy` に適用値を書き残すこと（§3.4）で、App.tsx の記録時に
+ * 満たしている。この仕組み無しに層3を実装すると、ポリシーが日々変わるたびに
+ * `deriveFromHistory` の再生結果が変わり、過去の予定日が毎日書き換わる
+ * ―― まさに利用者が困っている「現状が分からない」の悪化。
  */
 export function optimizePolicy(params: {
   chapters: Chapter[]
@@ -297,8 +306,10 @@ export function optimizePolicy(params: {
   const coreIds = new Set<string>()
   let coreForwardQ = 0
   let coreMaintainQ = 0
+  let totalQ = 0
   for (const c of chapters) {
     for (const q of c.questions) {
+      totalQ++
       const status = reviews[q.id]?.status ?? '未着手'
       if (isMastered(status)) {
         coreIds.add(q.id)
@@ -316,9 +327,34 @@ export function optimizePolicy(params: {
   const dailyFloor =
     coreForwardQ === 0 ? 1 : clamp(Math.ceil(requiredPaceQ), 1, DAILY_FLOOR_MAX)
 
-  // ---- 層3: 問題ごとの目標保持率（提案値。Phase C で FSRS へ流す）----
+  // ---- 層3: 問題ごとの目標保持率（Phase C でスケジューリングへ適用）----
+  //
+  // 【バッファが0問の間は分岐させない ―― 2026-09-04 の実測による判断】
+  //
+  // 層3は「コアを上げた分、バッファを下げて相殺する」ことで、**総復習量を増やさずに**
+  // 時間の配分だけを変える仕組みである（設計書 §3.3 の但し書き。§6 で実測検証すること、
+  // と明記されていた）。その実測を行った結果、前提が現状では成立しないことが分かった。
+  //
+  //   保持率 0.85 → 0.90 で、FSRS の次回間隔は stability 3〜36 のいずれでも **-47〜-49%**。
+  //   つまり維持の復習回数はおよそ2倍になる。
+  //
+  // ところが想定得点が未検証の間は `coreIds` が収録全問になり（前進コア＝未修得すべて＋
+  // 維持コア＝A・S）、**バッファが0問**。下げる相手がいないので相殺が成立せず、層3は
+  // 「全問の保持率を一律に上げる」＝グローバルな負荷2倍にしかならない。
+  //
+  // これは原則 §0（不確実性はもっとやる側へ）に見えて、実際には逆を向く。増えるのは
+  // 「既に A の179問をより頻繁に再復習する時間」であり、その時間は §7 が
+  // 「最大かつ唯一の律速」と呼ぶ**未着手208問**から奪われる。範囲が埋まらないまま
+  // 維持だけが厚くなる状態は、合格を確実にする方向ではない。
+  //
+  // したがって、コアとバッファに実際の差が生まれるまでは従来式（日付ベース）を返す。
+  // 較正が済んで `coreIds` が最小集合へ絞られた時点で分岐が自動で有効になる ――
+  // そのときは相殺が成立するので、設計書どおりの意味で機能する。
+  // 分岐そのものは実装済みで、有効化に必要なのは CBT 実測2回だけ。
   const endgame = examDate ? diffDays(today, examDate) <= RETENTION_ENDGAME_DAYS : false
+  const layer3Active = coreIds.size < totalQ
   const retentionOf = (id: string, mode: EstimateModeKey): number => {
+    if (!layer3Active) return retentionFor(today, examDate)
     const base = coreIds.has(id)
       ? RETENTION_CORE
       : mode === 'calc'
@@ -347,7 +383,8 @@ export function optimizePolicy(params: {
     dailyFloor,
     attemptsPerMastery: attempts,
     retentionOf,
-    effectiveRetention: retentionFor(today, examDate),
+    layer3Active,
+    fallbackRetention: retentionFor(today, examDate),
     endgame,
     feasibility: feasibilityOf(required, available),
   }

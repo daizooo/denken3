@@ -93,11 +93,19 @@ export function clipDueToExam(due: string, eventDate: string, examDate?: string 
 
 // eventDate = 実施日（過去日でもよい）。未指定なら今日。
 // examDate を渡すと due を試験日クリップする（§7.3）。
+//
+// retention = その記録に適用する目標保持率（adaptive-fsrs-policy.md §3.4・Phase C）。
+// 省略時は従来どおり `retentionFor(実施日, 試験日)`＝日付だけで決まる値を使う。
+// 明示的に渡す経路は2つだけで、どちらも「その記録に紐づく1つの値」を運ぶためにある:
+//   ① 記録時（App.tsx）… ポリシーが決めた保持率を使い、同じ値を履歴へ書き残す
+//   ② 再生時（deriveFromHistory）… 履歴に書かれた値をそのまま使う
+// この2つが一致するので、何度再生しても結果が変わらない（決定的）。
 export function calcFSRS(
   current: Partial<Review> | null,
   status: Status,
   eventDate?: string,
   examDate?: string | null,
+  retention?: number,
 ) {
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
@@ -111,7 +119,7 @@ export function calcFSRS(
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
-  const newCard = schedulerFor(retentionFor(eDate, examDate)).repeat(card, now)[rating].card
+  const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate)).repeat(card, now)[rating].card
   const rawDue = newCard.due.toISOString().split('T')[0]
   return {
     stability: newCard.stability,
@@ -127,6 +135,13 @@ export function calcFSRS(
 // review_history を実施日順に再生し、FSRS・初回/実施日・ステータスを一括導出する。
 // 記録・取消のどちらでも履歴と各フィールドが常に一致する。
 // examDate を渡すと各ステップの due を試験日クリップする（§7.3）。
+//
+// 【決定的再生・§3.4】各ステップの目標保持率は、その記録が持つ `policy.retention` を最優先で
+// 使う。持たない旧データは `retentionFor(実施日, 試験日)` へフォールバックするので、
+// **Phase C 以前に記録された履歴の再生結果は改修前と完全に一致する**（後方互換）。
+// この仕組み無しにポリシーをスケジューリングへ流すと、ポリシーが変わるたびに過去の
+// 予定日が毎日書き換わる。層3を実装する前提条件（設計書 §6 の「この仕組み無しに
+// 層3を実装してはならない」）がこの1行である。
 export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: string | null) {
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date))
   let acc: Partial<Review> = {
@@ -134,7 +149,7 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
     due_date: null, last_reviewed: null, fsrs_state: State.New,
   }
   for (const e of sorted) {
-    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate) }
+    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate, e.policy?.retention) }
   }
   return {
     stability: acc.stability ?? 0,

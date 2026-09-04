@@ -7,17 +7,18 @@ import ImportPanel from './components/ImportPanel'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, StudyMode, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
-import { deriveFromHistory, defaultReview, finalCheckDue } from './lib/fsrs'
+import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
-import { optimizePolicy } from './lib/policy'
+import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue } from './lib/reviewPlan'
 import { planToday, forwardSlotsToday } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
 import {
   buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity,
+  type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
   startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
@@ -89,6 +90,10 @@ export default function App() {
   // 問題IDごとの記録上限秒（課題13）。難易度帯の中央値から算出するが、その中央値は
   // updateStatus より後で組み立てられるため、依存配列ではなく ref 経由で読む。
   const durationCapsRef = useRef<Record<string, number>>({})
+  // 記録時に適用する目標保持率を返す関数（Phase C-1・設計書 §3.4）。
+  // policy は reviews が変わるたび作り直されるので、updateStatus の依存配列に入れると
+  // 記録ハンドラの同一性が毎回変わる。durationCapsRef と同じく ref 経由で読む。
+  const retentionOfRef = useRef<(id: string) => number>(() => RETENTION_DEFAULT)
   // reviews / plans が「どの対象（`${userId}:${examId}`）のデータか」。サーバ取得の成功と
   // オフライン用スナップショットの流し込みで更新する。取得済みの対象を古いキャッシュで
   // 上書きしない／別の資格のデータを取り違えて保存しない、の2つに使う（課題7）。
@@ -389,6 +394,10 @@ export default function App() {
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
     // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
     const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
+    // その記録に適用した目標保持率を書き残す（Phase C-1・設計書 §3.4）。
+    // これがあるので、ポリシーが明日変わっても deriveFromHistory の再生結果は変わらない。
+    // 書き残さずに層3を効かせると、過去の予定日が毎日書き換わる（§6 の禁止事項）。
+    entry.policy = { retention: retentionOfRef.current(questionId) }
     // 未選択のまま閉じた等、情報の無い試行は履歴に残さない。
     if (isMeaningful(attempt)) entry.attempt = attempt
     const timer = timersRef.current[questionId]
@@ -561,10 +570,26 @@ export default function App() {
     [currentChapters, reviews, subjectSessions, passingScore]
   )
 
+  // 安全マージン（adaptive-fsrs-policy.md §3.3 層1・Phase C-4）。
+  //
+  // 従来は passTarget.DEFAULT_PASS_MARGIN の固定10点だった。「合格を確実に」するなら、
+  // **推定が信用できないほどマージンを厚くする**のが正しい（原則 §0）。CBT実測が無い間は
+  // 最大側の15点＝目標75点を採り、実測2回以上で較正できたら「想定が実測よりどれだけ
+  // 甘かったか」の分だけ上乗せする（最小8点）。下げるのは検証できたときだけ。
+  //
+  // これは目標を**上げる**方向の自動化である。requiredQ が増えて必要ペースも上がるが、
+  // それは要求3（合格ライン＋αは厳守）に沿った増やし方であり、妥協ではない。
+  // Phase A で policy.targetScore はこの値を既に表示していたため、設定タブの「目標得点
+  // 75点」と分析タブの「目標 70点」が食い違っていた。ここで出所を1つに揃える。
+  const passMargin = useMemo(
+    () => passMarginFor(scoreEstimate, subjectSessions),
+    [scoreEstimate, subjectSessions]
+  )
+
   // 合格ライン目標（課題2）。想定得点から「合格に必要な最小の問題集合」を逆算する。
   const passTarget = useMemo(
-    () => planPassTarget(currentChapters, reviews, scoreEstimate),
-    [currentChapters, reviews, scoreEstimate]
+    () => planPassTarget(currentChapters, reviews, scoreEstimate, passMargin),
+    [currentChapters, reviews, scoreEstimate, passMargin]
   )
 
   // 適応型ポリシー（adaptive-fsrs-policy.md Phase A）。
@@ -584,6 +609,18 @@ export default function App() {
     }),
     [currentChapters, reviews, scoreEstimate, passTarget, subjectSessions, timeStats, todayStr, currentPlan]
   )
+
+  // ポリシーが決めた目標保持率を、記録ハンドラから読めるようにする（Phase C-1）。
+  // 層3（コア 0.90 ／ バッファ 計算 0.85・暗記 0.80、直前期は 0.90 下限）が、ここで初めて
+  // 実際のスケジューリングへ流れる。流す条件だった「適用値を履歴へ書き残す」（§3.4）は
+  // updateStatus 側で満たしている。
+  useEffect(() => {
+    const modeOf = new Map<string, EstimateModeKey>()
+    for (const c of currentChapters) {
+      for (const q of c.questions) modeOf.set(q.id, q.studyMode ?? 'unset')
+    }
+    retentionOfRef.current = id => policy.retentionOf(id, modeOf.get(id) ?? 'unset')
+  }, [policy, currentChapters])
 
   // 適応型ペース分析（§7.2）。
   //
