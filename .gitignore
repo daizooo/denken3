@@ -16,6 +16,11 @@ dist-ssr
 # Agent scratch working files (not part of the app)
 /scratchpad/
 
+# src は TypeScript のみ。コンパイル済み .js が src/ に入ると、.ts と二重に存在して
+# 内容が乖離し、どちらが正なのか読み手にもツールにも分からなくなる
+# （検証用に一時ビルドした成果物が誤ってコミットされたことがある）。
+/src/**/*.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
