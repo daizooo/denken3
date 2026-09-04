@@ -67,9 +67,12 @@ function toItems(binding: Binding, items: TrainReview[][]) {
   )
 }
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') return json({ error: 'POST のみ受け付けます' }, 405)
-
+// **名前付きメソッドで export する。**
+// `export default (req) => Response` は Vercel の Node ランタイムでは旧来の
+// `(req, res) => void` シグネチャとして解釈され、**返した Response は捨てられる**。
+// レスポンスが書かれないまま関数がぶら下がり、60秒でタイムアウト（504）になる。
+// Web 標準の Request/Response を使う場合は、`fetch` か HTTP メソッド名で export する。
+export async function POST(req: Request): Promise<Response> {
   try {
     const { supabase, userId } = await authenticate(req)
 
