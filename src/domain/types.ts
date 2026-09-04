@@ -1,4 +1,4 @@
-import type { Attempt } from '../lib/attempt'
+import type { Attempt } from '../lib/attempt.js'
 
 // ==============================
 // ドメイン型定義
@@ -65,25 +65,9 @@ export interface ExamDefinition {
 // 進捗・FSRS 状態
 // ==============================
 
-// 記録直前のFSRS状態のスナップショット。
-// 履歴エントリを取り消したとき、スケジューラで再計算するのではなく
-// この値へ正確に巻き戻すために使う（アルゴリズム変更の影響を受けない）。
-export interface ReviewSnapshot {
-  status: Status
-  stability: number
-  difficulty_fsrs: number
-  repetitions: number
-  lapses: number
-  due_date: string | null
-  last_reviewed: string | null
-  fsrs_state: number
-}
-
 export interface ReviewHistoryEntry {
   date: string
   status: Status
-  // 記録時に付与。取消時にこの状態へ戻す。旧データには無いのでオプショナル。
-  prev?: ReviewSnapshot
   // 解答時間（秒）。「問題を見る」→A/B/C の計測（§7.6）。
   // 未計測（計測前データ・画像未登録・30分超などの外れ値）は付かない＝オプショナル。
   duration_seconds?: number
@@ -98,7 +82,12 @@ export interface ReviewHistoryEntry {
   // 再生時は `entry.policy?.retention ?? retentionFor(entry.date, examDate)` とすることで、
   // 旧データは従来式のまま（後方互換）・新データは記録時の値（決定的）になる。
   // attempt と同じ JSONB の器に入るためマイグレーションは不要。
-  policy?: { retention: number }
+  //
+  // w_version は、その記録に使った FSRS パラメータ w[] の版（denken_fsrs_params.version）。
+  // 保持率とまったく同じ理由でここに残す ―― w[] は忘却曲線そのものを決めるので、
+  // 版を書き残さずに差し替えると過去の予定日がすべて書き換わる。
+  // 省略・0 は ts-fsrs の既定パラメータ（学習前）を意味する。
+  policy?: { retention: number; w_version?: number }
 }
 
 export interface Review {

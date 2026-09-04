@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, StudyMode, Subject } from './domain/types'
+import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, StudyMode, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
@@ -13,11 +13,11 @@ import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
-import { reviewValue } from './lib/reviewPlan'
-import { planToday, forwardSlotsToday } from './lib/planToday'
+import { planToday, forwardSlotsToday, orderByDensity } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
+import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
-  buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity,
+  buildTimeStats, sumEstimateMinutes,
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
@@ -68,6 +68,13 @@ export default function App() {
   // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし（「すべて」）。
   // Phase B-2 で denken_settings へ永続化する（従来はリロードで消えていた・設計書 §1.1）。
   const [timeBudget, setTimeBudget] = useState<number | null>(null)
+  // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
+  // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
+  const [fsrsParams, setFsrsParams] = useState<FsrsParamsRow | null>(null)
+  // パラメータの読み込みが済んだか。復習の取得はこれを待つ（忘却曲線が w[] に依存するため）。
+  const [fsrsParamsReady, setFsrsParamsReady] = useState(false)
+  // 採用直後にパラメータと復習を作り直すためのキー。進めると両方が再取得される。
+  const [fsrsReloadKey, setFsrsReloadKey] = useState(0)
   // 「先の予定」（日付ストリップ）の開閉。既定は畳む（Phase H）。今日を見ている限り
   // 使わない行が常時1行を占有していたため。今日以外を選んでいる間は常に開く。
   const [datesOpen, setDatesOpen] = useState(false)
@@ -94,6 +101,9 @@ export default function App() {
   // policy は reviews が変わるたび作り直されるので、updateStatus の依存配列に入れると
   // 記録ハンドラの同一性が毎回変わる。durationCapsRef と同じく ref 経由で読む。
   const retentionOfRef = useRef<(id: string) => number>(() => RETENTION_DEFAULT)
+  // 記録時に書き残す w[] の版。retentionOfRef と同じ理由で ref から読む
+  // （記録ハンドラの同一性を、採用の有無で変えないため）。
+  const wVersionRef = useRef<number | undefined>(undefined)
   // reviews / plans が「どの対象（`${userId}:${examId}`）のデータか」。サーバ取得の成功と
   // オフライン用スナップショットの流し込みで更新する。取得済みの対象を古いキャッシュで
   // 上書きしない／別の資格のデータを取り違えて保存しない、の2つに使う（課題7）。
@@ -137,8 +147,11 @@ export default function App() {
   }, [])
 
   // ---- Fetch reviews ----
+  // FSRS パラメータ（Phase D）の読み込みを待ってから走らせる。忘却曲線は w[] に依存する
+  // ので、版が登録される前に一覧を組むと、リスク帯だけが別の曲線で判定された状態になる。
+  // fsrsReloadKey を進めると ready が一度 false に戻るため、採用直後の再取得もここを通る。
   useEffect(() => {
-    if (!user) return
+    if (!user || !fsrsParamsReady) return
     setLoading(true)
     supabase
       .from('denken_reviews')
@@ -163,7 +176,7 @@ export default function App() {
         }
         setLoading(false)
       })
-  }, [user, examId])
+  }, [user, examId, fsrsParamsReady])
 
   // ---- Fetch exam plans（試験日程・§7.1）----
   useEffect(() => {
@@ -231,6 +244,28 @@ export default function App() {
         settingsLoadedRef.current = true
       })
   }, [user])
+
+  // ---- Fetch FSRS パラメータ（採用中の版・Phase D）----
+  // 読めなくても既定パラメータで動くので、起動を止める理由にはしない
+  // （履歴に刻まれた版は fsrs.ts 側で既定へフォールバックする）。
+  const reloadFsrsParams = useCallback(() => setFsrsReloadKey(k => k + 1), [])
+
+  useEffect(() => {
+    if (!user) { setFsrsParamsReady(false); return }
+    setFsrsParamsReady(false)
+    let cancelled = false
+    void loadAdoptedParams(user.id, examId)
+      .then(row => {
+        if (cancelled) return
+        setFsrsParams(row)
+        wVersionRef.current = row?.version
+      })
+      .catch(e => console.error(e))
+      // 成否に関わらず ready を立てる。ここで止めると、オフラインや一時的な失敗で
+      // **復習一覧そのものが読み込まれない**。読めなければ既定パラメータで動けばよい。
+      .finally(() => { if (!cancelled) setFsrsParamsReady(true) })
+    return () => { cancelled = true }
+  }, [user, examId, fsrsReloadKey])
 
   // 時間予算の変更（即時保存）。失敗しても画面の選択は保つ（次の変更で再送される）。
   const changeTimeBudget = useCallback((minutes: number | null) => {
@@ -370,18 +405,6 @@ export default function App() {
     await saveReview({ ...current, ...derived })
   }, [saveReview, plans, examId, subject])
 
-  // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
-  const snapshotOf = (r: Review): ReviewSnapshot => ({
-    status: r.status,
-    stability: r.stability,
-    difficulty_fsrs: r.difficulty_fsrs,
-    repetitions: r.repetitions,
-    lapses: r.lapses,
-    due_date: r.due_date,
-    last_reviewed: r.last_reviewed,
-    fsrs_state: r.fsrs_state,
-  })
-
   // ---- 実施日 + 理解度を記録（履歴に蓄積）----
   // attempt: 解答前コミットの観測値（Phase 1）。ProblemViewer から渡される。
   const updateStatus = useCallback(async (
@@ -393,11 +416,15 @@ export default function App() {
     // 解答時間（分野別・§7.6）: 「問題を解く」で開始した計測があれば秒数を付与する。
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
     // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
-    const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
+    const entry: ReviewHistoryEntry = { date, status }
     // その記録に適用した目標保持率を書き残す（Phase C-1・設計書 §3.4）。
     // これがあるので、ポリシーが明日変わっても deriveFromHistory の再生結果は変わらない。
     // 書き残さずに層3を効かせると、過去の予定日が毎日書き換わる（§6 の禁止事項）。
-    entry.policy = { retention: retentionOfRef.current(questionId) }
+    // w[] の版も同じ器へ入れる。保持率と同じく「この記録は何で計算されたか」を残すため。
+    entry.policy = {
+      retention: retentionOfRef.current(questionId),
+      ...(wVersionRef.current ? { w_version: wVersionRef.current } : {}),
+    }
     // 未選択のまま閉じた等、情報の無い試行は履歴に残さない。
     if (isMeaningful(attempt)) entry.attempt = attempt
     const timer = timersRef.current[questionId]
@@ -407,7 +434,6 @@ export default function App() {
       if (sec !== undefined) entry.duration_seconds = sec
       delete timersRef.current[questionId]
     }
-    // 記録直前の状態を prev として保存しておく。取消時にこの状態へ正確に戻せる。
     const history: ReviewHistoryEntry[] = [...(current.review_history ?? []), entry]
     // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
     if (activeTab === 'review') {
@@ -418,40 +444,26 @@ export default function App() {
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
   // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
-  // 末尾（最後に記録した分）で記録直前スナップショットを持つ場合は、
-  // スケジューラで再計算せずその状態へ正確に巻き戻す。
-  // これによりアルゴリズム変更（旧簡易版→ts-fsrs 等）があっても
-  // 「記録前の予定日・理解度」に確実に戻る。
+  // 残った履歴を再生し直すだけ（deriveFromHistory）。削除位置による分岐は無い。
+  //
+  // 【なぜスナップショット（旧 ReviewHistoryEntry.prev）をやめたか】
+  // かつては末尾の取消だけ「記録直前スナップショット」へ巻き戻していた。アルゴリズムが
+  // 変わっても記録前の予定日に確実に戻す、という意図だったが、Phase C で記録時の保持率を
+  // 履歴へ書き残す仕組み（entry.policy.retention）が入り、再生そのものが決定的になった
+  // ため、役割が重複していた。
+  //
+  // 重複は無害ではなかった。本番データで両者を突き合わせると、stability・理解度は完全に
+  // 一致する一方、**予定日だけが系統的にズレていた**（例 ac1_11: 再生 8/03 / スナップ 7/30)。
+  // スナップショットは目標保持率 0.9 時代に書かれた値で、その後 0.85 へ変えたときに
+  // 追随していない。つまり同じカードの「記録前の状態」が2通りDBに存在し、
+  // **末尾を消すか途中を消すかで違う答えが返る**状態だった。
+  // 消すべきは古いほうで、残すべきは全経路が通る再生のほうである。
   const deleteEntry = useCallback(async (questionId: string, index: number) => {
     if (!user) return
     const current = reviews[questionId]
     if (!current) return
-    const history = current.review_history
-    const entry = history[index]
-    const remaining = history.filter((_, i) => i !== index)
-    const isLast = index === history.length - 1
-
-    if (isLast && entry?.prev) {
-      const p = entry.prev
-      await saveReview({
-        ...current,
-        status: p.status,
-        stability: p.stability,
-        difficulty_fsrs: p.difficulty_fsrs,
-        repetitions: p.repetitions,
-        lapses: p.lapses,
-        due_date: p.due_date,
-        last_reviewed: p.last_reviewed,
-        fsrs_state: p.fsrs_state,
-        review_history: remaining,
-        first_reviewed: remaining.length ? remaining[0].date : null,
-      })
-      return
-    }
-
-    // 旧データ（スナップショット無し）や途中エントリの削除は従来どおり再計算。
-    await persistReview(current, remaining)
-  }, [user, reviews, persistReview, saveReview])
+    await persistReview(current, current.review_history.filter((_, i) => i !== index))
+  }, [user, reviews, persistReview])
 
   // ---- メモを保存 ----
   // 保存経路は saveReview に一本化する（オフライン時の送信待ちもそのまま効く・課題7d）。
@@ -811,49 +823,44 @@ export default function App() {
 
   const filteredQuestions = useMemo(() => {
     const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
-    // 復習タブは「価値順」で並べる（reviewPlan.ts）。
-    // 価値＝〔忘却リスク 1-R〕×〔理解度〕。いま忘れかけていて、理解度の低い問題ほど先に。
-    // 同点は出題頻度→難易度で割る（課題11。重要度は83%が3の実質定数だったため外した）。
     if (activeTab !== 'review') return filtered
-    // 今日は planToday が決めた順（点数影響 ÷ 所要時間の降順・Phase B-1）をそのまま使う。
-    // 復習due と新規着手枠を1本に並べた順序なので、ここで別の基準に並べ替えない。
+    // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
+    //
+    // 今日は planToday が引いたラインごとの順（🔴優先と新規着手枠が線の上に来るぶん、
+    // 密度そのままの並びではない）。今日以外はラインの概念が無いので密度順そのもの。
+    // どちらも順序の定義は同じ関数で、日付や予算の有無で優先度の意味は変わらない。
     if (selectedDate === todayStr) {
       const rank = todayPlan.rank
       return [...filtered].sort(
         (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
       )
     }
-    // 今日以外の日付は従来どおり価値順（reviewPlan.ts）。
     // 並び順のキーは事前計算（比較の中で R を再計算しない）。
-    // 時間予算モード（課題1・提案B）が有効な間は「価値 ÷ 推定所要分」の降順にする。
-    // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
-    const rankOf = new Map<string, number>()
-    const freqOf = new Map<string, number>()
-    for (const q of filtered) {
-      const v = reviewValue(q, reviews[q.id], todayStr, currentPlan?.exam_date ?? null)
-      freqOf.set(q.id, v.frequency)
-      rankOf.set(q.id, timeBudget === null
-        ? v.score
-        : valueDensity(v.score, estimateMinutes(q, reviews[q.id], timeStats)))
-    }
-    return [...filtered].sort((a, b) => {
-      const va = rankOf.get(a.id) ?? 0, vb = rankOf.get(b.id) ?? 0
-      if (va !== vb) return vb - va
-      // 新規着手枠は価値スコア0（復習対象外）。ここで並べ替えず章の学習順を保つ（課題3）。
-      if (va === 0 && vb === 0) return 0
-      // 同じ価値なら、過去に多く出題された問題を先に（2回以上は全440問中80問・§8.4）。
-      const fa = freqOf.get(a.id) ?? 0, fb = freqOf.get(b.id) ?? 0
-      if (fa !== fb) return fb - fa
-      if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
-      return 0
-    })
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, timeBudget, timeStats, currentPlan])
+    // R の基準日は「今日」のまま（表示中の日付ではない）。未来日のキューであっても、
+    // いま忘れかけている順に見せるほうが、その日に何を優先するかの判断に一致する。
+    const rank = new Map(
+      orderByDensity({
+        candidates: filtered.map(q => ({ question: q, review: reviews[q.id] })),
+        policy,
+        stats: timeStats,
+        today: todayStr,
+        examDate: currentPlan?.exam_date ?? null,
+      }).map((i, idx) => [i.id, idx] as const)
+    )
+    return [...filtered].sort(
+      (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
+    )
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
 
-  // 時間予算の線（課題1・提案B）。表示中のキューに対して、累積の推定所要が予算に達した
-  // 位置を求める。予算未指定のときはキュー全体の推定所要だけを使う。
-  const budgetPlan = useMemo(
-    () => planByBudget(filteredQuestions, reviews, timeStats, timeBudget ?? Infinity),
-    [filteredQuestions, reviews, timeStats, timeBudget]
+  // いま一覧に出ているキュー全体の推定所要分（今日パネルの見出しに出す従属表示）。
+  //
+  // 【一本化】かつては estimateMinutes.planByBudget で「予算に収まる位置」も同時に求めて
+  // いたが、その線は使われておらず（totalMinutes 以外のフィールドは未参照）、今日のラインは
+  // planToday が引いている。予算の線を引く実装が2つ動いている状態だったため、単純合計に
+  // 置き換えて planByBudget ごと削除した。
+  const queueMinutes = useMemo(
+    () => sumEstimateMinutes(filteredQuestions, reviews, timeStats),
+    [filteredQuestions, reviews, timeStats]
   )
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
@@ -1099,6 +1106,8 @@ export default function App() {
             subjectName={subject}
             plan={currentPlan}
             policy={policy}
+            fsrsParams={fsrsParams}
+            onFsrsParamsChanged={reloadFsrsParams}
             onSaved={p => {
               setPlans(prev => ({ ...prev, [p.subject_id]: p }))
               refreshFinalChecks(p.exam_date)
@@ -1140,7 +1149,7 @@ export default function App() {
                 isToday={isTodayView}
                 dateLabel={formatMD(selectedDate)}
                 queueCount={filteredQuestions.length}
-                queueMinutes={budgetPlan.totalMinutes}
+                queueMinutes={queueMinutes}
                 budget={timeBudget}
                 onBudgetChange={changeTimeBudget}
                 dates={reviewSchedule}

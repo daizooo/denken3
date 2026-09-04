@@ -139,15 +139,6 @@ function ewmaOfDaily(daily: Map<string, number>, today: string): number {
   return ewma
 }
 
-// 現在ペース（EWMA）＝ 1日あたり何問を A 以上へ引き上げているか。
-export function estimateMasteryPace(
-  questions: QLike[],
-  reviews: Record<string, Review>,
-  today: string,
-): number {
-  return ewmaOfDaily(dailyMasteryGains(questions, reviews), today)
-}
-
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }

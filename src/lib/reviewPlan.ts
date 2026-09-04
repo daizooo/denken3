@@ -1,22 +1,19 @@
-// 復習の適応型セレクタ（learning-recovery-rebuild）。すべて純関数。
+// 1問ごとの復習リスク評価（learning-recovery-rebuild）。すべて純関数。
 //
-// 設計思想は pace.ts と同じ ――「1日の上限で機械的に切らない。残り日数と進捗から
-// 毎日、最適な問題を自動で選ぶ」。pace.ts が"新規着手"に対して行っていることを、
-// ここでは"復習の選択"に対して行う。
+// 担当は1つだけ ――「この問題はいまどれだけ忘れかけているか」を返すこと。
+//   reviewValue: 忘却リスク(1-R) × 理解度 と、リスク帯（🔴優先 / 🟡そろそろ / 🟢余裕）。
 //
-// 中心は2つ:
-//   ① 価値順（reviewValue）: 期待得点への寄与＝〔忘却リスク(1-R)〕×〔理解度〕。
-//      いま忘れかけていて、理解度の低い問題ほど先に出す。
-//   ② 今日の推奨ライン（planDailyReviews）: 溜まった復習を"上限で隠す"のではなく、
-//      価値順に並べたうえで「今日はここまでやれば計画通り」の線を引く。
-//      線より下は"遅延"ではなく"順番待ち"。忘却リスクの高い問題は必ず線の上に来る。
+// **並び順と今日のラインは planToday.ts が持つ。** ここには置かない。
+// かつては本ファイルにも推奨ライン（planDailyReviews）があり、締切からの逆算だけで
+// 件数を決めていたが、Phase B-1 で planToday.ts の「点数影響 ÷ 所要時間」へ一本化した。
+// 同じ「今日どれをやるか」の答えが2つあると、画面ごとに違う順序が出て
+// 「いま何が効いているのか分からない」――利用者の一次不満そのものになる。
 //
 // 入力は (question, review, today, examDate) のみ。DB・UI には依存しない。
 
 import type { MasterQuestion, Review, Status } from '../domain/types'
 import { retentionFor, retrievability } from './fsrs'
 import { sourceFrequency } from './sourceLink'
-import { diffDays } from './date'
 
 // 理解度の重み（大きいほど価値が高い＝先に復習）。
 // C（答えを見た）> B（方向性OK・計算ミス）> A（見ずに解けた）> S（完璧に理解）。
@@ -98,42 +95,4 @@ export function bandMeta(band: RiskBand): { label: string; cls: string; dot: str
     default:
       return { label: '余裕あり', cls: 'text-emerald-600', dot: 'bg-emerald-400' }
   }
-}
-
-export interface DailyReviewPlan {
-  dueCount: number // 今日時点で復習期限を迎えている問題数
-  urgentCount: number // うち🔴優先（R が目標保持率-0.10 未満）の数。必ず推奨ラインの上に来る
-  recommendedCount: number // 今日の推奨ライン（順番待ちとの境界）
-}
-
-// 溜まった復習を何日で捌くか。試験が近いほど詰める（deadline-aware）。
-function catchUpDays(daysToExam: number | null): number {
-  if (daysToExam === null) return 3
-  if (daysToExam <= 14) return 1
-  if (daysToExam <= 30) return 2
-  return 3
-}
-
-// 今日の推奨ライン（② 線引き型）。上限キャップではなく推奨。
-// - 忘却リスクの高い問題（urgent）は必ず全部、線の上に含める。
-// - 残りは catchUpDays 日で均すよう ceil(due/日数) を目安にする。
-// - どちらも due 総数を超えない。
-export function planDailyReviews(
-  candidates: { question: MasterQuestion; review: Review | undefined }[],
-  today: string,
-  examDate: string | null,
-): DailyReviewPlan {
-  const dueCount = candidates.length
-  if (dueCount === 0) return { dueCount: 0, urgentCount: 0, recommendedCount: 0 }
-
-  let urgentCount = 0
-  for (const c of candidates) {
-    if (reviewValue(c.question, c.review, today, examDate).band === 'high') urgentCount++
-  }
-
-  const daysToExam = examDate ? diffDays(today, examDate) : null
-  const spread = Math.ceil(dueCount / catchUpDays(daysToExam))
-  const recommendedCount = Math.min(dueCount, Math.max(urgentCount, spread, 1))
-
-  return { dueCount, urgentCount, recommendedCount }
 }

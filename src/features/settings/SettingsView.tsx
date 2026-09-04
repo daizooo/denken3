@@ -3,12 +3,14 @@ import { CalendarDays, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { ExamPlan } from '../../domain/types'
 import type { Policy } from '../../lib/policy'
+import type { FsrsParamsRow } from '../../lib/fsrsParams'
 import PolicyCard from './PolicyCard'
+import OptimizeCard from './OptimizeCard'
 
 // 試験日程設定（§7.1）。資格×科目ごとに denken_exam_plans を編集する。
 // CBT期・筆記日程はマスターに持たず手入力（年度で変わるため）。既知の確定日程は説明文に表示。
 export default function SettingsView({
-  userId, examId, subjectId, subjectName, plan, policy, onSaved,
+  userId, examId, subjectId, subjectName, plan, policy, fsrsParams, onFsrsParamsChanged, onSaved,
 }: {
   userId: string
   examId: string
@@ -17,6 +19,9 @@ export default function SettingsView({
   plan: ExamPlan | null
   // 「いま効いているパラメータ」カード（adaptive-fsrs-policy.md Phase A・A-3）。
   policy: Policy
+  // 採用中の FSRS パラメータ（Phase D）。未採用なら null＝既定パラメータ。
+  fsrsParams: FsrsParamsRow | null
+  onFsrsParamsChanged: () => void
   onSaved: (plan: ExamPlan) => void
 }) {
   const [examDate, setExamDate] = useState('')
@@ -130,6 +135,8 @@ export default function SettingsView({
       </div>
 
       <PolicyCard policy={policy} />
+
+      <OptimizeCard examId={examId} adopted={fsrsParams} onAdopted={onFsrsParamsChanged} />
 
       <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
         休止期間の事前登録はありません。産後などで学習ペースが変動しても、日々の実績から
