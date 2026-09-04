@@ -133,23 +133,41 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
       <section>
         <h3 className="text-[11px] font-semibold text-gray-400 mb-0.5">復習の間隔（目標保持率）</h3>
         {row(
-          '現在適用中',
-          policy.effectiveRetention.toFixed(2),
-          policy.endgame
-            ? `直前期（試験${RETENTION_ENDGAME_DAYS}日前以内）のため ${RETENTION_ENDGAME}`
-            : `試験${RETENTION_ENDGAME_DAYS}日前から ${RETENTION_ENDGAME} へ自動で上がる`,
+          '適用中',
+          policy.layer3Active
+            ? `コア ${policy.endgame ? Math.max(RETENTION_CORE, RETENTION_ENDGAME).toFixed(2) : RETENTION_CORE.toFixed(2)} ／ バッファ 計算 ${RETENTION_BUFFER_CALC}・暗記 ${RETENTION_BUFFER_MEMORY}`
+            : policy.fallbackRetention.toFixed(2),
+          policy.layer3Active
+            ? 'コアは落とさない側、バッファは回転優先'
+            : policy.endgame
+              ? `全問共通。直前期（試験${RETENTION_ENDGAME_DAYS}日前以内）のため ${RETENTION_ENDGAME}`
+              : `全問共通。試験${RETENTION_ENDGAME_DAYS}日前から ${RETENTION_ENDGAME} へ自動で上がる`,
         )}
         {row('S の試験前 最終確認', `試験${FINAL_CHECK_DAYS_BEFORE_EXAM}日前`, '復習不要にした問題を1回だけキューへ戻す')}
+        {!policy.layer3Active && (
+          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5 leading-relaxed">
+            <AlertTriangle size={11} className="inline-block mr-1 -mt-0.5" />
+            コア／バッファで保持率を変える仕組み（層3）は<strong>保留中</strong>です。
+            これは「コアを上げた分バッファを下げて相殺し、総復習量を増やさずに配分だけ変える」
+            仕組みですが、いまは<strong>バッファが0問</strong>（想定得点が未検証の間は全問がコア）で
+            相殺する相手がいません。実測では保持率 0.85→0.90 で復習間隔が
+            <strong>約半分（-47〜-49%）</strong>になり、維持の復習量が約2倍になります。
+            増えるのは「既にAの問題を再復習する時間」で、その分が未着手の範囲から奪われるため、
+            合格を確実にする方向ではないと判断しました。
+            CBT実測2回で較正できればコアが最小集合へ絞られ、相殺が成立して自動で有効になります。
+          </p>
+        )}
         <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
-          ポリシー案（<strong>まだスケジューリングには流していません</strong>・Phase C で適用）:
-          コア {RETENTION_CORE} ／ バッファ 計算 {RETENTION_BUFFER_CALC}・暗記 {RETENTION_BUFFER_MEMORY}。
-          適用時は、その日に使った保持率を履歴へ書き残して過去の再生結果が変わらないようにします。
+          記録するたびに、その日に使った保持率を履歴へ書き残しています。
+          そのため<strong>ポリシーが明日変わっても、過去の復習予定日は書き換わりません</strong>。
+          保持率が記録されていない古い履歴は、従来式（日付だけで決まる {policy.fallbackRetention.toFixed(2)}）で
+          再生されます。
         </p>
       </section>
 
       <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-50 pt-2">
-        このカードは値を表示するだけで、まだ自動では何も動かしません。
-        画面に出ていない値を自動で動かさないための順序です（設計 Phase A）。
+        ここに出ている値は、いずれも実際に効いています（保持率＝復習間隔、マージン＝目標得点、
+        コア＝今日のキューの並び）。先に画面へ出してから自動で動かす、という順序で入れました。
       </p>
     </div>
   )

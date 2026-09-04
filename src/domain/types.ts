@@ -90,6 +90,15 @@ export interface ReviewHistoryEntry {
   // 解答前コミットの観測値（選んだ選択肢・降参したか）。
   // docs/design/calculation-active-learning.md §3.2。旧データには無いのでオプショナル。
   attempt?: Attempt
+  // その記録時に実際に FSRS へ渡した目標保持率（adaptive-fsrs-policy.md §3.4・Phase C）。
+  //
+  // ポリシーは日々変わる。記録時の値を残さないと、`deriveFromHistory` が履歴を再生する
+  // たびに過去の予定日まで書き換わり、**何が起きているか誰にも分からなくなる**
+  // ―― 利用者の一次不満（「現状が分からない」）の悪化そのもの。
+  // 再生時は `entry.policy?.retention ?? retentionFor(entry.date, examDate)` とすることで、
+  // 旧データは従来式のまま（後方互換）・新データは記録時の値（決定的）になる。
+  // attempt と同じ JSONB の器に入るためマイグレーションは不要。
+  policy?: { retention: number }
 }
 
 export interface Review {

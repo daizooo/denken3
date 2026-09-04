@@ -64,11 +64,17 @@ function bandOf(r: number | null, retention: number): RiskBand {
 // 検討した出題頻度も 1回:360 / 2回:75 / 3回:5 とほぼ同じ偏りで、定数を別の定数へ
 // 置き換えるだけになる（§8.4）。そこで頻度は主キーには入れず、価値が同点のときの
 // タイブレークとしてだけ返す（2回以上出題された80問を、同条件のときだけ前に出す）。
+// targetRetention は、その問題に適用されている目標保持率（Phase C・層3）。
+// 省略時は従来どおり日付だけで決まる `retentionFor(today, examDate)` を使う。
+// **帯のしきい値はスケジューリングに使った保持率と揃える必要がある。** コアを 0.90 で
+// スケジュールしているのに帯だけ 0.85 基準で見ると、FSRS が「そろそろ危ない」と判断して
+// due にした問題が画面上は「余裕あり」に見え、帯が優先度として機能しなくなる（§6-2 と同じ理由）。
 export function reviewValue(
   question: MasterQuestion,
   review: Review | undefined,
   today: string,
   examDate?: string | null,
+  targetRetention?: number,
 ): ReviewValue {
   const status = review?.status ?? '未着手'
   const statusW = STATUS_WEIGHT[status]
@@ -78,7 +84,8 @@ export function reviewValue(
   const r = retrievability(review, today)
   const risk = r === null ? 0 : 1 - r
   const score = statusW * (RISK_FLOOR + risk)
-  return { score, r, risk, band: bandOf(r, retentionFor(today, examDate)), frequency }
+  const retention = targetRetention ?? retentionFor(today, examDate)
+  return { score, r, risk, band: bandOf(r, retention), frequency }
 }
 
 // リスク帯の表示メタ（QuestionCard 等で使う）。
