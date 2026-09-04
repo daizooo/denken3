@@ -21,13 +21,54 @@ export function retentionFor(eventDate: string, examDate?: string | null): numbe
     : RETENTION_DEFAULT
 }
 
-// request_retention ごとに FSRS インスタンスを使い回す（実施日ごとに生成しない）。
-const schedulers = new Map<number, FSRS>()
-function schedulerFor(retention: number): FSRS {
-  let s = schedulers.get(retention)
+// ---- 学習済みパラメータ w[]（FSRS-6・21個）の版管理 ----
+//
+// w[] は忘却曲線そのものを決めるので、差し替えると**過去の予定日がすべて変わる**。
+// 決定的再生（§3.4）を壊さないために、保持率と同じ扱いにする:
+//   ① 記録時に、そのとき使った版を履歴エントリへ書き残す（entry.policy.w_version）
+//   ② 再生時は、各エントリに書かれた版のパラメータで計算する
+// こうすると、あとで新しい版を採用しても過去の再生結果は動かない。
+//
+// 版 0 は ts-fsrs の既定パラメータ（DBに行を持たない）。版を持たない旧履歴も 0 に落ちる。
+// 版 → w は一度決まったら変わらない不変の対応なので、ここに登録簿として持つ。
+export const DEFAULT_PARAMS_VERSION = 0
+
+export interface FsrsParams {
+  version: number
+  w: number[]
+}
+
+const paramRegistry = new Map<number, number[]>()
+
+/** 版 → w を登録する（起動時にDBから読んだぶん・API側の再計算時に新しい版）。 */
+export function registerParams(params: FsrsParams): void {
+  if (params.version === DEFAULT_PARAMS_VERSION) return
+  paramRegistry.set(params.version, params.w)
+}
+
+/** 登録簿を空にする（テスト用）。 */
+export function resetParams(): void {
+  paramRegistry.clear()
+  schedulers.clear()
+}
+
+/** 履歴エントリの w_version から w を引く。未登録・版0は既定パラメータ（undefined）。 */
+function wFor(version: number | undefined): number[] | undefined {
+  if (version === undefined || version === DEFAULT_PARAMS_VERSION) return undefined
+  return paramRegistry.get(version)
+}
+
+// (request_retention, w の版) ごとに FSRS インスタンスを使い回す（実施日ごとに生成しない）。
+const schedulers = new Map<string, FSRS>()
+function schedulerFor(retention: number, version?: number): FSRS {
+  const w = wFor(version)
+  // 未登録の版は既定パラメータで計算する。キーも版0に寄せて、あとで登録された
+  // ときに古いインスタンスを引き当てないようにする。
+  const key = `${retention}:${w ? version : DEFAULT_PARAMS_VERSION}`
+  let s = schedulers.get(key)
   if (!s) {
-    s = new FSRS({ enable_short_term: false, request_retention: retention })
-    schedulers.set(retention, s)
+    s = new FSRS({ enable_short_term: false, request_retention: retention, ...(w ? { w } : {}) })
+    schedulers.set(key, s)
   }
   return s
 }
@@ -106,6 +147,7 @@ export function calcFSRS(
   eventDate?: string,
   examDate?: string | null,
   retention?: number,
+  wVersion?: number,
 ) {
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
@@ -119,7 +161,8 @@ export function calcFSRS(
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
-  const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate)).repeat(card, now)[rating].card
+  const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
+    .repeat(card, now)[rating].card
   const rawDue = newCard.due.toISOString().split('T')[0]
   return {
     stability: newCard.stability,
@@ -149,7 +192,7 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
     due_date: null, last_reviewed: null, fsrs_state: State.New,
   }
   for (const e of sorted) {
-    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate, e.policy?.retention) }
+    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate, e.policy?.retention, e.policy?.w_version) }
   }
   return {
     stability: acc.stability ?? 0,
@@ -172,9 +215,14 @@ export function retrievability(review: Partial<Review> | null | undefined, today
   if (!review || (review.repetitions ?? 0) <= 0) return null
   if (!review.due_date) return null
   const now = dateAtUTCNoon(today ?? todayJST())
-  // get_retrievability は忘却曲線そのもので request_retention に依存しないため、
-  // どのインスタンスで呼んでも同じ値になる。
-  const r = schedulerFor(RETENTION_DEFAULT).get_retrievability(toFSRSCard(review, now), now, false)
+  // get_retrievability は忘却曲線そのもので request_retention には依存しないが、
+  // **w[] には依存する**（減衰の形が変わる）。そのカードを最後にスケジュールした版で引く。
+  // ここを既定パラメータ固定にすると、学習済みパラメータでスケジュールした問題の
+  // リスク帯（🔴優先）だけが別の曲線で判定され、帯が優先度として機能しなくなる。
+  const history = review.review_history
+  const wVersion = history?.length ? history[history.length - 1].policy?.w_version : undefined
+  const r = schedulerFor(RETENTION_DEFAULT, wVersion)
+    .get_retrievability(toFSRSCard(review, now), now, false)
   return typeof r === 'number' ? r : null
 }
 

@@ -15,6 +15,7 @@ import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { planToday, forwardSlotsToday, orderByDensity } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
+import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
   buildTimeStats, sumEstimateMinutes,
   type EstimateModeKey,
@@ -67,6 +68,13 @@ export default function App() {
   // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし（「すべて」）。
   // Phase B-2 で denken_settings へ永続化する（従来はリロードで消えていた・設計書 §1.1）。
   const [timeBudget, setTimeBudget] = useState<number | null>(null)
+  // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
+  // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
+  const [fsrsParams, setFsrsParams] = useState<FsrsParamsRow | null>(null)
+  // パラメータの読み込みが済んだか。復習の取得はこれを待つ（忘却曲線が w[] に依存するため）。
+  const [fsrsParamsReady, setFsrsParamsReady] = useState(false)
+  // 採用直後にパラメータと復習を作り直すためのキー。進めると両方が再取得される。
+  const [fsrsReloadKey, setFsrsReloadKey] = useState(0)
   // 「先の予定」（日付ストリップ）の開閉。既定は畳む（Phase H）。今日を見ている限り
   // 使わない行が常時1行を占有していたため。今日以外を選んでいる間は常に開く。
   const [datesOpen, setDatesOpen] = useState(false)
@@ -93,6 +101,9 @@ export default function App() {
   // policy は reviews が変わるたび作り直されるので、updateStatus の依存配列に入れると
   // 記録ハンドラの同一性が毎回変わる。durationCapsRef と同じく ref 経由で読む。
   const retentionOfRef = useRef<(id: string) => number>(() => RETENTION_DEFAULT)
+  // 記録時に書き残す w[] の版。retentionOfRef と同じ理由で ref から読む
+  // （記録ハンドラの同一性を、採用の有無で変えないため）。
+  const wVersionRef = useRef<number | undefined>(undefined)
   // reviews / plans が「どの対象（`${userId}:${examId}`）のデータか」。サーバ取得の成功と
   // オフライン用スナップショットの流し込みで更新する。取得済みの対象を古いキャッシュで
   // 上書きしない／別の資格のデータを取り違えて保存しない、の2つに使う（課題7）。
@@ -136,8 +147,11 @@ export default function App() {
   }, [])
 
   // ---- Fetch reviews ----
+  // FSRS パラメータ（Phase D）の読み込みを待ってから走らせる。忘却曲線は w[] に依存する
+  // ので、版が登録される前に一覧を組むと、リスク帯だけが別の曲線で判定された状態になる。
+  // fsrsReloadKey を進めると ready が一度 false に戻るため、採用直後の再取得もここを通る。
   useEffect(() => {
-    if (!user) return
+    if (!user || !fsrsParamsReady) return
     setLoading(true)
     supabase
       .from('denken_reviews')
@@ -162,7 +176,7 @@ export default function App() {
         }
         setLoading(false)
       })
-  }, [user, examId])
+  }, [user, examId, fsrsParamsReady])
 
   // ---- Fetch exam plans（試験日程・§7.1）----
   useEffect(() => {
@@ -230,6 +244,28 @@ export default function App() {
         settingsLoadedRef.current = true
       })
   }, [user])
+
+  // ---- Fetch FSRS パラメータ（採用中の版・Phase D）----
+  // 読めなくても既定パラメータで動くので、起動を止める理由にはしない
+  // （履歴に刻まれた版は fsrs.ts 側で既定へフォールバックする）。
+  const reloadFsrsParams = useCallback(() => setFsrsReloadKey(k => k + 1), [])
+
+  useEffect(() => {
+    if (!user) { setFsrsParamsReady(false); return }
+    setFsrsParamsReady(false)
+    let cancelled = false
+    void loadAdoptedParams(user.id, examId)
+      .then(row => {
+        if (cancelled) return
+        setFsrsParams(row)
+        wVersionRef.current = row?.version
+      })
+      .catch(e => console.error(e))
+      // 成否に関わらず ready を立てる。ここで止めると、オフラインや一時的な失敗で
+      // **復習一覧そのものが読み込まれない**。読めなければ既定パラメータで動けばよい。
+      .finally(() => { if (!cancelled) setFsrsParamsReady(true) })
+    return () => { cancelled = true }
+  }, [user, examId, fsrsReloadKey])
 
   // 時間予算の変更（即時保存）。失敗しても画面の選択は保つ（次の変更で再送される）。
   const changeTimeBudget = useCallback((minutes: number | null) => {
@@ -384,7 +420,11 @@ export default function App() {
     // その記録に適用した目標保持率を書き残す（Phase C-1・設計書 §3.4）。
     // これがあるので、ポリシーが明日変わっても deriveFromHistory の再生結果は変わらない。
     // 書き残さずに層3を効かせると、過去の予定日が毎日書き換わる（§6 の禁止事項）。
-    entry.policy = { retention: retentionOfRef.current(questionId) }
+    // w[] の版も同じ器へ入れる。保持率と同じく「この記録は何で計算されたか」を残すため。
+    entry.policy = {
+      retention: retentionOfRef.current(questionId),
+      ...(wVersionRef.current ? { w_version: wVersionRef.current } : {}),
+    }
     // 未選択のまま閉じた等、情報の無い試行は履歴に残さない。
     if (isMeaningful(attempt)) entry.attempt = attempt
     const timer = timersRef.current[questionId]
@@ -394,7 +434,6 @@ export default function App() {
       if (sec !== undefined) entry.duration_seconds = sec
       delete timersRef.current[questionId]
     }
-    // 記録直前の状態を prev として保存しておく。取消時にこの状態へ正確に戻せる。
     const history: ReviewHistoryEntry[] = [...(current.review_history ?? []), entry]
     // 復習タブでは、記録した問題を「復習済み」として即座に一覧から消す。
     if (activeTab === 'review') {
@@ -1067,6 +1106,8 @@ export default function App() {
             subjectName={subject}
             plan={currentPlan}
             policy={policy}
+            fsrsParams={fsrsParams}
+            onFsrsParamsChanged={reloadFsrsParams}
             onSaved={p => {
               setPlans(prev => ({ ...prev, [p.subject_id]: p }))
               refreshFinalChecks(p.exam_date)

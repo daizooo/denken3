@@ -82,7 +82,12 @@ export interface ReviewHistoryEntry {
   // 再生時は `entry.policy?.retention ?? retentionFor(entry.date, examDate)` とすることで、
   // 旧データは従来式のまま（後方互換）・新データは記録時の値（決定的）になる。
   // attempt と同じ JSONB の器に入るためマイグレーションは不要。
-  policy?: { retention: number }
+  //
+  // w_version は、その記録に使った FSRS パラメータ w[] の版（denken_fsrs_params.version）。
+  // 保持率とまったく同じ理由でここに残す ―― w[] は忘却曲線そのものを決めるので、
+  // 版を書き残さずに差し替えると過去の予定日がすべて書き換わる。
+  // 省略・0 は ts-fsrs の既定パラメータ（学習前）を意味する。
+  policy?: { retention: number; w_version?: number }
 }
 
 export interface Review {
