@@ -14,7 +14,7 @@
 // 採用したときにだけ起きる、版番号の付いた1回の変更であって、毎日勝手に動くのとは違う。
 
 import type { Review, ReviewHistoryEntry } from '../../src/domain/types.js'
-import { deriveFromHistory, registerParams, retentionFor } from '../../src/lib/fsrs.js'
+import { deriveFromHistory, registerParams, resetParams, retentionFor } from '../../src/lib/fsrs.js'
 
 export interface RescheduleRow {
   question_id: string
@@ -47,6 +47,10 @@ export function reschedule(params: {
   w: number[]
 }): RescheduledRow[] {
   const { rows, userId, examId, examDate, version, w } = params
+  // サーバレスのコンテナは暖まったまま別の利用者・別の資格のリクエストを続けて処理する。
+  // 版番号は (user_id, exam_id) ごとに1から振られるので、前の呼び出しの登録が残っていると
+  // 同じ番号で別の w を引きうる。呼び出しごとに登録簿を作り直して切り離す。
+  resetParams()
   registerParams({ version, w })
 
   const out: RescheduledRow[] = []

@@ -19,6 +19,8 @@ import {
   deriveFromHistory,
   defaultReview,
   finalCheckDue,
+  registerParams,
+  resetParams,
   retentionFor,
   retrievability,
 } from './fsrs'
@@ -101,6 +103,56 @@ describe('記録時の保持率を履歴に書き残す仕組み（§3.4・後�
     const before = deriveFromHistory(recorded, EXAM)
     const after = deriveFromHistory(recorded, EXAM) // ポリシー変更後の再生に相当
     expect(after.due_date).toBe(before.due_date)
+  })
+})
+
+describe('学習済みパラメータの版管理', () => {
+  const W_A = Array.from({ length: 21 }, (_, i) => 0.5 + i * 0.1)
+  const W_B = Array.from({ length: 21 }, (_, i) => 1.0 + i * 0.2)
+
+  it('版を登録すると、その版を持つ履歴の再生結果が変わる', () => {
+    resetParams()
+    const stamped: ReviewHistoryEntry[] = [
+      { date: '2026-07-18', status: 'A', policy: { retention: 0.85, w_version: 1 } },
+    ]
+    const beforeRegister = deriveFromHistory(stamped, EXAM)
+    registerParams({ version: 1, w: W_A })
+    const afterRegister = deriveFromHistory(stamped, EXAM)
+    expect(afterRegister.due_date).not.toBe(beforeRegister.due_date)
+  })
+
+  it('版を持たない履歴は既定パラメータのまま（登録の影響を受けない）', () => {
+    resetParams()
+    const legacy = [h('2026-07-18', 'A')]
+    const before = deriveFromHistory(legacy, EXAM)
+    registerParams({ version: 1, w: W_A })
+    expect(deriveFromHistory(legacy, EXAM).due_date).toBe(before.due_date)
+  })
+
+  it('同じ版番号で中身が違う w を登録し直したら、古い w のキャッシュを引かない', () => {
+    // 版は (user_id, exam_id) ごとに1から振られるので、資格を切り替えたときや
+    // 暖まったサーバレスコンテナが別の利用者を処理したときに実際に起こる。
+    const stamped: ReviewHistoryEntry[] = [
+      { date: '2026-07-18', status: 'A', policy: { retention: 0.85, w_version: 1 } },
+    ]
+    resetParams()
+    registerParams({ version: 1, w: W_A })
+    const withA = deriveFromHistory(stamped, EXAM)
+    registerParams({ version: 1, w: W_B })
+    const withB = deriveFromHistory(stamped, EXAM)
+    expect(withB.due_date).not.toBe(withA.due_date)
+  })
+
+  it('resetParams で既定パラメータへ戻る', () => {
+    const stamped: ReviewHistoryEntry[] = [
+      { date: '2026-07-18', status: 'A', policy: { retention: 0.85, w_version: 1 } },
+    ]
+    resetParams()
+    const withDefault = deriveFromHistory(stamped, EXAM)
+    registerParams({ version: 1, w: W_A })
+    expect(deriveFromHistory(stamped, EXAM).due_date).not.toBe(withDefault.due_date)
+    resetParams()
+    expect(deriveFromHistory(stamped, EXAM).due_date).toBe(withDefault.due_date)
   })
 })
 

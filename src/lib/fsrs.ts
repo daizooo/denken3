@@ -40,10 +40,22 @@ export interface FsrsParams {
 
 const paramRegistry = new Map<number, number[]>()
 
-/** 版 → w を登録する（起動時にDBから読んだぶん・API側の再計算時に新しい版）。 */
+/**
+ * 版 → w を登録する（起動時にDBから読んだぶん・API側の再計算時に新しい版）。
+ *
+ * **同じ版番号で中身が違うことがある。** 版は `denken_fsrs_params` の
+ * (user_id, exam_id, version) で振られるので、資格が違えば別人の版1・別科目の版1が
+ * 存在する。番号だけで区別すると、資格を切り替えたときや、暖まったサーバレス
+ * コンテナが別の利用者を続けて処理したときに、**古い w で作ったスケジューラを
+ * 引き当てて別物の予定日を出す**。中身が変わったらキャッシュを捨てる。
+ */
 export function registerParams(params: FsrsParams): void {
   if (params.version === DEFAULT_PARAMS_VERSION) return
+  const existing = paramRegistry.get(params.version)
+  if (existing && existing.length === params.w.length
+      && existing.every((v, i) => v === params.w[i])) return
   paramRegistry.set(params.version, params.w)
+  schedulers.clear()
 }
 
 /** 登録簿を空にする（テスト用）。 */
