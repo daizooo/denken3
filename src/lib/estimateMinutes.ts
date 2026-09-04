@@ -6,6 +6,20 @@
 //   ② 同じ「難易度 × studyMode」の実測中央値（母数が足りなければ難易度のみの中央値）
 //   ③ 既定値 × ステータス係数（実測が1件も無いときだけ）
 //
+// ②の実測中央値は**初回と復習で別のプールを持つ**（review-display-analysis-warnings）。
+// 理由は実データがはっきり分かれているため（理論・全履歴の中央値）:
+//
+//   初回 430秒（7.2分）／ 復習 242秒（4.0分）
+//
+// 統合前は「各問題の直近の実測」だけを1つのプールに集めていた。既習の問題では直近＝復習なので
+// プールの中央値は 210秒（3.5分）となり、**それを未着手（＝これから初見で解く問題）の
+// 見積もりに使っていた**。真の初回所要 430秒 に対して約2倍の過小評価になる。
+//
+// 過小評価は「今日やること 約◯分」を短く見せるだけでなく、`policy.requiredMinutesPerDay`
+// （前進コア＝未着手を A まで引き上げる時間）を押し下げ、**shortfall の見逃し**を生む。
+// これは policy.ts 冒頭の原則 §0（不確実性は必ず「もっとやる」側へ倒す）に正面から反する。
+// そこで未着手は初回プール、それ以外は復習プールから見積もる。
+//
 // 外れ値は記録側と同じ基準でクリップする（timer.ts の durationCapSeconds・課題13）。
 // 上限が30分だった時期のデータには中断（画面を消さずに端末を置くと visibilitychange が
 // 発火しない）が混ざっているため、そのまま中央値に入れると見積もりが上振れする。
@@ -41,11 +55,17 @@ const STATUS_FACTOR: Record<Status, number> = { '未着手': 1, C: 1, B: 0.7, A:
 // 少数の実測に引きずられないようにする。
 const MIN_SAMPLES = 5
 
-export interface TimeStats {
-  // 「難易度 × studyMode」の実測中央値（秒）。母数不足は null。
+/** 実測中央値の1組（難易度 × studyMode と、難易度のみ）。母数不足は null。 */
+export interface MedianTable {
   byModeBand: Record<Difficulty, Record<EstimateModeKey, number | null>>
-  // 難易度のみの実測中央値（秒）。母数不足は null。
   byBand: Record<Difficulty, number | null>
+}
+
+export interface TimeStats {
+  /** 復習（2回目以降）の実測中央値。着手済みの問題の見積もりに使う。 */
+  review: MedianTable
+  /** 初回（1回目）の実測中央値。未着手＝これから初見で解く問題の見積もりに使う。 */
+  first: MedianTable
   // 問題ID → その問題自身の直近の実測秒（クリップ後）。
   measured: Record<string, number>
   measuredN: number
@@ -55,6 +75,23 @@ export interface TimeStats {
 function latestDurationSeconds(r: Review | undefined): number | undefined {
   const h = r?.review_history ?? []
   for (let i = h.length - 1; i >= 0; i--) {
+    const s = h[i].duration_seconds
+    if (typeof s === 'number' && s > 0) return s
+  }
+  return undefined
+}
+
+// 初回（1回目）の計測。2件目以降しか計測が無い問題は初回の実測を持たない
+// （その2件目は「2回目の所要」であって初回ではないので、初回プールへ入れない）。
+function firstDurationSeconds(r: Review | undefined): number | undefined {
+  const s = r?.review_history?.[0]?.duration_seconds
+  return typeof s === 'number' && s > 0 ? s : undefined
+}
+
+// 2回目以降のうち、最後に計測できた解答時間（＝復習の実測）。
+function latestReviewDurationSeconds(r: Review | undefined): number | undefined {
+  const h = r?.review_history ?? []
+  for (let i = h.length - 1; i >= 1; i--) {
     const s = h[i].duration_seconds
     if (typeof s === 'number' && s > 0) return s
   }
@@ -72,33 +109,20 @@ function medianIfEnough(values: number[]): number | null {
   return values.length >= MIN_SAMPLES ? median(values) : null
 }
 
-// 実測値の集計。難易度帯ごとの上限は「粗い中央値の3倍と15分の小さいほう」で、
-// 記録側（timer.ts）と同じ durationCapSeconds を使う。
+interface Sample { id: string; band: Difficulty; mode: EstimateModeKey; seconds: number }
+
+// 1つのプール（初回 or 復習）の中央値表を作る。難易度帯ごとの上限は「粗い中央値の3倍と
+// 15分の小さいほう」で、記録側（timer.ts）と同じ durationCapSeconds を使う。
 // 上限そのものが中央値に依存するため、粗い中央値 → 上限 → 本番の中央値、の2パスで求める。
-export function buildTimeStats(
-  chapters: Chapter[],
-  reviews: Record<string, Review>,
-): TimeStats {
-  interface Sample { id: string; band: Difficulty; mode: EstimateModeKey; seconds: number }
-  const raw: Sample[] = []
-
-  for (const c of chapters) {
-    for (const q of c.questions) {
-      const seconds = latestDurationSeconds(reviews[q.id])
-      // 旧データには30分上限で記録されたものがある。まず現在の絶対上限で足切りする。
-      if (seconds === undefined || seconds > MAX_DURATION_SECONDS) continue
-      raw.push({ id: q.id, band: q.difficulty, mode: q.studyMode ?? 'unset', seconds })
-    }
-  }
-
-  // 1パス目: 難易度帯の粗い中央値からクリップ上限を決める。
+// **上限はプールごとに出す。** 初回と復習では中央値が倍近く違うので、片方の中央値から
+// 決めた上限をもう片方に当てると、初回の長い実測が外れ値として落ちてしまう。
+function medianTableOf(raw: Sample[]): { table: MedianTable; kept: Sample[] } {
   const cap = {} as Record<Difficulty, number>
   for (const b of BANDS) {
     cap[b] = durationCapSeconds(median(raw.filter(s => s.band === b).map(s => s.seconds)))
   }
   const kept = raw.filter(s => s.seconds <= cap[s.band])
 
-  // 2パス目: クリップ後の中央値。
   const byBand = {} as Record<Difficulty, number | null>
   const byModeBand = {} as Record<Difficulty, Record<EstimateModeKey, number | null>>
   for (const b of BANDS) {
@@ -110,11 +134,45 @@ export function buildTimeStats(
     }
     byModeBand[b] = row
   }
+  return { table: { byModeBand, byBand }, kept }
+}
+
+// 実測値の集計。初回・復習の2プールと、問題ごとの直近実測を返す。
+export function buildTimeStats(
+  chapters: Chapter[],
+  reviews: Record<string, Review>,
+): TimeStats {
+  const reviewRaw: Sample[] = []
+  const firstRaw: Sample[] = []
+  const latestRaw: Sample[] = []
+
+  const push = (arr: Sample[], id: string, band: Difficulty, mode: EstimateModeKey, seconds: number | undefined) => {
+    // 旧データには30分上限で記録されたものがある。まず現在の絶対上限で足切りする。
+    if (seconds === undefined || seconds > MAX_DURATION_SECONDS) return
+    arr.push({ id, band, mode, seconds })
+  }
+
+  for (const c of chapters) {
+    for (const q of c.questions) {
+      const r = reviews[q.id]
+      const band = q.difficulty
+      const mode = q.studyMode ?? 'unset'
+      push(latestRaw, q.id, band, mode, latestDurationSeconds(r))
+      push(firstRaw, q.id, band, mode, firstDurationSeconds(r))
+      push(reviewRaw, q.id, band, mode, latestReviewDurationSeconds(r))
+    }
+  }
+
+  const review = medianTableOf(reviewRaw)
+  const first = medianTableOf(firstRaw)
+  // 問題ごとの直近実測は従来どおり「初回・復習を問わず最後の1件」。その問題の次の1回を
+  // 予測する値としては、種類を問わず直近の実測が最も近い。
+  const { kept } = medianTableOf(latestRaw)
 
   const measured: Record<string, number> = {}
   for (const s of kept) measured[s.id] = s.seconds
 
-  return { byModeBand, byBand, measured, measuredN: kept.length }
+  return { review: review.table, first: first.table, measured, measuredN: kept.length }
 }
 
 // 実測が1件も無いときに使う既定値（ステータス係数込み）。
@@ -132,11 +190,14 @@ export function estimateSeconds(
 ): number {
   const own = stats.measured[q.id]
   if (own !== undefined) return own
-  const byMode = stats.byModeBand[q.difficulty]?.[q.studyMode ?? 'unset']
+  const status = review?.status ?? '未着手'
+  // 未着手はこれから初見で解く＝初回プール。着手済みは復習プール（本ファイル冒頭）。
+  const table = status === '未着手' ? stats.first : stats.review
+  const byMode = table.byModeBand[q.difficulty]?.[q.studyMode ?? 'unset']
   if (byMode != null) return byMode
-  const byBand = stats.byBand[q.difficulty]
+  const byBand = table.byBand[q.difficulty]
   if (byBand != null) return byBand
-  return defaultSeconds(q, review?.status ?? '未着手')
+  return defaultSeconds(q, status)
 }
 
 // 1問の推定所要分（小数のまま返す。丸めは表示側で行う）。
