@@ -765,6 +765,9 @@ export default function App() {
       stats: timeStats,
       today: todayStr,
       examDate: currentPlan?.exam_date ?? null,
+      // 今日の新規着手枠。planToday はこれを「予算を超えても切らない」分として扱う
+      // （①の期限超過ぶんで予算を使い切った日に、新規着手が0問へ落ちるのを防ぐ）。
+      newIds: todayNew.ids,
     }),
     [allQuestions, reviews, todayNew, policy, timeBudget, timeStats, todayStr, currentPlan]
   )
