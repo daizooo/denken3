@@ -59,6 +59,18 @@ const MIN_LOG_LOSS_GAIN = 0.01
 // 返すが、その手前で理由を明示して返したほうが画面に出す言葉が正確になる。
 const MIN_ITEMS = 100
 
+// 保存に失敗したときの文言。
+// テーブルが無い場合は PostgREST が "Could not find the table ... in the schema cache" を
+// 返すが、これだけでは画面を見た人に何をすればよいか伝わらない。原因が「未適用の
+// マイグレーション」であることは分かっているので、そこまで書く。
+function saveErrorMessage(detail: string): string {
+  if (detail.includes('denken_fsrs_params')) {
+    return 'パラメータの保存先テーブルがありません。'
+      + 'supabase/migrations/018_fsrs_params.sql を適用してください'
+  }
+  return `パラメータの保存に失敗しました: ${detail}`
+}
+
 function toItems(binding: Binding, items: TrainReview[][]) {
   return items.map(seq =>
     new binding.FSRSBindingItem(
@@ -146,7 +158,7 @@ export async function POST(req: Request): Promise<Response> {
       // 採用しなかった理由をそのまま残す。調べただけのときは 'dry_run'。
       adopted: false, reason: reason ?? (apply ? null : 'dry_run'),
     })
-    if (insertError) throw new HttpError(500, `パラメータの保存に失敗しました: ${insertError.message}`)
+    if (insertError) throw new HttpError(500, saveErrorMessage(insertError.message))
 
     if (!adopted) {
       return json({
