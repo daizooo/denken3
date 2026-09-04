@@ -65,25 +65,9 @@ export interface ExamDefinition {
 // 進捗・FSRS 状態
 // ==============================
 
-// 記録直前のFSRS状態のスナップショット。
-// 履歴エントリを取り消したとき、スケジューラで再計算するのではなく
-// この値へ正確に巻き戻すために使う（アルゴリズム変更の影響を受けない）。
-export interface ReviewSnapshot {
-  status: Status
-  stability: number
-  difficulty_fsrs: number
-  repetitions: number
-  lapses: number
-  due_date: string | null
-  last_reviewed: string | null
-  fsrs_state: number
-}
-
 export interface ReviewHistoryEntry {
   date: string
   status: Status
-  // 記録時に付与。取消時にこの状態へ戻す。旧データには無いのでオプショナル。
-  prev?: ReviewSnapshot
   // 解答時間（秒）。「問題を見る」→A/B/C の計測（§7.6）。
   // 未計測（計測前データ・画像未登録・30分超などの外れ値）は付かない＝オプショナル。
   duration_seconds?: number

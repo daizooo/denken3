@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, ReviewSnapshot, Status, StudyMode, Subject } from './domain/types'
+import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, StudyMode, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
@@ -369,18 +369,6 @@ export default function App() {
     await saveReview({ ...current, ...derived })
   }, [saveReview, plans, examId, subject])
 
-  // 現在のFSRS状態を「記録直前のスナップショット」として切り出す。
-  const snapshotOf = (r: Review): ReviewSnapshot => ({
-    status: r.status,
-    stability: r.stability,
-    difficulty_fsrs: r.difficulty_fsrs,
-    repetitions: r.repetitions,
-    lapses: r.lapses,
-    due_date: r.due_date,
-    last_reviewed: r.last_reviewed,
-    fsrs_state: r.fsrs_state,
-  })
-
   // ---- 実施日 + 理解度を記録（履歴に蓄積）----
   // attempt: 解答前コミットの観測値（Phase 1）。ProblemViewer から渡される。
   const updateStatus = useCallback(async (
@@ -392,7 +380,7 @@ export default function App() {
     // 解答時間（分野別・§7.6）: 「問題を解く」で開始した計測があれば秒数を付与する。
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
     // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
-    const entry: ReviewHistoryEntry = { date, status, prev: snapshotOf(current) }
+    const entry: ReviewHistoryEntry = { date, status }
     // その記録に適用した目標保持率を書き残す（Phase C-1・設計書 §3.4）。
     // これがあるので、ポリシーが明日変わっても deriveFromHistory の再生結果は変わらない。
     // 書き残さずに層3を効かせると、過去の予定日が毎日書き換わる（§6 の禁止事項）。
@@ -417,40 +405,26 @@ export default function App() {
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
   // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
-  // 末尾（最後に記録した分）で記録直前スナップショットを持つ場合は、
-  // スケジューラで再計算せずその状態へ正確に巻き戻す。
-  // これによりアルゴリズム変更（旧簡易版→ts-fsrs 等）があっても
-  // 「記録前の予定日・理解度」に確実に戻る。
+  // 残った履歴を再生し直すだけ（deriveFromHistory）。削除位置による分岐は無い。
+  //
+  // 【なぜスナップショット（旧 ReviewHistoryEntry.prev）をやめたか】
+  // かつては末尾の取消だけ「記録直前スナップショット」へ巻き戻していた。アルゴリズムが
+  // 変わっても記録前の予定日に確実に戻す、という意図だったが、Phase C で記録時の保持率を
+  // 履歴へ書き残す仕組み（entry.policy.retention）が入り、再生そのものが決定的になった
+  // ため、役割が重複していた。
+  //
+  // 重複は無害ではなかった。本番データで両者を突き合わせると、stability・理解度は完全に
+  // 一致する一方、**予定日だけが系統的にズレていた**（例 ac1_11: 再生 8/03 / スナップ 7/30)。
+  // スナップショットは目標保持率 0.9 時代に書かれた値で、その後 0.85 へ変えたときに
+  // 追随していない。つまり同じカードの「記録前の状態」が2通りDBに存在し、
+  // **末尾を消すか途中を消すかで違う答えが返る**状態だった。
+  // 消すべきは古いほうで、残すべきは全経路が通る再生のほうである。
   const deleteEntry = useCallback(async (questionId: string, index: number) => {
     if (!user) return
     const current = reviews[questionId]
     if (!current) return
-    const history = current.review_history
-    const entry = history[index]
-    const remaining = history.filter((_, i) => i !== index)
-    const isLast = index === history.length - 1
-
-    if (isLast && entry?.prev) {
-      const p = entry.prev
-      await saveReview({
-        ...current,
-        status: p.status,
-        stability: p.stability,
-        difficulty_fsrs: p.difficulty_fsrs,
-        repetitions: p.repetitions,
-        lapses: p.lapses,
-        due_date: p.due_date,
-        last_reviewed: p.last_reviewed,
-        fsrs_state: p.fsrs_state,
-        review_history: remaining,
-        first_reviewed: remaining.length ? remaining[0].date : null,
-      })
-      return
-    }
-
-    // 旧データ（スナップショット無し）や途中エントリの削除は従来どおり再計算。
-    await persistReview(current, remaining)
-  }, [user, reviews, persistReview, saveReview])
+    await persistReview(current, current.review_history.filter((_, i) => i !== index))
+  }, [user, reviews, persistReview])
 
   // ---- メモを保存 ----
   // 保存経路は saveReview に一本化する（オフライン時の送信待ちもそのまま効く・課題7d）。
