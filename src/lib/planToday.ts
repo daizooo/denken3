@@ -42,6 +42,11 @@ export interface TodayPlanItem {
   forward: boolean
   /** 🔴優先（忘却が目標保持率を大きく下回っている）か。コアの分は必ず線の上に来る。 */
   urgent: boolean
+  /**
+   * 今日の新規着手枠（`forwardSlotsToday` が割り当てた未着手）か。
+   * 期限超過の維持コアで予算が埋まっても、この分は線の上に残す（下の②）。
+   */
+  fresh: boolean
   minutes: number
   /**
    * この1回で動く期待正答率（Δ確率）。全問一律の係数（100 ÷ 出題比率の分母）を掛ければ点になる。
@@ -66,6 +71,8 @@ export interface TodayPlan {
   maintainCount: number
   /** 今日の分に含まれる🔴優先の数（コアの分は必ず含まれる）。 */
   urgentCount: number
+  /** 今日の分に含まれる新規着手の数（forwardCount の内数）。 */
+  newCount: number
 
   /** 線より下（順番待ち）。消えず、翌日以降に必ず戻る。 */
   waitingCount: number
@@ -128,8 +135,9 @@ export function forwardSlotsToday(policy: Policy, startedToday: number): number 
  * 今日のキューを「点数影響 ÷ 所要時間」の降順に並べ、今日のラインを引く（設計書 §3.5）。
  *
  *   ① コアの🔴優先は、予算を超えても必ず線の上に置く（切らない）
- *   ② 残った予算を コアの残り → バッファ の順で埋める
+ *   ② 今日の新規着手枠も、予算を超えても線の上に置く（①で予算を使い切っても捨てない）
  *   ③ 予算が未設定・ゼロでも dailyFloor（1〜3問）は必ず出す
+ *   ④ 残った予算を コアの残り → バッファ の順で埋める
  *
  * 予算未選択のときの目安は「コア完遂に必要な 分/日」（policy.feasibility）。締切からの
  * 逆算（現行の catchUpDays）ではなく、完走ペースそのものを今日の目安に使う。
@@ -142,8 +150,14 @@ export function planToday(params: {
   stats: TimeStats
   today: string
   examDate: string | null
+  /**
+   * 今日の新規着手枠に割り当てられた問題ID（`forwardSlotsToday` の結果）。
+   * どれが新規枠かは呼び出し側しか知らないので受け取る（status から推測しない ――
+   * 未着手のまま due_date が付いている問題は復習キュー側の扱いで、新規枠ではない）。
+   */
+  newIds: Set<string>
 }): TodayPlan {
-  const { candidates, policy, budgetMinutes, stats, today, examDate } = params
+  const { candidates, policy, budgetMinutes, stats, today, examDate, newIds } = params
 
   // ---- 1. 各問題の点数影響・所要時間・密度 ----
   const scored = candidates.map(c => {
@@ -157,6 +171,7 @@ export function planToday(params: {
         core: policy.coreIds.has(c.question.id),
         forward: !isMastered(status),
         urgent: v.band === 'high',
+        fresh: newIds.has(c.question.id),
         minutes,
         impact,
         // 0分割りを避けるのは planByBudget / valueDensity と同じ 0.25分の下限。
@@ -180,7 +195,7 @@ export function planToday(params: {
     return {
       items: [], rank: new Map(),
       recommendedCount: 0, recommendedMinutes: 0, forwardCount: 0, maintainCount: 0,
-      urgentCount: 0, waitingCount: 0, waitingMinutes: 0,
+      urgentCount: 0, newCount: 0, waitingCount: 0, waitingMinutes: 0,
       totalCount: 0, totalMinutes: 0,
       targetMinutes: budgetMinutes ?? policy.feasibility.requiredMinutesPerDay,
       budgetMinutes, overBudget: false,
@@ -202,7 +217,36 @@ export function planToday(params: {
   //    予算の都合で落とすと、そのぶんは戻ってこない損失になる。
   for (const i of ordered) if (i.core && i.urgent) take(i)
 
-  // ② 最低ラインも無条件（停止中でも切らない・設計書 §3.5 ③）。先頭＝密度が最も高い
+  // ② 新規着手枠も無条件（review-display-analysis-warnings）。
+  //
+  //    【これが直している不具合】①だけで予算を使い切ると、後段の③に一度も到達せず
+  //    **新規着手枠が1問も線の上に残らない**。実データではこれが常態だった:
+  //    期限超過の維持コア（A）は実測が付いていて速く（31秒〜2分）、密度が
+  //    未着手（既定値5.5〜9分）の20倍以上になるため、①で16問・94分を占め、
+  //    目安69分/日を超えた時点で③のループが全て `continue` する。
+  //    `forwardSlotsToday` が「残り ÷ 残り日数」から今日の枠を計算しても、
+  //    その結果は候補に載るだけで捨てられていた ―― 枠の計算が効いていない状態。
+  //
+  //    放置すると、期限超過のB問題を回している間は前進ペースの数字だけ動き、
+  //    **未着手208問の範囲がいつまでも広がらない**。停止が続くほど①の量が増えるので、
+  //    「勉強できない日が続くほど新規着手が0に張り付く」という、`forwardSlotsToday` が
+  //    まさに消そうとした挙動（設計書 §3.1）を別の経路で再現してしまう。
+  //
+  //    枠の大きさは①②③を通じた既定の規約に合わせ、予算の有無で変える。
+  //    - 予算が未設定・ゼロ … 今日の枠すべて（`forwardSlotsToday` の結果＝1〜3問）
+  //    - 予算を明示して選んだ … 1問。5分と申告した人に3問ぶんの新規着手を積むのは、
+  //      最低ライン（下の③）で避けているのと同じ崖になるため。
+  //    どちらも「0にしない」ための下限であって、上限キャップではない。
+  const newFloor = budgetMinutes === null || budgetMinutes <= 0 ? Infinity : 1
+  let freshTaken = 0
+  for (const i of ordered) {
+    if (!i.fresh) continue
+    if (freshTaken >= newFloor) break
+    take(i)
+    freshTaken++
+  }
+
+  // ③ 最低ラインも無条件（停止中でも切らない・設計書 §3.5 ③）。先頭＝密度が最も高い
   //    問題から順に取る。予算5分に対して先頭が9分でも「今日は何もできない」とは出さず、
   //    かつ予算に収まる安い問題で埋め合わせもしない（estimateMinutes.planByBudget と同じ
   //    「先頭の1問は必ず含める」規約。その時間で最も点数に効くのは先頭の1問であって、
@@ -224,7 +268,7 @@ export function planToday(params: {
     take(i)
   }
 
-  // ③ 残りの予算を コア → バッファ の順で埋める。どちらも密度の降順。
+  // ④ 残りの予算を コア → バッファ の順で埋める。どちらも密度の降順。
   //    入らない問題は飛ばして次を見る（後ろの短い問題で隙間を埋める）。
   for (const i of ordered) {
     if (!i.core || selected.has(i.id)) continue
@@ -256,6 +300,7 @@ export function planToday(params: {
     forwardCount: todayItems.filter(i => i.forward).length,
     maintainCount: todayItems.filter(i => !i.forward).length,
     urgentCount: todayItems.filter(i => i.urgent).length,
+    newCount: todayItems.filter(i => i.fresh).length,
     waitingCount: items.length - todayItems.length,
     waitingMinutes: totalMinutes - recommendedMinutes,
     totalCount: items.length,

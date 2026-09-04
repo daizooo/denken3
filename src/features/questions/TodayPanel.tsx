@@ -120,6 +120,11 @@ export default function TodayPanel({
           <span className="text-gray-400">内訳</span>
           <span className="text-gray-500">
             前進 <span className="font-bold text-gray-700 tabular-nums">{plan.forwardCount}</span>問
+            {/* 新規着手は前進の内数。①の期限超過ぶんで予算を使い切っても切らない枠なので、
+                それが今日いくつ出ているかを画面に出す（出ていない値は動かさない・Phase A）。 */}
+            {plan.newCount > 0 && (
+              <span className="text-gray-400">（新規 <span className="font-bold tabular-nums">{plan.newCount}</span>）</span>
+            )}
             <span className="mx-1 text-gray-200">·</span>
             維持 <span className="font-bold text-gray-700 tabular-nums">{plan.maintainCount}</span>問
           </span>
