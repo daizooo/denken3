@@ -443,7 +443,7 @@ WHERE r.user_id = p.user_id AND r.exam_id = p.exam_id
 | B-1 | `planToday()`: 点数影響÷所要時間の順＋予算＋`dailyFloor`。**総量は減らさず順序を変えるだけ**。積み残しは「順番待ち」として翌日以降へ必ず戻す | **新規** `src/lib/planToday.ts`（`planDailyReviews` は残す） |
 | B-2 | 時間予算を DB へ永続化（`denken_settings` の死んだ `daily_cap` を使わず新カラムを追加） | `App.tsx`、migration `016_settings_time_budget.sql` |
 | B-3 | `TodayPanel` に「前進 n問 / 維持 n問 / 順番待ち m問」の内訳 | `TodayPanel.tsx` |
-| B-4 | `Feasibility` バナー（`shortfall` のときだけ表示） | `DashboardView.tsx` |
+| B-4 | `Feasibility` バナー（`shortfall` のときだけ表示）<br>※ Phase B 後に、ペースカードの「遅延が続いています」ブロックと**1枚へ統合**（`shortfall` または遅延の持続で表示・下の 5. を参照） | `DashboardView.tsx`<br>→ `lib/planAlert.ts` ＋ `features/dashboard/PlanAlert.tsx` |
 
 #### 実装時の判断（設計との差分）
 
@@ -461,6 +461,21 @@ WHERE r.user_id = p.user_id AND r.exam_id = p.exam_id
    停止中に推奨ノルマ自体が下がり、同時に `behind` を出し続ける。下限（×0.8）は残した
    ―― 先行している人を必要ペースまで落とすのは、同じ「下げる」を逆向きにやることになる。
    今日の前進枠も `recommendedNorm` ではなくポリシー（残り ÷ 残り日数）から決める。
+
+5. **警告を1枚へ統合し、選択肢を3つに揃えた（B-4 の後日改訂）。** 実装当初は
+   実現可能性バナー（赤・`shortfall`）とペースカードの軌道修正ブロック（黄・遅延の持続）が
+   同時に立ち、選択肢が合計6項目に膨らんでいた。原因はどちらも1つ（供給 < 必要）で
+   選択肢も重複しており、**常時2枚出る警告は読み飛ばされる**。文面の組み立てを
+   `lib/planAlert.ts`（純関数）に寄せ、表示条件は旧2枚の OR とした。
+   選択肢は §3.6 の `Feasibility.options` と同じ3キーに揃えている。
+   - **科目合格制は `increase_time` の中に置いた。** §3.2 の表は ②期日を延ばす に
+     置いているが、実現可能性は科目ごとの `denken_exam_plans` とその科目の収録問題だけで
+     必要量を積むため、他科目を次回へ回しても**必要 分/日 は減らない**。効くのは供給側
+     （他科目の時間がこの科目へ回る）なので、①の一手段として提示するのが実態に合う。
+     「判断材料は出すが自動では動かさない」は変えていない。
+   - **「範囲を絞る（目標を合格ライン到達へ切り替える）」は選択肢から外した。**
+     `passTarget.isEstimateValidated`（CBT実測2回）が通るまで無効なモードで、
+     利用者がいま押せる手ではないため。何が必要かは注記1行で示す。
 
 #### 実測（実データ相当・106問due＋前進枠3問）
 

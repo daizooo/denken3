@@ -10,21 +10,25 @@
 //   常時2枚出る警告は読み飛ばされ、本当に効かせたい日に効かなくなる。
 //
 //   さらに、旧文言の「科目合格制を使い、今回は理論だけに絞って残りを次回受験へ回す」は
-//   **この画面の計算と噛み合っていない**。実現可能性（policy.ts）は科目ごとの
-//   denken_exam_plans と、その科目の収録問題だけで必要量・供給量を積んでおり、
-//   他科目を次回へ回しても、ここに出ている必要 分/日 は1分も減らない。
-//   （減らせるように見せるのは「黙って目標を下げる」のと同じ誤読を招く。）
-//   同様に「目標を『合格ライン到達』に切り替える」も、そのモードは CBT実測2回で
-//   想定得点が較正されるまで無効（passTarget.isEstimateValidated）なので、
-//   利用者がいま選べる手ではない。選べない手を選択肢として並べない。
+//   **選択肢の置き場所が間違っていた**。設計書 §3.2 の表は科目合格制を ②期日を延ばす に
+//   置いているが、この画面のモデルに現れる効果はそこではない。実現可能性（policy.ts）は
+//   科目ごとの denken_exam_plans と、その科目の収録問題だけで必要量を積んでいるので、
+//   他科目を次回へ回しても**必要 分/日 は1分も減らない**。効くのは供給側 ――
+//   他科目に使っていた時間がこの科目へ回るぶん、実績 分/日 が上がる。
+//   つまり科目合格制は ①学習に使う時間を増やす の一手段であって、独立した3つ目の手ではない。
+//   （設計書 §3.2 ② の「判断材料は出すが自動では動かさない」はそのまま守る。）
 //
-// 残すのは、この画面のデータで実際に動かせる3つだけ:
-//   ① 学習に使う時間を増やす
-//   ② 完走目標日（分野別 全問A以上 目標日）を後ろ倒す ― 設定タブで変更できる
-//   ③ 不足を承知でこのまま進む ― 目標もノルマも自動では下げない
+//   同様に「目標を『合格ライン到達』に切り替える」も、そのモードは CBT実測2回で想定得点が
+//   較正されるまで無効（passTarget.isEstimateValidated）なので、利用者がいま押せる手ではない。
+//   選べない手を選択肢として並べない。
+//
+// 残るのは、この画面のデータで実際に動かせる3つ（設計書 §3.6 の options と同じ3つ）:
+//   ① increase_time … 学習に使う時間を増やす（科目合格制での集中を含む）
+//   ② defer_exam   … 完走目標日（分野別 全問A以上 目標日）を後ろ倒す。試験日は動かせない
+//   ③ accept_risk  … 不足を承知でこのまま進む。目標もノルマも自動では下げない
 // ==========================================================================
 
-import type { Feasibility } from './policy'
+import type { Feasibility, FeasibilityOption } from './policy'
 import type { PaceResult } from './pace'
 import { MIN_NENDO_DAYS } from './pace'
 import { formatMinutes } from './estimateMinutes'
@@ -33,7 +37,8 @@ import { addDaysStr, formatMD } from './date'
 export type PlanAlertLevel = 'shortfall' | 'behind'
 
 export interface PlanAlertChoice {
-  key: 'increase_time' | 'postpone' | 'accept_risk'
+  /** 設計書 §3.6 の Feasibility.options と同じキー。文言だけをここで持つ。 */
+  key: FeasibilityOption
   title: string
   detail: string
 }
@@ -91,15 +96,16 @@ export function buildPlanAlert(params: {
     {
       key: 'increase_time',
       title: '学習に使う時間を増やす',
-      detail: shortfall
+      detail: (shortfall
         ? `あと ${formatMinutes(shortageMinutes)}/日 で計画どおりになります。`
-        : `目標には ${pace.requiredPace.toFixed(1)}問/日 が必要です（現在 ${pace.currentPace.toFixed(1)}問/日）。`,
+        : `目標には ${pace.requiredPace.toFixed(1)}問/日 が必要です（現在 ${pace.currentPace.toFixed(1)}問/日）。`)
+        + '科目合格制を使って今回はこの科目に集中するのも、この時間を作る手の一つです。',
     },
   ]
   if (pace.bunyaTargetDate) {
     const limitDate = pace.examDate ? addDaysStr(pace.examDate, -MIN_NENDO_DAYS) : null
     choices.push({
-      key: 'postpone',
+      key: 'defer_exam',
       title: '完走目標日を後ろ倒す（設定タブ）',
       detail: limitDate
         ? `年度別演習に最低${MIN_NENDO_DAYS}日を残す限界は ${formatMD(limitDate)}。試験日は動かせません。`
