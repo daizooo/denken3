@@ -31,7 +31,7 @@ const REPLAN_LATE_DAYS = 14
 // 分野別完走の既定目標＝試験日の何日前か（plan.bunya_target_date 未設定時）。
 const DEFAULT_BUNYA_LEAD_DAYS = 90
 // 年度別演習に最低限確保したい日数（後ろ倒しの限界日算出に使う）。
-const MIN_NENDO_DAYS = 30
+export const MIN_NENDO_DAYS = 30
 // 1問を A 以上へ引き上げるまでに要する演習回数の既定値（実績が無いときのフォールバック）と上限。
 // 復習負荷予測で「修得ノルマ → 発生する演習回数」を見積もるのに使う。
 const DEFAULT_ATTEMPTS_PER_MASTERY = 2
@@ -58,12 +58,6 @@ export interface WeeklyLoad {
   projectedNew: number // 推奨ノルマ（A以上への引き上げ）に伴って発生する演習の推定
 }
 
-export interface ReplanOption {
-  key: 'postpone' | 'narrow' | 'capacity'
-  title: string
-  detail: string
-}
-
 export interface PaceResult {
   hasPlan: boolean
   examDate: string | null
@@ -85,7 +79,6 @@ export interface PaceResult {
   verdictDays: number      // 先行/遅延の日数（onTrack/done/stalled は 0）
 
   needsReplan: boolean     // 遅延が持続し計画見直しが要るか
-  replanOptions: ReplanOption[]
 
   milestones: Milestone[]
   weeklyLoad: WeeklyLoad[]
@@ -283,35 +276,9 @@ export function analyzePace(
     verdict === 'behind' &&
     verdictDays >= REPLAN_LATE_DAYS
 
-  const replanOptions: ReplanOption[] = []
-  if (needsReplan) {
-    // a) 目標日の後ろ倒し（試験日から逆算した限界日を併記）
-    const limitDate = examDate ? addDaysStr(examDate, -MIN_NENDO_DAYS) : null
-    replanOptions.push({
-      key: 'postpone',
-      title: '目標日を後ろ倒しする',
-      detail: projectedFinishDate
-        ? `現ペースなら ${formatMD(projectedFinishDate)} に${goalMode === 'pass' ? '合格ライン到達' : '全問A以上'}の見込み。` +
-          (limitDate ? `年度別に最低${MIN_NENDO_DAYS}日を残す限界は ${formatMD(limitDate)}。` : '')
-        : '現ペースでは目標に届く時期を見通せません。',
-    })
-    // b) 範囲の絞り込み。pass モードは既に「合格に必要な最小集合」まで絞り込んだ状態なので、
-    //    さらに絞る提案は出さない（課題2）。
-    if (goalMode !== 'pass') {
-      replanOptions.push({
-        key: 'narrow',
-        title: '範囲を絞る（合格ラインに必要な問題を優先）',
-        detail: '目標を「合格ライン到達」に切り替え、得点への寄与が大きい問題から先にA以上へ仕上げる。',
-      })
-    }
-    // c) daily_cap・生活時間の見直し
-    replanOptions.push({
-      key: 'capacity',
-      title: '1日の学習時間・復習上限を見直す',
-      detail: `目標達成には約 ${requiredPace.toFixed(1)} 問/日 をA以上にする必要があります` +
-        `（現在ペース ${currentPace.toFixed(1)} 問/日）。`,
-    })
-  }
+  // 取れる手（時間を増やす／目標日を後ろ倒す／不足を承知で進む）の文面は、
+  // 実現可能性バナーと重複していたため lib/planAlert.ts に1本化した。
+  // ここは「見直しが要るか」の判定（needsReplan）だけを返す。
 
   // マイルストーン表（分野別A以上目標 → 年度別開始 → 申込期間 → 試験日）。
   const milestones: Milestone[] = []
@@ -351,7 +318,6 @@ export function analyzePace(
     verdict,
     verdictDays,
     needsReplan,
-    replanOptions,
     milestones,
     weeklyLoad,
   }

@@ -10,6 +10,7 @@ import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST
 import { deriveFromHistory, defaultReview, finalCheckDue } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
+import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { reviewValue } from './lib/reviewPlan'
@@ -829,6 +830,17 @@ export default function App() {
     [todayPlan, scoreEstimate, passTarget, doneToday]
   )
 
+  // 分析タブの警告は1枚だけ（lib/planAlert.ts）。時間不足（policy.feasibility）と
+  // 遅延の持続（pace.needsReplan）は原因も取れる手も同じなので、2枚に分けない。
+  const planAlert = useMemo(
+    () => buildPlanAlert({
+      feasibility: policy.feasibility,
+      pace: paceResult,
+      estimateValidated: goalValidated,
+    }),
+    [policy, paceResult, goalValidated]
+  )
+
   // 復習タブで、記録により選択中の日付の問題がすべて片付いたら、
   // 次に問題が残っている日付タブへ自動で移動する（＝終わった感覚を出す）。
   // 記録した直後（reviewedNowIds が空でない）だけ発火させ、
@@ -1065,7 +1077,7 @@ export default function App() {
             quadrant={quadrant}
             scoreEstimate={scoreEstimate}
             passTarget={passTarget}
-            feasibility={policy.feasibility}
+            planAlert={planAlert}
           />
         ) : activeTab === 'mock' ? (
           <MockExamView
