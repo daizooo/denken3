@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ゴールデン（本番DBの実履歴パターン） > ac1_25（C→B→B→B） 1`] = `
+{
+  "difficulty_fsrs": 6.3798,
+  "due_date": "2026-10-26",
+  "lapses": 0,
+  "repetitions": 4,
+  "stability": 35.7137,
+  "status": "B",
+}
+`;
+
+exports[`ゴールデン（本番DBの実履歴パターン） > ac1_67（C→C→C→B→B→A） 1`] = `
+{
+  "difficulty_fsrs": 9.4037,
+  "due_date": "2026-08-30",
+  "lapses": 2,
+  "repetitions": 6,
+  "stability": 5.8497,
+  "status": "A",
+}
+`;
+
+exports[`ゴールデン（本番DBの実履歴パターン） > dc_10（C→C→A→A→A） 1`] = `
+{
+  "difficulty_fsrs": 7.1045,
+  "due_date": "2026-10-21",
+  "lapses": 1,
+  "repetitions": 5,
+  "stability": 37.3659,
+  "status": "A",
+}
+`;
