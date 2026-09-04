@@ -125,23 +125,69 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
   }
 }
 
+// 復習できる最後の日は試験前日。試験当日は受験するので復習日にならない。
+export const LAST_REVIEW_LEAD_DAYS = 1
+
 // 試験日クリップ（§7.3）。
-// FSRS が出した次回復習日(due)を、試験日を越えない範囲に丸める。
-// - interval = min(interval, 試験日までの残日数)：試験後に復習予定が漏れるのを防ぐ
+// FSRS が出した次回復習日(due)を、試験前日を越えない範囲に丸める。
+// - interval = min(interval, 試験前日までの残日数)
 // - 直前期テーパー：残28日以内→間隔上限14日 / 残14日以内→間隔上限7日
 //   （直前に間隔が開きすぎて忘れるのを防ぐ）
 // examDate 未指定・試験日を過ぎている場合は素通し（現行挙動を維持）。
+//
+// 【2026-09-04 修正】上限を「残日数」から「残日数 − 1」へ変えた。
+// 従来は maxInterval = daysToExam だったため、間隔が残日数以上のカードが
+// **ちょうど試験日**に着地していた。試験当日は受験するので復習は消化できず、
+// 予定として成立していない。
 function clipDueToExam(due: string, eventDate: string, examDate?: string | null): string {
   if (!examDate) return due
   const daysToExam = diffDays(eventDate, examDate)
   if (daysToExam <= 0) return due // 試験日当日/経過後はクリップしない
   const interval = diffDays(eventDate, due)
   if (interval <= 0) return due
-  let maxInterval = daysToExam
+  let maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
   if (daysToExam <= 14) maxInterval = Math.min(maxInterval, 7)
   else if (daysToExam <= 28) maxInterval = Math.min(maxInterval, 14)
+  if (maxInterval <= 0) return due // 試験前日以降は丸めない（次の復習は無い）
   const clipped = Math.min(interval, maxInterval)
   return clipped >= interval ? due : addDaysStr(eventDate, clipped)
+}
+
+/**
+ * FSRS が出した次回復習日に、試験日という地平を適用する。
+ *
+ * 【なぜクリップだけでは足りないか（2026-09-04 の実測）】
+ * 学習済みパラメータの採用で間隔が伸びた結果、232カード中 **58件（25%）の予定日が
+ * ちょうど試験日（2027-02-06）に張り付いた**。原因は2つある。
+ *
+ *   ① 試験当日は復習日にならない。受験する日に「復習予定58問」が積まれても消化できない。
+ *   ② 試験日は 分野別 の地平ではない。この枠組みは 分野別 の主軸期間を
+ *      `bunya_target_date`（既定: 試験日−90日）までとし、その後は `nendo_start_date` から
+ *      **年度別演習が主軸**になると定めている。実データでは 11/29 / 11/30。
+ *      試験日に置かれた予定は、年度別が主軸の時期に 分野別 の山を作るだけになる。
+ *
+ * **FSRS の間隔が試験日まで届いた、というのはモデルが「試験まで持つ」と言っていること
+ * であり、S（復習不要）とまったく同じ状態である。** ならば扱いも S と同じにする ――
+ * 通常の復習キューからは外し、試験前の最終確認（`finalCheckDue`）だけを残す。
+ * 新しい概念は増やさない。既にある「復習不要なカードの置き場」を使う。
+ *
+ * 最終確認日を過ぎている（＝直前期に入ってから間隔が飽和した）場合だけは、テーパーの
+ * 意図どおり試験前日までにもう1回入れる。ここで外してしまうと、直前期に「間隔が開いた
+ * から復習しない」が起き、テーパーが防ごうとしたものをそのまま招く。
+ */
+function applyExamHorizon(
+  rawDue: string,
+  eventDate: string,
+  examDate?: string | null,
+): string | null {
+  if (!examDate) return rawDue
+  const daysToExam = diffDays(eventDate, examDate)
+  if (daysToExam <= 0) return rawDue // 試験日当日/経過後は素通し（従来どおり）
+  // 試験前日に記録した時点で、復習できる日はもう残っていない。
+  // ここを丸めないと、次回復習日が試験当日に着地する。
+  if (daysToExam <= LAST_REVIEW_LEAD_DAYS) return null
+  if (rawDue < examDate) return clipDueToExam(rawDue, eventDate, examDate)
+  return finalCheckDue(eventDate, examDate) ?? clipDueToExam(rawDue, eventDate, examDate)
 }
 
 // eventDate = 実施日（過去日でもよい）。未指定なら今日。
@@ -181,7 +227,7 @@ export function calcFSRS(
     difficulty_fsrs: newCard.difficulty,
     repetitions: newCard.reps,
     lapses: newCard.lapses,
-    due_date: clipDueToExam(rawDue, eDate, examDate),
+    due_date: applyExamHorizon(rawDue, eDate, examDate),
     last_reviewed: eDate,
     fsrs_state: newCard.state,
   }
