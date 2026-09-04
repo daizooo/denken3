@@ -132,6 +132,64 @@ export function forwardSlotsToday(policy: Policy, startedToday: number): number 
 }
 
 /**
+ * 復習キューを「点数影響 ÷ 所要時間」＝単位時間あたりの期待得点の伸び の降順に並べる。
+ *
+ * **アプリ内で復習キューを並べる順序の定義はこれ1つだけ。** 今日のライン（planToday）も、
+ * 今日以外の日付の一覧（App.tsx）も、必ずここを通す。
+ *
+ * かつては並び順が3経路に分かれていた ―― 今日は本ファイルの密度順、今日以外は
+ * `reviewValue.score`（予算未選択）か `valueDensity`（予算選択時）。同じ画面の日付を
+ * 切り替えるだけで優先度の定義が変わっており、「いま何が効いているのか分からない」
+ * という利用者の一次不満を、アプリ自身が作り出していた。
+ *
+ * 同点は出題頻度 → 難易度で割る。
+ */
+export function orderByDensity(params: {
+  candidates: TodayCandidate[]
+  policy: Policy
+  stats: TimeStats
+  today: string
+  examDate: string | null
+  /** 今日の新規着手枠。今日以外の日付を並べるときは空集合でよい。 */
+  newIds?: Set<string>
+}): TodayPlanItem[] {
+  const { candidates, policy, stats, today, examDate, newIds } = params
+  const scored = candidates.map(c => {
+    const status = c.review?.status ?? '未着手'
+    // 帯（🔴優先）の判定は、その問題に適用されている目標保持率を基準にする（Phase C・層3）。
+    // コアは 0.90 でスケジュールされるので、しきい値もそれに追従させないと帯が鈍る。
+    const v = reviewValue(
+      c.question, c.review, today, examDate,
+      policy.retentionOf(c.question.id, c.question.studyMode ?? 'unset'),
+    )
+    const minutes = estimateMinutes(c.question, c.review, stats)
+    const impact = impactOf(status, v.r, policy.attemptsPerMastery)
+    return {
+      item: {
+        id: c.question.id,
+        core: policy.coreIds.has(c.question.id),
+        forward: !isMastered(status),
+        urgent: v.band === 'high',
+        fresh: newIds?.has(c.question.id) ?? false,
+        minutes,
+        impact,
+        // 0分で割らないための下限。見積もりが 15秒未満の問題は 15秒として扱う。
+        density: impact / Math.max(minutes, 0.25),
+      } as TodayPlanItem,
+      frequency: v.frequency,
+      difficulty: c.question.difficulty,
+    }
+  })
+
+  scored.sort((a, b) => {
+    if (a.item.density !== b.item.density) return b.item.density - a.item.density
+    if (a.frequency !== b.frequency) return b.frequency - a.frequency
+    return b.difficulty - a.difficulty
+  })
+  return scored.map(s => s.item)
+}
+
+/**
  * 今日のキューを「点数影響 ÷ 所要時間」の降順に並べ、今日のラインを引く（設計書 §3.5）。
  *
  *   ① コアの🔴優先は、予算を超えても必ず線の上に置く（切らない）
@@ -159,41 +217,8 @@ export function planToday(params: {
 }): TodayPlan {
   const { candidates, policy, budgetMinutes, stats, today, examDate, newIds } = params
 
-  // ---- 1. 各問題の点数影響・所要時間・密度 ----
-  const scored = candidates.map(c => {
-    const status = c.review?.status ?? '未着手'
-    // 帯（🔴優先）の判定は、その問題に適用されている目標保持率を基準にする（Phase C・層3）。
-    // コアは 0.90 でスケジュールされるので、しきい値もそれに追従させないと帯が鈍る。
-    const v = reviewValue(
-      c.question, c.review, today, examDate,
-      policy.retentionOf(c.question.id, c.question.studyMode ?? 'unset'),
-    )
-    const minutes = estimateMinutes(c.question, c.review, stats)
-    const impact = impactOf(status, v.r, policy.attemptsPerMastery)
-    return {
-      item: {
-        id: c.question.id,
-        core: policy.coreIds.has(c.question.id),
-        forward: !isMastered(status),
-        urgent: v.band === 'high',
-        fresh: newIds.has(c.question.id),
-        minutes,
-        impact,
-        // 0分割りを避けるのは planByBudget / valueDensity と同じ 0.25分の下限。
-        density: impact / Math.max(minutes, 0.25),
-      } as TodayPlanItem,
-      frequency: v.frequency,
-      difficulty: c.question.difficulty,
-    }
-  })
-
-  // 密度の降順。同点は出題頻度 → 難易度で割る（reviewPlan の並びと揃える）。
-  scored.sort((a, b) => {
-    if (a.item.density !== b.item.density) return b.item.density - a.item.density
-    if (a.frequency !== b.frequency) return b.frequency - a.frequency
-    return b.difficulty - a.difficulty
-  })
-  const ordered = scored.map(s => s.item)
+  // ---- 1. 密度（点数影響 ÷ 所要時間）の降順に並べる ----
+  const ordered = orderByDensity({ candidates, policy, stats, today, examDate, newIds })
 
   const totalMinutes = ordered.reduce((s, i) => s + i.minutes, 0)
   if (ordered.length === 0) {
@@ -253,9 +278,8 @@ export function planToday(params: {
 
   // ③ 最低ラインも無条件（停止中でも切らない・設計書 §3.5 ③）。先頭＝密度が最も高い
   //    問題から順に取る。予算5分に対して先頭が9分でも「今日は何もできない」とは出さず、
-  //    かつ予算に収まる安い問題で埋め合わせもしない（estimateMinutes.planByBudget と同じ
-  //    「先頭の1問は必ず含める」規約。その時間で最も点数に効くのは先頭の1問であって、
-  //    たまたま予算に収まる下位の1問ではない）。
+  //    かつ予算に収まる安い問題で埋め合わせもしない（その時間で最も点数に効くのは
+  //    先頭の1問であって、たまたま予算に収まる下位の1問ではないため）。
   //
   //    最低ラインの大きさは予算の有無で変える。
   //    - 予算が未設定・ゼロ … dailyFloor（1〜3問）。「今日は0問」を出さないための下限で、

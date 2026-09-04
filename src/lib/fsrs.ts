@@ -78,7 +78,7 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
 // - 直前期テーパー：残28日以内→間隔上限14日 / 残14日以内→間隔上限7日
 //   （直前に間隔が開きすぎて忘れるのを防ぐ）
 // examDate 未指定・試験日を過ぎている場合は素通し（現行挙動を維持）。
-export function clipDueToExam(due: string, eventDate: string, examDate?: string | null): string {
+function clipDueToExam(due: string, eventDate: string, examDate?: string | null): string {
   if (!examDate) return due
   const daysToExam = diffDays(eventDate, examDate)
   if (daysToExam <= 0) return due // 試験日当日/経過後はクリップしない

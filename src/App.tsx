@@ -13,11 +13,10 @@ import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
-import { reviewValue } from './lib/reviewPlan'
-import { planToday, forwardSlotsToday } from './lib/planToday'
+import { planToday, forwardSlotsToday, orderByDensity } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
 import {
-  buildTimeStats, estimateMinutes, sumEstimateMinutes, planByBudget, valueDensity,
+  buildTimeStats, sumEstimateMinutes,
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
@@ -811,49 +810,44 @@ export default function App() {
 
   const filteredQuestions = useMemo(() => {
     const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
-    // 復習タブは「価値順」で並べる（reviewPlan.ts）。
-    // 価値＝〔忘却リスク 1-R〕×〔理解度〕。いま忘れかけていて、理解度の低い問題ほど先に。
-    // 同点は出題頻度→難易度で割る（課題11。重要度は83%が3の実質定数だったため外した）。
     if (activeTab !== 'review') return filtered
-    // 今日は planToday が決めた順（点数影響 ÷ 所要時間の降順・Phase B-1）をそのまま使う。
-    // 復習due と新規着手枠を1本に並べた順序なので、ここで別の基準に並べ替えない。
+    // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
+    //
+    // 今日は planToday が引いたラインごとの順（🔴優先と新規着手枠が線の上に来るぶん、
+    // 密度そのままの並びではない）。今日以外はラインの概念が無いので密度順そのもの。
+    // どちらも順序の定義は同じ関数で、日付や予算の有無で優先度の意味は変わらない。
     if (selectedDate === todayStr) {
       const rank = todayPlan.rank
       return [...filtered].sort(
         (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
       )
     }
-    // 今日以外の日付は従来どおり価値順（reviewPlan.ts）。
     // 並び順のキーは事前計算（比較の中で R を再計算しない）。
-    // 時間予算モード（課題1・提案B）が有効な間は「価値 ÷ 推定所要分」の降順にする。
-    // 時間が希少なときの最適な貪欲順は価値そのものではなく、単位時間あたりの期待得点の伸び。
-    const rankOf = new Map<string, number>()
-    const freqOf = new Map<string, number>()
-    for (const q of filtered) {
-      const v = reviewValue(q, reviews[q.id], todayStr, currentPlan?.exam_date ?? null)
-      freqOf.set(q.id, v.frequency)
-      rankOf.set(q.id, timeBudget === null
-        ? v.score
-        : valueDensity(v.score, estimateMinutes(q, reviews[q.id], timeStats)))
-    }
-    return [...filtered].sort((a, b) => {
-      const va = rankOf.get(a.id) ?? 0, vb = rankOf.get(b.id) ?? 0
-      if (va !== vb) return vb - va
-      // 新規着手枠は価値スコア0（復習対象外）。ここで並べ替えず章の学習順を保つ（課題3）。
-      if (va === 0 && vb === 0) return 0
-      // 同じ価値なら、過去に多く出題された問題を先に（2回以上は全440問中80問・§8.4）。
-      const fa = freqOf.get(a.id) ?? 0, fb = freqOf.get(b.id) ?? 0
-      if (fa !== fb) return fb - fa
-      if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty
-      return 0
-    })
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, timeBudget, timeStats, currentPlan])
+    // R の基準日は「今日」のまま（表示中の日付ではない）。未来日のキューであっても、
+    // いま忘れかけている順に見せるほうが、その日に何を優先するかの判断に一致する。
+    const rank = new Map(
+      orderByDensity({
+        candidates: filtered.map(q => ({ question: q, review: reviews[q.id] })),
+        policy,
+        stats: timeStats,
+        today: todayStr,
+        examDate: currentPlan?.exam_date ?? null,
+      }).map((i, idx) => [i.id, idx] as const)
+    )
+    return [...filtered].sort(
+      (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
+    )
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
 
-  // 時間予算の線（課題1・提案B）。表示中のキューに対して、累積の推定所要が予算に達した
-  // 位置を求める。予算未指定のときはキュー全体の推定所要だけを使う。
-  const budgetPlan = useMemo(
-    () => planByBudget(filteredQuestions, reviews, timeStats, timeBudget ?? Infinity),
-    [filteredQuestions, reviews, timeStats, timeBudget]
+  // いま一覧に出ているキュー全体の推定所要分（今日パネルの見出しに出す従属表示）。
+  //
+  // 【一本化】かつては estimateMinutes.planByBudget で「予算に収まる位置」も同時に求めて
+  // いたが、その線は使われておらず（totalMinutes 以外のフィールドは未参照）、今日のラインは
+  // planToday が引いている。予算の線を引く実装が2つ動いている状態だったため、単純合計に
+  // 置き換えて planByBudget ごと削除した。
+  const queueMinutes = useMemo(
+    () => sumEstimateMinutes(filteredQuestions, reviews, timeStats),
+    [filteredQuestions, reviews, timeStats]
   )
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
@@ -1140,7 +1134,7 @@ export default function App() {
                 isToday={isTodayView}
                 dateLabel={formatMD(selectedDate)}
                 queueCount={filteredQuestions.length}
-                queueMinutes={budgetPlan.totalMinutes}
+                queueMinutes={queueMinutes}
                 budget={timeBudget}
                 onBudgetChange={changeTimeBudget}
                 dates={reviewSchedule}

@@ -125,7 +125,7 @@ function defaultSeconds(q: MasterQuestion, status: Status): number {
 }
 
 // 1問の推定所要秒。優先順は本ファイル冒頭のとおり。
-export function estimateSeconds(
+function estimateSeconds(
   q: MasterQuestion,
   review: Review | undefined,
   stats: TimeStats,
@@ -170,43 +170,4 @@ export function formatMinutes(minutes: number): string {
   const hours = Math.floor(total / 60)
   const mins = total % 60
   return mins === 0 ? `${hours}時間` : `${hours}時間${mins}分`
-}
-
-export interface BudgetPlan {
-  count: number         // 予算に収まる問題数（1問も入らない場合でも先頭1問は入れる）
-  minutes: number       // その問題数ぶんの推定所要分
-  totalMinutes: number  // キュー全体の推定所要分
-  fitsAll: boolean      // 予算内にキュー全体が収まるか
-}
-
-// 予算（分）に対して「ここまで」の線を引く位置を求める。
-// 累積の推定所要が予算を超えた時点で打ち切る。ただし先頭の1問は必ず含める
-// （5分の予算に対して先頭が5.5分の計算問題でも「今日は何もできない」とは出さない）。
-export function planByBudget(
-  questions: MasterQuestion[],
-  reviews: Record<string, Review>,
-  stats: TimeStats,
-  budgetMinutes: number,
-): BudgetPlan {
-  let count = 0
-  let minutes = 0
-  let totalMinutes = 0
-  let filling = true
-  for (const q of questions) {
-    const m = estimateMinutes(q, reviews[q.id], stats)
-    totalMinutes += m
-    if (filling && (count === 0 || minutes + m <= budgetMinutes)) {
-      count++
-      minutes += m
-    } else {
-      filling = false
-    }
-  }
-  return { count, minutes, totalMinutes, fitsAll: count >= questions.length }
-}
-
-// 「価値 ÷ 推定所要分」＝ 単位時間あたりの期待得点の伸び（設計書 §3 課題1・提案B）。
-// 時間が希少なときの最適な貪欲順は価値そのものではなくこの密度になる。
-export function valueDensity(valueScore: number, minutes: number): number {
-  return valueScore / Math.max(minutes, 0.25)
 }
