@@ -21,14 +21,29 @@
 // 学習と評価だけ行い、結果を版として残す（adopted=false）。利用者は数字を見てから
 // 採用を押す。画面に出ていない値を勝手に効かせない、という Phase A からの一貫した方針。
 
-import {
-  FSRSBinding, FSRSBindingItem, FSRSBindingReview,
-  computeParameters, evaluateWithTimeSeriesSplits,
-} from '@open-spaced-repetition/binding'
 import { generatorParameters } from 'ts-fsrs'
-import { authenticate, json, HttpError } from './_lib/auth'
-import { buildTrainSet, type TrainReview } from './_lib/trainSet'
-import { reschedule } from './_lib/reschedule'
+import { authenticate, json, HttpError } from './_lib/auth.js'
+import { buildTrainSet, type TrainReview } from './_lib/trainSet.js'
+import { reschedule } from './_lib/reschedule.js'
+
+// オプティマイザ（fsrs-rs の NAPI ネイティブバインディング）は**遅延読み込みする**。
+//
+// トップレベルで import すると、プラットフォーム用のバイナリが同梱されなかった場合に
+// モジュールの評価そのものが失敗し、Vercel は FUNCTION_INVOCATION_FAILED しか返さない
+// ―― ログにも何も出ず、原因が分からない。ここで捕まえて理由を本文に載せる。
+type Binding = typeof import('@open-spaced-repetition/binding')
+let bindingPromise: Promise<Binding> | null = null
+
+async function loadBinding(): Promise<Binding> {
+  bindingPromise ??= import('@open-spaced-repetition/binding')
+  try {
+    return await bindingPromise
+  } catch (e) {
+    bindingPromise = null
+    const detail = e instanceof Error ? e.message : String(e)
+    throw new HttpError(500, `FSRSオプティマイザを読み込めませんでした: ${detail}`)
+  }
+}
 
 // スケジューリング側（src/lib/fsrs.ts）は enable_short_term=false で日単位に固定して
 // いるので、学習も同じ設定で行う。ここがずれると学習した w[] は意味を失う。
@@ -44,9 +59,11 @@ const MIN_LOG_LOSS_GAIN = 0.01
 // 返すが、その手前で理由を明示して返したほうが画面に出す言葉が正確になる。
 const MIN_ITEMS = 100
 
-function toItems(items: TrainReview[][]): FSRSBindingItem[] {
+function toItems(binding: Binding, items: TrainReview[][]) {
   return items.map(seq =>
-    new FSRSBindingItem(seq.map(r => new FSRSBindingReview(r.rating, r.deltaT))),
+    new binding.FSRSBindingItem(
+      seq.map(r => new binding.FSRSBindingReview(r.rating, r.deltaT)),
+    ),
   )
 }
 
@@ -78,17 +95,18 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // ---- 2. 学習と評価 ----
-    const trainSet = toItems(items)
+    const binding = await loadBinding()
+    const trainSet = toItems(binding, items)
     // 比較対象は **アプリが実際に使っている既定パラメータ**（ts-fsrs の初期値）にする。
     // fsrs-rs 側の既定に任せると、採用ゲートが本番の挙動とは別のものを基準にしてしまう。
     // 既定は学習しないので、訓練データ上の評価がそのまま当てはまりになる。
-    const before = new FSRSBinding(generatorParameters({}).w as number[]).evaluate(trainSet)
+    const before = new binding.FSRSBinding(generatorParameters({}).w as number[]).evaluate(trainSet)
     // 学習側は時系列分割（前半で学習し後半で評価）なので、過学習は数字に出る。
     let after: { logLoss: number; rmseBins: number }
     let w: number[]
     try {
-      after = await evaluateWithTimeSeriesSplits(trainSet, TRAIN_OPTIONS)
-      w = await computeParameters(trainSet, TRAIN_OPTIONS)
+      after = await binding.evaluateWithTimeSeriesSplits(trainSet, TRAIN_OPTIONS)
+      w = await binding.computeParameters(trainSet, TRAIN_OPTIONS)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       if (!message.includes('NotEnoughData')) throw e

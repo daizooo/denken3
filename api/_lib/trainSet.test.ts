@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildTrainSet, toReviewSequence } from './trainSet'
-import type { ReviewHistoryEntry, Status } from '../../src/domain/types'
+import { buildTrainSet, toReviewSequence } from './trainSet.js'
+import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 
 const h = (date: string, status: Status): ReviewHistoryEntry => ({ date, status })
 

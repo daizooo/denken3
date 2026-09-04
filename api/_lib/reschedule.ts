@@ -13,8 +13,8 @@
 // 過去に画面へ出ていた予定日はこの操作で書き換わる。それは利用者が最適化を明示的に
 // 採用したときにだけ起きる、版番号の付いた1回の変更であって、毎日勝手に動くのとは違う。
 
-import type { Review, ReviewHistoryEntry } from '../../src/domain/types'
-import { deriveFromHistory, registerParams, retentionFor } from '../../src/lib/fsrs'
+import type { Review, ReviewHistoryEntry } from '../../src/domain/types.js'
+import { deriveFromHistory, registerParams, retentionFor } from '../../src/lib/fsrs.js'
 
 export interface RescheduleRow {
   question_id: string

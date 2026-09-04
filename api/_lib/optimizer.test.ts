@@ -8,8 +8,8 @@ import { describe, it, expect } from 'vitest'
 import {
   FSRSBinding, FSRSBindingItem, FSRSBindingReview, computeParameters,
 } from '@open-spaced-repetition/binding'
-import { buildTrainSet } from './trainSet'
-import type { ReviewHistoryEntry, Status } from '../../src/domain/types'
+import { buildTrainSet } from './trainSet.js'
+import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 
 const W_LENGTH = 21
 

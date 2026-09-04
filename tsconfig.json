@@ -1,5 +1,16 @@
 {
   "files": [],
+  // Vercel の Functions ビルダー（api/ の .ts をコンパイルする）は、リポジトリの
+  // tsconfig.json だけを見る。references は辿らないので、ここに compilerOptions が
+  // 無いとビルダー既定（moduleResolution: nodenext・types 無し）で解決され、
+  // `process` が未定義扱いになる。api/ 側の相対 import は .js 拡張子を明示している。
+  //
+  // ここの compilerOptions は tsc -b の各プロジェクト（app / node / api）には
+  // 影響しない（それぞれ自分の tsconfig を持つ）。Vercel 向けの最小指定だけを置く。
+  "compilerOptions": {
+    "types": ["node"],
+    "skipLibCheck": true
+  },
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" },

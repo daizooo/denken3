@@ -1,4 +1,4 @@
-import type { Attempt } from '../lib/attempt'
+import type { Attempt } from '../lib/attempt.js'
 
 // ==============================
 // ドメイン型定義

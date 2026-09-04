@@ -2,8 +2,8 @@
 // enable_short_term=false で日単位スケジューリング。
 import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
 import type { Card, Grade } from 'ts-fsrs'
-import type { Review, ReviewHistoryEntry, Status } from '../domain/types'
-import { addDaysStr, dateAtUTCNoon, diffDays, toDateStr, todayJST } from './date'
+import type { Review, ReviewHistoryEntry, Status } from '../domain/types.js'
+import { addDaysStr, dateAtUTCNoon, diffDays, toDateStr, todayJST } from './date.js'
 
 // 目標保持率 request_retention（§6-2）。
 // 学習時間が希少で未着手が多い段階では 0.9 は保守的すぎる（同じ時間で触れる問題数が減る）。

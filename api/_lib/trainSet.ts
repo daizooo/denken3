@@ -19,7 +19,7 @@
 // 「その日に想起できたか」の観測ではない。学習データに混ぜると誤った観測になる。
 // 除いたぶんの経過日数は次の演習へ繰り越し、間隔が縮まないようにする。
 
-import type { ReviewHistoryEntry, Status } from '../../src/domain/types'
+import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 
 /** FSRS の Rating（1=Again / 2=Hard / 3=Good / 4=Easy）。 */
 export type Rating = 1 | 2 | 3 | 4

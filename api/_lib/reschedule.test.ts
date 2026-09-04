@@ -6,9 +6,9 @@
 // （migration 017）と同じ形であり、パラメータ最適化を入れる意味そのものが失われる。
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { reschedule } from './reschedule'
-import { deriveFromHistory, registerParams, resetParams, retentionFor } from '../../src/lib/fsrs'
-import type { ReviewHistoryEntry, Status } from '../../src/domain/types'
+import { reschedule } from './reschedule.js'
+import { deriveFromHistory, registerParams, resetParams, retentionFor } from '../../src/lib/fsrs.js'
+import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 
 const EXAM = '2027-02-06'
 const VERSION = 1
