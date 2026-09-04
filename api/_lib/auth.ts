@@ -7,10 +7,15 @@
 // の2つが同時に成立する。RLS を bypass する強い鍵をサーバへ置く理由がない。
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_ANON_KEY_DEFAULT, SUPABASE_URL_DEFAULT } from '../../src/lib/supabaseConfig.js'
 
-// ローカルの `vercel dev` では .env の VITE_ 付きだけがある場合もあるので両方見る。
-const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
+// 環境変数が優先。ローカルの `vercel dev` では VITE_ 付きだけがある場合もあるので両方見る。
+// どちらも無ければ公開の既定値（ブラウザ側と同じ定義を共有する）へ落とす ―― 設定漏れで
+// 「押しても500」になるのを避けるため。service role キーはここでは一切使わない。
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? SUPABASE_URL_DEFAULT
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY_DEFAULT
 
 export interface AuthContext {
   supabase: SupabaseClient
@@ -26,9 +31,6 @@ export class HttpError extends Error {
 }
 
 export async function authenticate(req: Request): Promise<AuthContext> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new HttpError(500, 'SUPABASE_URL / SUPABASE_ANON_KEY が設定されていません')
-  }
   const authorization = req.headers.get('authorization')
   if (!authorization?.startsWith('Bearer ')) {
     throw new HttpError(401, '認証が必要です')
