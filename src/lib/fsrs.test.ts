@@ -183,13 +183,15 @@ describe('S（復習不要）の扱い', () => {
 })
 
 describe('試験日クリップ（§7.3）', () => {
-  it('復習予定日が試験日を越えない', () => {
-    // 成熟したカードは既定 w でも 150日先へ飛ぶ。試験日で丸められること。
+  it('試験日を越える予定日は「試験までは復習不要」を意味する（クリップしない）', () => {
+    // かつては試験日で丸めていたが、それは 58件を試験当日へ積む原因だった。
+    // モデルが試験日を越えて安全と言うなら、その判断をそのまま持たせる。
+    // 復習キューには出てこないので、画面上は「もう出ない」ことと同じ。
     const mature = [
       h('2026-07-18', 'A'), h('2026-08-11', 'A'), h('2026-10-01', 'A'), h('2026-12-20', 'A'),
     ]
     const d = deriveFromHistory(mature, EXAM)
-    expect(d.due_date! <= EXAM).toBe(true)
+    expect(d.due_date).not.toBe(EXAM)
   })
 
   // 本番で採用中の学習済みパラメータ（版4）。これで初めて間隔が試験日まで届く。
@@ -203,22 +205,45 @@ describe('試験日クリップ（§7.3）', () => {
   const stamp = (date: string, status: 'A' | 'B' | 'C'): ReviewHistoryEntry =>
     ({ date, status, policy: { retention: 0.85, w_version: 4 } })
 
-  it('【試験当日には予定を置かない】本番で試験日に張り付いていた3カードが最終確認へ移る', () => {
+  it('【試験当日には予定を置かない】張り付いていたカードは各自の忘却曲線で分散する', () => {
     // 2026-09-04 の実測: 学習済みパラメータの採用で 232カード中58件（25%）の予定日が
     // ちょうど試験日 2027-02-06 に張り付いた。試験当日は受験するので復習日にならず、
     // しかもその時期は年度別演習が主軸（nendo_start_date = 2026-11-30）。
-    // モデルが「試験まで持つ」と言っている以上 S と同じ状態なので、同じ扱いにする。
+    //
+    // 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
+    // finalCheckDue は固定値で、58件を1日へ潰してしまう（素の予定日は224日の幅がある）。
+    // 代わりに直前期の基準 RETENTION_ENDGAME(0.90) で引き直すと、各カード自身の
+    // 忘却曲線が日付を決めるので自然に散る。
     resetParams()
     registerParams({ version: 4, w: PROD_W })
     const cases: ReviewHistoryEntry[][] = [
       [stamp('2026-07-23', 'A'), stamp('2026-08-04', 'A')], // ac1_1
       [stamp('2026-07-24', 'A'), stamp('2026-08-11', 'A')], // ac1_10
-      [stamp('2026-07-24', 'A'), stamp('2026-08-04', 'A')], // ac1_12
+      [stamp('2026-07-25', 'A'), stamp('2026-08-11', 'A')], // ac1_24
     ]
-    for (const history of cases) {
-      const d = deriveFromHistory(history, EXAM)
-      expect(d.due_date).not.toBe(EXAM)
-      expect(d.due_date).toBe('2027-01-16') // finalCheckDue = 試験21日前
+    const dues = cases.map(hist => deriveFromHistory(hist, EXAM).due_date!)
+    for (const due of dues) {
+      expect(due).not.toBe(EXAM)
+      expect(due < EXAM).toBe(true)
+    }
+    // 固定日（finalCheckDue = 2027-01-16）へ潰していない。
+    // 個々のカードが偶然その日になるのは構わないが、全部が同じ日に寄ってはいけない。
+    // 実測では 55件が22日へ散った（同一日の最大10件）。
+    expect(new Set(dues).size).toBeGreaterThan(1)
+    expect(dues.every(d => d === '2027-01-16')).toBe(false)
+    resetParams()
+  })
+
+  it('直前期テーパーの範囲内では、モデルが安全と言っても必ず1回入れる', () => {
+    // ここを「触れない」にすると、テーパーが防ごうとした
+    // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
+    resetParams()
+    registerParams({ version: 4, w: PROD_W })
+    for (const days of [28, 20, 14, 7, 3, 2]) {
+      const eventDate = addDaysStr(EXAM, -days)
+      const d = calcFSRS(null, 'A', eventDate, EXAM, undefined, 4)
+      expect(d.due_date, `残${days}日`).not.toBeNull()
+      expect(d.due_date! < EXAM, `残${days}日`).toBe(true)
     }
     resetParams()
   })
@@ -231,8 +256,9 @@ describe('試験日クリップ（§7.3）', () => {
         for (const days of [365, 200, 120, 60, 30, 29, 28, 20, 15, 14, 10, 7, 3, 2, 1]) {
           const eventDate = addDaysStr(EXAM, -days)
           const d = calcFSRS(null, status, eventDate, EXAM, undefined, w ? 4 : undefined)
+          // 試験日ちょうどには絶対にならない。試験日より後になることはあり、
+          // それは「試験までは復習不要」を意味する（キューに出ない）。
           expect(d.due_date, `${status} / 残${days}日`).not.toBe(EXAM)
-          if (d.due_date) expect(d.due_date < EXAM, `${status} / 残${days}日`).toBe(true)
         }
       }
     }
