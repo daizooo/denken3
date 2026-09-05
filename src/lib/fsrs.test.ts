@@ -25,6 +25,7 @@ import {
   retrievability,
 } from './fsrs'
 import type { ReviewHistoryEntry } from '../domain/types'
+import { addDaysStr } from './date'
 
 const EXAM = '2027-02-06' // 本番の試験日
 const h = (date: string, status: ReviewHistoryEntry['status'], retention?: number)
@@ -182,13 +183,106 @@ describe('S（復習不要）の扱い', () => {
 })
 
 describe('試験日クリップ（§7.3）', () => {
-  it('復習予定日が試験日を越えない', () => {
-    // 成熟したカードは既定 w でも 150日先へ飛ぶ。試験日で丸められること。
+  it('試験日を越える予定日は「試験までは復習不要」を意味する（クリップしない）', () => {
+    // かつては試験日で丸めていたが、それは 58件を試験当日へ積む原因だった。
+    // モデルが試験日を越えて安全と言うなら、その判断をそのまま持たせる。
+    // 復習キューには出てこないので、画面上は「もう出ない」ことと同じ。
     const mature = [
       h('2026-07-18', 'A'), h('2026-08-11', 'A'), h('2026-10-01', 'A'), h('2026-12-20', 'A'),
     ]
     const d = deriveFromHistory(mature, EXAM)
-    expect(d.due_date! <= EXAM).toBe(true)
+    expect(d.due_date).not.toBe(EXAM)
+  })
+
+  // 本番で採用中の学習済みパラメータ（版4）。これで初めて間隔が試験日まで届く。
+  const PROD_W = [
+    0.6925694346427917, 2.5702595710754395, 6.393529415130615, 14.0385103225708,
+    6.365395545959473, 0.8437605500221252, 2.9922235012054443, 0.056897006928920746,
+    1.9712382555007935, 0.1528700292110443, 0.8905442357063293, 1.4928468465805054,
+    0.07113604247570038, 0.29280731081962585, 1.662611484527588, 0.6014000177383423,
+    1.9811846017837524, 0, 0, 0, 0.10000000149011612,
+  ]
+  const stamp = (date: string, status: 'A' | 'B' | 'C'): ReviewHistoryEntry =>
+    ({ date, status, policy: { retention: 0.85, w_version: 4 } })
+
+  it('【試験当日には予定を置かない】張り付いていたカードは各自の忘却曲線で分散する', () => {
+    // 2026-09-04 の実測: 学習済みパラメータの採用で 232カード中58件（25%）の予定日が
+    // ちょうど試験日 2027-02-06 に張り付いた。試験当日は受験するので復習日にならず、
+    // しかもその時期は年度別演習が主軸（nendo_start_date = 2026-11-30）。
+    //
+    // 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
+    // finalCheckDue は固定値で、58件を1日へ潰してしまう（素の予定日は224日の幅がある）。
+    // 代わりに直前期の基準 RETENTION_ENDGAME(0.90) で引き直すと、各カード自身の
+    // 忘却曲線が日付を決めるので自然に散る。
+    resetParams()
+    registerParams({ version: 4, w: PROD_W })
+    const cases: ReviewHistoryEntry[][] = [
+      [stamp('2026-07-23', 'A'), stamp('2026-08-04', 'A')], // ac1_1
+      [stamp('2026-07-24', 'A'), stamp('2026-08-11', 'A')], // ac1_10
+      [stamp('2026-07-25', 'A'), stamp('2026-08-11', 'A')], // ac1_24
+    ]
+    const dues = cases.map(hist => deriveFromHistory(hist, EXAM).due_date!)
+    for (const due of dues) {
+      expect(due).not.toBe(EXAM)
+      expect(due < EXAM).toBe(true)
+    }
+    // 固定日（finalCheckDue = 2027-01-16）へ潰していない。
+    // 個々のカードが偶然その日になるのは構わないが、全部が同じ日に寄ってはいけない。
+    // 実測では 55件が22日へ散った（同一日の最大10件）。
+    expect(new Set(dues).size).toBeGreaterThan(1)
+    expect(dues.every(d => d === '2027-01-16')).toBe(false)
+    resetParams()
+  })
+
+  it('直前期テーパーの範囲内では、モデルが安全と言っても必ず1回入れる', () => {
+    // ここを「触れない」にすると、テーパーが防ごうとした
+    // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
+    resetParams()
+    registerParams({ version: 4, w: PROD_W })
+    for (const days of [28, 20, 14, 7, 3, 2]) {
+      const eventDate = addDaysStr(EXAM, -days)
+      const d = calcFSRS(null, 'A', eventDate, EXAM, undefined, 4)
+      expect(d.due_date, `残${days}日`).not.toBeNull()
+      expect(d.due_date! < EXAM, `残${days}日`).toBe(true)
+    }
+    resetParams()
+  })
+
+  it('どのステータス・どの実施日でも、予定日が試験日そのものにはならない', () => {
+    for (const w of [null, PROD_W]) {
+      resetParams()
+      if (w) registerParams({ version: 4, w })
+      for (const status of ['A', 'B', 'C'] as const) {
+        for (const days of [365, 200, 120, 60, 30, 29, 28, 20, 15, 14, 10, 7, 3, 2, 1]) {
+          const eventDate = addDaysStr(EXAM, -days)
+          const d = calcFSRS(null, status, eventDate, EXAM, undefined, w ? 4 : undefined)
+          // 試験日ちょうどには絶対にならない。試験日より後になることはあり、
+          // それは「試験までは復習不要」を意味する（キューに出ない）。
+          expect(d.due_date, `${status} / 残${days}日`).not.toBe(EXAM)
+        }
+      }
+    }
+    resetParams()
+  })
+
+  it('試験前日に記録したら次回復習日は無い（当日に積まない）', () => {
+    const eve = addDaysStr(EXAM, -1)
+    for (const status of ['A', 'B', 'C'] as const) {
+      expect(calcFSRS(null, status, eve, EXAM).due_date).toBeNull()
+    }
+  })
+
+  it('直前期に間隔が飽和したら、外さずに試験前日までへ入れる', () => {
+    // 最終確認日（試験21日前）を過ぎてから飽和した場合。ここで due を消すと
+    // 「間隔が開いたから直前期に復習しない」が起きる ―― テーパーが防ぐはずのもの。
+    const eventDate = addDaysStr(EXAM, -5) // 残5日
+    const d = calcFSRS(
+      { stability: 200, difficulty_fsrs: 2, repetitions: 5, lapses: 0,
+        due_date: eventDate, last_reviewed: eventDate, fsrs_state: 2 },
+      'A', eventDate, EXAM,
+    )
+    expect(d.due_date).not.toBeNull()
+    expect(d.due_date!).toBe(addDaysStr(EXAM, -1)) // 試験前日
   })
 
   it('直前期はテーパーがかかる（残14日以内→間隔上限7日）', () => {

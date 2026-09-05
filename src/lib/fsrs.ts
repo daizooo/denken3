@@ -125,23 +125,102 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
   }
 }
 
+// 復習できる最後の日は試験前日。試験当日は受験するので復習日にならない。
+export const LAST_REVIEW_LEAD_DAYS = 1
+
+// 直前期テーパーが効き始める残日数（§7.3）。ここから内側は「間隔が開きすぎて忘れる」を
+// 防ぐために間隔へ上限をかける。この範囲では、モデルが安全と言っても必ず1回は入れる。
+export const TAPER_FROM_DAYS = 28
+
 // 試験日クリップ（§7.3）。
-// FSRS が出した次回復習日(due)を、試験日を越えない範囲に丸める。
-// - interval = min(interval, 試験日までの残日数)：試験後に復習予定が漏れるのを防ぐ
+// FSRS が出した次回復習日(due)を、試験前日を越えない範囲に丸める。
+// - interval = min(interval, 試験前日までの残日数)
 // - 直前期テーパー：残28日以内→間隔上限14日 / 残14日以内→間隔上限7日
 //   （直前に間隔が開きすぎて忘れるのを防ぐ）
 // examDate 未指定・試験日を過ぎている場合は素通し（現行挙動を維持）。
+//
+// 【2026-09-04 修正】上限を「残日数」から「残日数 − 1」へ変えた。
+// 従来は maxInterval = daysToExam だったため、間隔が残日数以上のカードが
+// **ちょうど試験日**に着地していた。試験当日は受験するので復習は消化できず、
+// 予定として成立していない。
 function clipDueToExam(due: string, eventDate: string, examDate?: string | null): string {
   if (!examDate) return due
   const daysToExam = diffDays(eventDate, examDate)
   if (daysToExam <= 0) return due // 試験日当日/経過後はクリップしない
   const interval = diffDays(eventDate, due)
   if (interval <= 0) return due
-  let maxInterval = daysToExam
+  let maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
   if (daysToExam <= 14) maxInterval = Math.min(maxInterval, 7)
-  else if (daysToExam <= 28) maxInterval = Math.min(maxInterval, 14)
+  else if (daysToExam <= TAPER_FROM_DAYS) maxInterval = Math.min(maxInterval, 14)
+  if (maxInterval <= 0) return due // 試験前日以降は丸めない（次の復習は無い）
   const clipped = Math.min(interval, maxInterval)
   return clipped >= interval ? due : addDaysStr(eventDate, clipped)
+}
+
+/**
+ * FSRS が出した次回復習日に、試験日という地平を適用する。
+ *
+ * 【なぜクリップだけでは足りないか（2026-09-04 の実測）】
+ * 学習済みパラメータの採用で間隔が伸びた結果、232カード中 **58件（25%）の予定日が
+ * ちょうど試験日に張り付いた**。原因は2つある。
+ *
+ *   ① 試験当日は復習日にならない。受験する日に「復習58問」が積まれても消化できない。
+ *   ② 試験日は 分野別 の地平ではない。この枠組みは 分野別 の主軸期間を
+ *      `bunya_target_date` までとし、その後は `nendo_start_date` から年度別演習が
+ *      主軸になると定めている。試験日に置かれた予定は、年度別が主軸の時期に
+ *      分野別 の山を作るだけになる。
+ *
+ * 【どこへ動かすか ―― 固定日ではなく保持率で決める】
+ * 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
+ * `finalCheckDue` は固定値であって FSRS の出力ではなく、**58件を1日へ潰してしまう**。
+ * 実測では、この58件の素の予定日は「試験当日」から「試験の224日後」まで224日の幅がある。
+ *
+ * 代わりに、**この枠組みが既に持っている直前期の基準で引き直す**。
+ * `retentionFor` は試験60日前から目標保持率を `RETENTION_ENDGAME`(0.90) へ上げる。
+ * 予定日が試験日を越えるカードは「試験までに一度も復習されない」のだから、直前期の
+ * 基準を満たすかどうかで判断するのが筋が通る。
+ *
+ *   - 0.90 で引き直した予定日が試験日より前 → その日に入れる（＝試験日時点で 0.90 を
+ *     割るカードなので、割る前に1回入れる）
+ *   - それでも試験日を越える → 触れない（試験日時点で 0.90 を満たしている）
+ *
+ * 新しい定数は増えない。各カード自身の忘却曲線が日付を決めるので、実測では
+ * **55件が22日へ自然に分散**した（同一日の最大10件）。残る3件は基準を満たすため対象外。
+ *
+ * 予定日が試験日を越えたまま残るのは異常ではなく、「試験までに復習は要らない」という
+ * モデルの判断をそのまま表している。復習キューには出てこない。
+ */
+function applyExamHorizon(params: {
+  card: Card
+  rating: Grade
+  now: Date
+  eventDate: string
+  examDate?: string | null
+  wVersion?: number
+  /** 通常の保持率で出した予定日（クリップ前）。 */
+  rawDue: string
+}): { due: string | null; card: Card | null } {
+  const { card, rating, now, eventDate, examDate, wVersion, rawDue } = params
+  if (!examDate) return { due: rawDue, card: null }
+
+  const daysToExam = diffDays(eventDate, examDate)
+  if (daysToExam <= 0) return { due: rawDue, card: null } // 試験日当日/経過後は素通し
+  // 試験前日に記録した時点で、復習できる日はもう残っていない。
+  if (daysToExam <= LAST_REVIEW_LEAD_DAYS) return { due: null, card: null }
+
+  if (rawDue < examDate) return { due: clipDueToExam(rawDue, eventDate, examDate), card: null }
+
+  // 試験日を越えた → 直前期の基準（0.90）で引き直す。
+  const endgame = schedulerFor(RETENTION_ENDGAME, wVersion).repeat(card, now)[rating].card
+  const endgameDue = endgame.due.toISOString().split('T')[0]
+  // 直前期テーパーの範囲内では、モデルが安全と言っても必ず1回は入れる。
+  // ここを「触れない」にすると、テーパーが防ごうとした
+  // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
+  if (endgameDue < examDate || daysToExam <= TAPER_FROM_DAYS) {
+    return { due: clipDueToExam(endgameDue, eventDate, examDate), card: endgame }
+  }
+  // 0.90 でも越える ＝ 試験日時点で基準を満たす。触れない。
+  return { due: rawDue, card: null }
 }
 
 // eventDate = 実施日（過去日でもよい）。未指定なら今日。
@@ -176,14 +255,20 @@ export function calcFSRS(
   const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
     .repeat(card, now)[rating].card
   const rawDue = newCard.due.toISOString().split('T')[0]
+  const horizon = applyExamHorizon({
+    card, rating, now, eventDate: eDate, examDate, wVersion, rawDue,
+  })
+  // 直前期の基準で引き直した場合は、その結果の安定度・難易度を採る
+  // （保持率は間隔だけでなく状態の記録にも影響しないが、同じカードから一貫して取る）。
+  const applied = horizon.card ?? newCard
   return {
-    stability: newCard.stability,
-    difficulty_fsrs: newCard.difficulty,
-    repetitions: newCard.reps,
-    lapses: newCard.lapses,
-    due_date: clipDueToExam(rawDue, eDate, examDate),
+    stability: applied.stability,
+    difficulty_fsrs: applied.difficulty,
+    repetitions: applied.reps,
+    lapses: applied.lapses,
+    due_date: horizon.due,
     last_reviewed: eDate,
-    fsrs_state: newCard.state,
+    fsrs_state: applied.state,
   }
 }
 
