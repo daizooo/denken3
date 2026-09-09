@@ -1,0 +1,48 @@
+# lint・型チェック・テストを PR ごとに回す。
+#
+# これまで CI は Vercel のビルド（= tsc -b && vite build）だけで、oxlint と vitest は
+# 一度も自動実行されていなかった。型エラーはデプロイの失敗として現れる一方、
+# lint 違反とテストの失敗は誰も見ていない状態だったため、ここで拾う。
+#
+# Node 22 を使う。デプロイ先の Vercel と揃えるのが目的で、そこで動かない組み合わせを
+# CI で通してしまわないようにする。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同じ ref へ続けて push したときは、古い実行を打ち切る。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Lint が落ちても型チェックとテストは走らせる（!cancelled()）。
+      # 片方ずつ直すと push とレビューの往復が増えるため、1回の実行で全部の結果を出す。
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: npx tsc -b
+
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: npm test
