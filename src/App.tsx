@@ -21,9 +21,11 @@ import {
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
-  startTimer, pauseTimer, resumeTimer, elapsedSeconds, durationCapSeconds,
-  MAX_DURATION_SECONDS, type TimerState,
+  startTimer, pauseTimer, resumeTimer, elapsedSeconds, elapsedMs, setManualPause,
+  durationCapSeconds, MAX_DURATION_SECONDS, type TimerState,
 } from './lib/timer'
+import { cutoffSeconds } from './lib/solveTimer'
+import { primeAlarm } from './lib/alarm'
 import {
   loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
 } from './lib/offlineStore'
@@ -85,8 +87,9 @@ export default function App() {
   // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
   // solving=true は「問題を解く」で開いた（解答時間を計測中の）状態。
+  // cutoffSec は「答えを見る」までの目安（solveTimer.cutoffSeconds）。開いた時点の推定で固定する。
   const [viewerQ, setViewerQ] = useState<
-    { id: string; title: string; solving: boolean; partCount: 1 | 2 } | null
+    { id: string; title: string; solving: boolean; partCount: 1 | 2; cutoffSec: number } | null
   >(null)
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
@@ -354,6 +357,19 @@ export default function App() {
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  // 経過時間の表示用（ProblemViewer が毎秒読む）。計測の実体は ref なので依存は空にでき、
+  // 関数の同一性が変わらない＝ビューア側のインターバルが貼り直されない。
+  const elapsedMsOf = useCallback((questionId: string) => {
+    const t = timersRef.current[questionId]
+    return t ? elapsedMs(t) : 0
+  }, [])
+
+  // 手動の一時停止／再開。ここまでの経過は残したまま加算だけ止める（中断＝破棄とは別物）。
+  const setTimerPaused = useCallback((questionId: string, paused: boolean) => {
+    const t = timersRef.current[questionId]
+    if (t) timersRef.current[questionId] = setManualPause(t, paused)
   }, [])
 
   // タブ・対象日を切り替えたら「復習済みで消した」記録はリセットする。
@@ -1260,16 +1276,22 @@ export default function App() {
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: false,
                           partCount: partCountFromTitle(q.title),
+                          cutoffSec: 0,
                         })
                       }}
                       onSolveProblem={() => {
                         // 「問題を解く」= 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
                         timersRef.current[q.id] = startTimer(todayStr)
+                        // アラームの音源はこのタップの中で用意する（iOS の自動再生制限）。
+                        primeAlarm()
                         setViewerQ({
                           id: q.id,
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: true,
                           partCount: partCountFromTitle(q.title),
+                          // 切り上げ時間は「難易度×studyMode の典型所要時間 × 1.5、本番の持ち時間まで」。
+                          // 理解度・その問題自身の履歴は入れない（solveTimer.ts 冒頭の理由）。
+                          cutoffSec: cutoffSeconds(q, timeStats),
                         })
                       }}
                       dateValue={dateFor(q.id)}
@@ -1298,6 +1320,9 @@ export default function App() {
           title={viewerQ.title}
           solving={viewerQ.solving}
           partCount={viewerQ.partCount}
+          cutoffSec={viewerQ.cutoffSec}
+          getElapsedMs={elapsedMsOf}
+          onPauseChange={setTimerPaused}
           onClose={() => setViewerQ(null)}
           // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
           onRecord={(s, a) => { void updateStatus(viewerQ.id, s, a); setViewerQ(null) }}

@@ -117,11 +117,21 @@ export function buildTimeStats(
   return { byModeBand, byBand, measured, measuredN: kept.length }
 }
 
+// 難易度 × studyMode の既定所要秒（**ステータス係数を掛ける前**の素の値）。
+// studyMode 未設定は calc と memory の平均を使う。
+//
+// 切り上げ時間（solveTimer.ts）はこの素の値を土台にする。あちらが答えるのは
+// 「今日この問題にどれだけ時間を使うか」ではなく「どこまで粘ってよいか」で、
+// 理解度による短縮（STATUS_FACTOR）を掛けてはいけない ―― 理解度Aの問題を
+// 今日たまたま忘れていたなら、必要な時間は短いどころか長いため。
+export function baselineSeconds(q: Pick<MasterQuestion, 'difficulty' | 'studyMode'>): number {
+  const d = DEFAULT_SECONDS[q.difficulty]
+  return q.studyMode ? d[q.studyMode] : (d.calc + d.memory) / 2
+}
+
 // 実測が1件も無いときに使う既定値（ステータス係数込み）。
 function defaultSeconds(q: MasterQuestion, status: Status): number {
-  const d = DEFAULT_SECONDS[q.difficulty]
-  const base = q.studyMode ? d[q.studyMode] : (d.calc + d.memory) / 2
-  return base * STATUS_FACTOR[status]
+  return baselineSeconds(q) * STATUS_FACTOR[status]
 }
 
 // 1問の推定所要秒。優先順は本ファイル冒頭のとおり。
