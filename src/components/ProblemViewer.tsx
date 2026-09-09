@@ -5,6 +5,8 @@ import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
 import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
 import AnswerBar from '../features/questions/AnswerBar'
+import SolveTimerBar from '../features/questions/SolveTimerBar'
+import { playAlarm } from '../lib/alarm'
 import { emptySelection, type Attempt } from '../lib/attempt'
 import type { Status } from '../domain/types'
 
@@ -100,6 +102,7 @@ function answerRects(a: QuestionAsset): Rect[] {
 
 export default function ProblemViewer({
   questionId, title, onClose, onRecord, onGiveUp, onAbort, solving = false, partCount = 1,
+  cutoffSec, getElapsedMs, onPauseChange,
 }: {
   questionId: string
   title: string
@@ -118,6 +121,12 @@ export default function ProblemViewer({
   solving?: boolean
   // 小問数。B問題は 2（(a)(b)）。sourceLink.partCountFromTitle で導く。
   partCount?: 1 | 2
+  // 切り上げ時間（秒・solveTimer.cutoffSeconds）。ここを過ぎたらアラームを鳴らす。
+  cutoffSec?: number
+  // 計測の経過(ms)を読む。実体は App 側の ref なので、毎秒ここから読み直す。
+  getElapsedMs?: (questionId: string) => number
+  // 一時停止の切り替えを App の計測状態へ伝える。
+  onPauseChange?: (questionId: string, paused: boolean) => void
 }) {
   const [assets, setAssets] = useState<QuestionAsset[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
@@ -128,6 +137,47 @@ export default function ProblemViewer({
   const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('bunya')
   const [err, setErr] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 経過時間の表示（§7.6 の計測を可視化する）。値の実体は App 側の ref なので、
+  // ここでは毎秒読み直すだけ。計測そのものはこの state に依存しない。
+  const [elapsedSec, setElapsedSec] = useState(0)
+  const [paused, setPaused] = useState(false)
+  // 切り上げアラームは1問につき1回だけ鳴らす。
+  const alarmedRef = useRef(false)
+
+  // 経過時間と切り上げアラームを出すのは「問題を解く」で開いたときだけ。
+  const cutoff = cutoffSec ?? 0
+  const timed = solving && cutoff > 0 && getElapsedMs != null
+  const overdue = timed && elapsedSec >= cutoff
+
+  // 問題が変わったら計測表示と停止状態をやり直す。
+  // 下の毎秒タイマーより先に置く（後ろに置くと、切り替え直後に読み直した値を 0 で潰す）。
+  useEffect(() => { setElapsedSec(0); setPaused(false); alarmedRef.current = false }, [questionId])
+
+  // 1秒ごとに経過を読み直す。一時停止・タブ非表示のときは値が進まないので、
+  // ここで分岐する必要はない（止めるのは計測側の責務）。
+  useEffect(() => {
+    if (!solving || !getElapsedMs) return
+    const read = getElapsedMs
+    const tick = () => setElapsedSec(Math.floor(read(questionId) / 1000))
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
+  }, [solving, getElapsedMs, questionId])
+
+  // 切り上げ時間の到達で鳴らす（1問につき1回）。解答を開いたあとは鳴らさない
+  // ――「解答を見よう」と促すのがアラームの目的なので、見たあとには用が無い。
+  useEffect(() => {
+    if (!timed || alarmedRef.current || showAnswer || paused) return
+    if (elapsedSec < cutoff) return
+    alarmedRef.current = true
+    playAlarm()
+  }, [timed, cutoff, elapsedSec, showAnswer, paused])
+
+  const togglePause = () => {
+    const next = !paused
+    setPaused(next)
+    onPauseChange?.(questionId, next)
+  }
 
   // 問題⇄解答を切り替えたら先頭から見せる（前の位置に留まると、切り替えたのに
   // 画面が変わっていないように見える）。
@@ -251,6 +301,17 @@ export default function ProblemViewer({
           ))}
         </div>
       </div>
+
+      {/* 経過時間と切り上げ時間（「問題を解く」で開いたときだけ）。 */}
+      {timed && (
+        <SolveTimerBar
+          elapsedSec={elapsedSec}
+          cutoffSec={cutoff}
+          paused={paused}
+          overdue={overdue}
+          onTogglePause={togglePause}
+        />
+      )}
 
       {/* 解答前コミットのバー（Phase 1・設計 §2.1）。
           選択肢を確定するか「わからない」を通すまで、解答を開けない。 */}

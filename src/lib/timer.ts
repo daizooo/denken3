@@ -22,6 +22,10 @@ export interface TimerState {
   day: string               // 開始時点の JST 日付（日跨ぎ判定用）
   accumulatedMs: number     // 表示中に積み上げた経過(ms)
   startedAt: number | null  // 加算中の開始時刻(ms epoch)。非表示中は null
+  // 手動で止めているか（画面の「一時停止」）。タブ復帰による自動再開より優先する。
+  // これが無いと、止めたまま別アプリへ移って戻った瞬間に visibilitychange が
+  // resumeTimer を呼び、意図せず計測が再開する。
+  manuallyPaused?: boolean
 }
 
 export function startTimer(day: string, now: number = Date.now()): TimerState {
@@ -34,10 +38,28 @@ export function pauseTimer(t: TimerState, now: number = Date.now()): TimerState 
   return { ...t, accumulatedMs: t.accumulatedMs + (now - t.startedAt), startedAt: null }
 }
 
-// 非表示→表示: 加算を再開する。
+// 非表示→表示: 加算を再開する。手動停止中は再開しない（停止の意思を上書きしない）。
 export function resumeTimer(t: TimerState, now: number = Date.now()): TimerState {
-  if (t.startedAt != null) return t
+  if (t.startedAt != null || t.manuallyPaused) return t
   return { ...t, startedAt: now }
+}
+
+// 手動の一時停止／再開。中断（onAbort＝計測を破棄して閉じる）と違い、
+// ここまでの経過は残したまま加算だけ止める。育児中の中断は常態で、席を立つたびに
+// 計測を捨てていては1問ぶんの解答時間がいつまでも記録できないため（課題13の補完）。
+export function setManualPause(
+  t: TimerState,
+  paused: boolean,
+  now: number = Date.now(),
+): TimerState {
+  if (paused) return { ...pauseTimer(t, now), manuallyPaused: true }
+  const resumed: TimerState = { ...t, manuallyPaused: false }
+  return resumed.startedAt != null ? resumed : { ...resumed, startedAt: now }
+}
+
+// 現在までの経過(ms)。表示用（毎秒読む）。加算が止まっていれば積み上げ分だけを返す。
+export function elapsedMs(t: TimerState, now: number = Date.now()): number {
+  return t.accumulatedMs + (t.startedAt != null ? now - t.startedAt : 0)
 }
 
 // 計測終了時の秒数。無効（日跨ぎ・上限超・0以下）なら undefined を返し、
@@ -49,8 +71,7 @@ export function elapsedSeconds(
   capSeconds: number = MAX_DURATION_SECONDS,
 ): number | undefined {
   if (t.day !== today) return undefined // 「解答中」のまま日をまたいだら破棄
-  const totalMs = t.accumulatedMs + (t.startedAt != null ? now - t.startedAt : 0)
-  const sec = Math.round(totalMs / 1000)
+  const sec = Math.round(elapsedMs(t, now) / 1000)
   if (sec <= 0) return undefined
   if (sec > capSeconds) return undefined // 押し忘れ・中断・放置の外れ値は除外
   return sec
