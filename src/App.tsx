@@ -17,7 +17,7 @@ import { planToday, forwardSlotsToday, orderByDensity } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
 import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
-  buildTimeStats, sumEstimateMinutes, estimateMinutes,
+  buildTimeStats, sumEstimateMinutes,
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
@@ -1289,8 +1289,9 @@ export default function App() {
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: true,
                           partCount: partCountFromTitle(q.title),
-                          // 切り上げ時間は「その問題の推定所要時間 × 1.5、本番の持ち時間まで」。
-                          cutoffSec: cutoffSeconds(q.title, estimateMinutes(q, review, timeStats)),
+                          // 切り上げ時間は「難易度×studyMode の典型所要時間 × 1.5、本番の持ち時間まで」。
+                          // 理解度・その問題自身の履歴は入れない（solveTimer.ts 冒頭の理由）。
+                          cutoffSec: cutoffSeconds(q, timeStats),
                         })
                       }}
                       dateValue={dateFor(q.id)}
