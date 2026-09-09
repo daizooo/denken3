@@ -116,7 +116,16 @@ export default function App() {
   // 初期値 null を書き戻して他端末で選んだ予算を消してしまうため、保存の門にする。
   const settingsLoadedRef = useRef(false)
   const todayStr = todayJST()
-  const dateFor = (id: string) => recordDate[id] ?? todayStr
+  // その問題の「実施日」。未指定なら今日。
+  // useCallback にしてあるのは、updateStatus がこれを呼んでおり、素の関数のままだと
+  // 毎レンダー別物になって依存として宣言できないため（oxlint の
+  // react-hooks/exhaustive-deps が missing dependency 'dateFor' を出していた）。
+  // 同一性が変わる条件は recordDate・todayStr の変化で、updateStatus がこれまで
+  // recordDate を直接依存に持っていたときと一致する（＝再生成のタイミングは変わらない）。
+  const dateFor = useCallback(
+    (id: string) => recordDate[id] ?? todayStr,
+    [recordDate, todayStr],
+  )
 
   // registry駆動の派生データ（§7.8）。資格切替（examId 変更）に追従する。
   const exam = useMemo(() => getExam(examId), [examId])
@@ -456,7 +465,7 @@ export default function App() {
       setReviewedNowIds(prev => new Set(prev).add(questionId))
     }
     await persistReview(current, history)
-  }, [user, reviews, persistReview, recordDate, activeTab, todayStr])
+  }, [user, reviews, persistReview, dateFor, activeTab, todayStr])
 
   // ---- 履歴エントリを取り消し（誤記録の修正用）----
   // review_history は常に実施日順で保存されるため、index はそのまま時系列順。
