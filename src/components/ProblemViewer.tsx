@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PauseCircle } from 'lucide-react'
 import { type QuestionAsset } from '../lib/assets'
 import { panesOf, type Rect } from '../lib/viewerPages'
@@ -77,7 +77,8 @@ export default function ProblemViewer({
   const [page, setPage] = useState(0)
   const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('bunya')
   const [err, setErr] = useState<string | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  // ページを横に連結したストリップ（実体は横スクロール＋スナップ）。フリックで送る。
+  const stripRef = useRef<HTMLDivElement>(null)
   // 経過時間の表示（§7.6 の計測を可視化する）。値の実体は App 側の ref なので、
   // ここでは毎秒読み直すだけ。計測そのものはこの state に依存しない。
   const [elapsedSec, setElapsedSec] = useState(0)
@@ -162,18 +163,30 @@ export default function ProblemViewer({
   const pageCount = visible.length
   // 画像の読み込みやページ数の変化で範囲外にならないよう、表示のたびに丸める。
   const cur = Math.min(page, Math.max(0, pageCount - 1))
-  const pane = visible[cur]
-
-  // 問題⇄解答・ページを切り替えたら先頭から見せる（前の位置に留まると、切り替えたのに
-  // 画面が変わっていないように見える）。
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0, left: 0 }) }, [showAnswer, questionId, cur])
 
   // 問題・問題／解答を切り替えたら1ページ目へ戻す。
+  // ストリップ自体は key で作り直すため、スクロール位置（横・縦とも）は自動で先頭に戻る。
   useEffect(() => { setPage(0) }, [showAnswer, questionId])
 
-  // ページ送り。読み込み途中でページ数が減っても範囲外に出ないよう、ここでも丸める。
+  // フリックで動いた横位置から「今どのページか」を読む。ページ番号の表示はこれが唯一の源。
+  const onStripScroll = () => {
+    const el = stripRef.current
+    if (!el || el.clientWidth === 0) return
+    const i = Math.max(0, Math.min(pageCount - 1, Math.round(el.scrollLeft / el.clientWidth)))
+    setPage(prev => (prev === i ? prev : i))
+  }
+
+  // 矢印ボタン・キーボードからのページ送り。動かすのはストリップの横位置で、
+  // ページ番号は上の onStripScroll が追随して更新する（状態の持ち主を1つにする）。
   const goPage = useCallback((dir: 1 | -1) => {
-    setPage(p => Math.max(0, Math.min(pageCount - 1, Math.min(p, pageCount - 1) + dir)))
+    const el = stripRef.current
+    if (!el) return
+    setPage(prev => {
+      const from = Math.max(0, Math.min(pageCount - 1, prev))
+      const next = Math.max(0, Math.min(pageCount - 1, from + dir))
+      el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+      return next
+    })
   }, [pageCount])
 
   // PC ではキーボードの左右でもページを送る。
@@ -186,24 +199,6 @@ export default function ProblemViewer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [pageCount, goPage])
-
-  // スワイプでのページ送り。拡大中は横スクロールと衝突するため等倍のときだけ受ける。
-  const touchRef = useRef<{ x: number; y: number } | null>(null)
-  const onTouchStart = (e: TouchEvent) => {
-    touchRef.current = zoom <= 1 && pageCount > 1
-      ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      : null
-  }
-  const onTouchEnd = (e: TouchEvent) => {
-    const from = touchRef.current
-    touchRef.current = null
-    if (!from) return
-    const dx = e.changedTouches[0].clientX - from.x
-    const dy = e.changedTouches[0].clientY - from.y
-    // 縦スクロールの途中で誤ってページが飛ばないよう、横方向がはっきり優位なときだけ送る。
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    goPage(dx < 0 ? 1 : -1)
-  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
@@ -241,62 +236,80 @@ export default function ProblemViewer({
         </button>
       </div>
 
-      {/* 本体。1ページだけを画面幅いっぱいに描く（複数ページを積むと1ページが縮む）。 */}
-      <div
-        ref={scrollRef}
-        className="relative flex-1 overflow-auto p-3"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {/* 縦に使い切る箱にしておく（ページ送りを常に下端へ置くため）。 */}
-        <div className="flex flex-col min-h-full">
-        <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
-          {err && (
-            <div className="bg-white rounded-xl p-6 text-center text-sm text-red-500">{err}</div>
-          )}
-          {!err && assets === null && (
-            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-400">読み込み中...</div>
-          )}
-          {!err && assets !== null && assets.length === 0 && (
-            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
-              この問題の画像はまだ取り込まれていません。<br />
-              ヘッダーの「取り込み」から画像を登録してください。
-            </div>
-          )}
-          {!err && assets !== null && assets.length > 0 && pageCount === 0 && (
-            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
-              {showAnswer ? '解答の画像が登録されていません。' : '問題の画像が登録されていません。'}
-            </div>
-          )}
-          {!err && pane && (
-            <div className="rounded-xl overflow-hidden shadow-lg">
-              <CropImage url={urls[pane.path]} rect={pane.rect} />
-            </div>
-          )}
-        </div>
-
-        {/* ページ送り。複数ページのときだけ、画面下端に浮かせる（縦の表示領域を削らない）。
-            mt-auto で短いページでも下端に付き、sticky で長いページでも見えたまま残る。 */}
-        {pageCount > 1 && (
-          <div className="sticky bottom-0 left-0 mt-auto pt-2 flex justify-center pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-white/90 shadow-lg border border-gray-200 px-1 py-1">
-              <button
-                onClick={() => goPage(-1)}
-                disabled={cur === 0}
-                className="p-1.5 rounded-full text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
-                title="前のページ"
-              ><ChevronLeft size={18} /></button>
-              <span className="text-xs font-bold tabular-nums text-gray-600 px-1">{cur + 1} / {pageCount}</span>
-              <button
-                onClick={() => goPage(1)}
-                disabled={cur === pageCount - 1}
-                className="p-1.5 rounded-full text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
-                title="次のページ"
-              ><ChevronRight size={18} /></button>
+      {/* 本体。ページを横に連結し、フリック（横スワイプ）で送る。
+          1ページ＝画面幅いっぱいなので、どの端末でも縮尺が変わらない。 */}
+      <div className="relative flex-1 min-h-0">
+        {pageCount > 0 ? (
+          <div
+            // 問題・問題／解答が変わったら作り直す（横位置・縦位置とも先頭に戻す）。
+            key={`${questionId}:${showAnswer ? 'a' : 'q'}`}
+            ref={stripRef}
+            onScroll={onStripScroll}
+            className="h-full flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {visible.map((p, i) => (
+              // 1ページ＝1枠。枠ごとに縦スクロールを持たせ、横フリックと干渉させない。
+              <div key={i} className="w-full h-full shrink-0 snap-start snap-always overflow-auto p-3">
+                <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
+                  <div className="rounded-xl overflow-hidden shadow-lg">
+                    <CropImage url={urls[p.path]} rect={p.rect} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="h-full overflow-auto p-3">
+            <div className="mx-auto" style={{ maxWidth: FIT_MAX_PX }}>
+              {err && (
+                <div className="bg-white rounded-xl p-6 text-center text-sm text-red-500">{err}</div>
+              )}
+              {!err && assets === null && (
+                <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-400">読み込み中...</div>
+              )}
+              {!err && assets !== null && assets.length === 0 && (
+                <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+                  この問題の画像はまだ取り込まれていません。<br />
+                  ヘッダーの「取り込み」から画像を登録してください。
+                </div>
+              )}
+              {!err && assets !== null && assets.length > 0 && (
+                <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+                  {showAnswer ? '解答の画像が登録されていません。' : '問題の画像が登録されていません。'}
+                </div>
+              )}
             </div>
           </div>
         )}
-        </div>
+
+        {/* ページ送り。画像の上に常に浮かせる（スクロールしても隠れない位置に固定する）。
+            フリックでも送れるが、それに気づかなくても操作できるよう矢印を必ず出す。 */}
+        {pageCount > 1 && (
+          <div className="absolute inset-x-0 bottom-2 flex flex-col items-center gap-1 pointer-events-none">
+            {cur === 0 && (
+              <span className="rounded-full bg-black/55 text-white text-[10px] font-medium px-2.5 py-1">
+                横スワイプでページ送り
+              </span>
+            )}
+            <div className="pointer-events-auto flex items-center rounded-full bg-white/95 shadow-lg border border-gray-200 p-1">
+              <button
+                onClick={() => goPage(-1)}
+                disabled={cur === 0}
+                className="p-2 rounded-full text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
+                title="前のページ"
+              ><ChevronLeft size={20} /></button>
+              <span className="text-xs font-bold tabular-nums text-gray-700 w-12 text-center">
+                {cur + 1} / {pageCount}
+              </span>
+              <button
+                onClick={() => goPage(1)}
+                disabled={cur === pageCount - 1}
+                className="p-2 rounded-full text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
+                title="次のページ"
+              ><ChevronRight size={20} /></button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 下のバー: 時間計測（「問題を解く」で開いたときだけ）と理解度。 */}
