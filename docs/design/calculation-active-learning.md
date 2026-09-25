@@ -75,6 +75,13 @@ ts-fsrs は4段階を前提としており、`Hard` を空けているのは情�
 
 ## 2. 解答フローの改訂 ―― 選択肢コミット方式
 
+> **【2026-09 改訂・運用結果】分野別の選択肢コミット（本章 §2.1〜§2.5）は撤回した。**
+> 実運用では問題と解答を何度も行き来しながら解くため、行き来のたびに選択肢を確定させる
+> 操作が負担になり、解答を開く導線としても遠回りだった。`AnswerBar` は削除し、分野別は
+> 「上のバーで問題⇄解答を切り替え、下のバーで時間計測と理解度を記録する」形に戻している。
+> `Attempt` 型と履歴エントリの `attempt`（§3）は、既に記録済みのデータを読むために残す。
+> §4 以降（FSRS の計算/暗記分離）と §6（正答データの逆輸入）は本改訂の影響を受けない。
+
 ### 2.1 採用する流れ
 
 ```
@@ -298,8 +305,8 @@ export function gradeOf(status: Status, a: Attempt | undefined, slow: boolean): 
 | # | 内容 | 変更 |
 |---|---|---|
 | 1-1 | `Attempt` 型（`selected` / `gaveUp` のみ） | **新規** `src/lib/attempt.ts` |
-| 1-2 | 選択肢バー（`CBTRunner` の5択ボタンを移植）・「わからない」・解答ボタンの活性制御 | **新規** `src/features/questions/AnswerBar.tsx` |
-| 1-3 | `ProblemViewer` に `AnswerBar` を組み込み。`onRecord(status)` → `onRecord(status, attempt)` | `ProblemViewer.tsx` |
+| 1-2 | ~~選択肢バー（`CBTRunner` の5択ボタンを移植）・「わからない」・解答ボタンの活性制御~~ **撤回（2026-09）** | ~~`src/features/questions/AnswerBar.tsx`~~ 削除済み |
+| 1-3 | ~~`ProblemViewer` に `AnswerBar` を組み込み。`onRecord(status)` → `onRecord(status, attempt)`~~ **撤回（2026-09）** | `ProblemViewer.tsx` |
 | 1-4 | 履歴エントリに `attempt` を同梱 | `types.ts`（1行）、`App.tsx` の `updateStatus`（数行） |
 | 1-5 | B問題の小問数判定 | `sourceLink.ts` に `partCountFromTitle()` を**末尾追加** |
 | 1-6 | 履歴チップに選択番号・降参マークを追記、calc の主ボタン化 | `QuestionCard.tsx` |

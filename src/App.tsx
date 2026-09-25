@@ -31,7 +31,6 @@ import {
 } from './lib/offlineStore'
 import { clearProblemImageCache, prefetchProblemImages } from './lib/problemImageCache'
 import { isMeaningful, type Attempt } from './lib/attempt'
-import { partCountFromTitle } from './lib/sourceLink'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
@@ -89,7 +88,7 @@ export default function App() {
   // solving=true は「問題を解く」で開いた（解答時間を計測中の）状態。
   // cutoffSec は「答えを見る」までの目安（solveTimer.cutoffSeconds）。開いた時点の推定で固定する。
   const [viewerQ, setViewerQ] = useState<
-    { id: string; title: string; solving: boolean; partCount: 1 | 2; cutoffSec: number } | null
+    { id: string; title: string; solving: boolean; cutoffSec: number } | null
   >(null)
   const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
@@ -1284,7 +1283,6 @@ export default function App() {
                           id: q.id,
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: false,
-                          partCount: partCountFromTitle(q.title),
                           cutoffSec: 0,
                         })
                       }}
@@ -1297,7 +1295,6 @@ export default function App() {
                           id: q.id,
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: true,
-                          partCount: partCountFromTitle(q.title),
                           // 切り上げ時間は「難易度×studyMode の典型所要時間 × 1.5、本番の持ち時間まで」。
                           // 理解度・その問題自身の履歴は入れない（solveTimer.ts 冒頭の理由）。
                           cutoffSec: cutoffSeconds(q, timeStats),
@@ -1328,15 +1325,12 @@ export default function App() {
           questionId={viewerQ.id}
           title={viewerQ.title}
           solving={viewerQ.solving}
-          partCount={viewerQ.partCount}
           cutoffSec={viewerQ.cutoffSec}
           getElapsedMs={elapsedMsOf}
           onPauseChange={setTimerPaused}
           onClose={() => setViewerQ(null)}
           // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
-          onRecord={(s, a) => { void updateStatus(viewerQ.id, s, a); setViewerQ(null) }}
-          // 「わからない」: C を即時記録するが閉じない（解答・解説を読ませるため・設計 §2.3）。
-          onGiveUp={a => { void updateStatus(viewerQ.id, 'C', a) }}
+          onRecord={s => { void updateStatus(viewerQ.id, s); setViewerQ(null) }}
           // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
           onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
         />
