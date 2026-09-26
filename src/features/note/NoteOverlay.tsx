@@ -77,6 +77,7 @@ export default function NoteOverlay({
   // ――スタイラスを使う端末では、開いた直後から効いていないと意味がない。
   const [penOnly, setPenOnly] = useState(() => loadPenOnly())
   const [askClear, setAskClear] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const width = WIDTHS.find(w => w.key === widthKey)?.value ?? WIDTHS[1].value
   const eraserR = ERASER_R[widthKey] ?? ERASER_R.mid
@@ -188,6 +189,63 @@ export default function NoteOverlay({
     })
   }, [])
 
+  // 画面に置いた手のひらがツールバーの余白や文字に乗っても何も起きないようにする。
+  // canvas 側と同じ理由で、素の addEventListener（passive: false）でしか止められない。
+  // ボタンのタップだけは通す（既定動作を止めると click が出ない端末があるため）。
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const stop = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('button')) return
+      if (e.cancelable) e.preventDefault()
+    }
+    root.addEventListener('touchstart', stop, { passive: false })
+    root.addEventListener('touchmove', stop, { passive: false })
+    return () => {
+      root.removeEventListener('touchstart', stop)
+      root.removeEventListener('touchmove', stop)
+    }
+  }, [])
+
+  // iPadOS でペン書き中に出る「コピー／Google で検索／調べる」の吹き出しを根元から止める。
+  // 吹き出しはテキスト選択が生まれた時に出るので、ノートを開いている間は
+  //   ① 選択が始まること自体を禁じ（selectstart）
+  //   ② 何かの拍子に生まれた選択はその場で解除し（selectionchange）
+  //   ③ 長押しメニュー・ドラッグも止める
+  // ことで、選択が1文字も成立しない状態にする。
+  // CSS（user-select: none）だけでは、選択の起点が背後の画面側にあると防ぎきれないため、
+  // 開いている間は body にも掛ける。
+  useEffect(() => {
+    const stop = (e: Event) => { if (e.cancelable) e.preventDefault() }
+    const clearSelection = () => {
+      const sel = window.getSelection?.()
+      if (sel && !sel.isCollapsed) sel.removeAllRanges()
+    }
+    document.addEventListener('selectstart', stop, true)
+    document.addEventListener('dragstart', stop, true)
+    document.addEventListener('contextmenu', stop, true)
+    document.addEventListener('selectionchange', clearSelection, true)
+    const body = document.body
+    const prevUserSelect = body.style.getPropertyValue('-webkit-user-select')
+    const prevCallout = body.style.getPropertyValue('-webkit-touch-callout')
+    body.style.setProperty('-webkit-user-select', 'none')
+    body.style.setProperty('-webkit-touch-callout', 'none')
+    // 開いた時点で既に出ている吹き出しも消す。
+    clearSelection()
+    return () => {
+      document.removeEventListener('selectstart', stop, true)
+      document.removeEventListener('dragstart', stop, true)
+      document.removeEventListener('contextmenu', stop, true)
+      document.removeEventListener('selectionchange', clearSelection, true)
+      // 元の指定に戻す（空文字なら指定そのものを外す）。
+      if (prevUserSelect) body.style.setProperty('-webkit-user-select', prevUserSelect)
+      else body.style.removeProperty('-webkit-user-select')
+      if (prevCallout) body.style.setProperty('-webkit-touch-callout', prevCallout)
+      else body.style.removeProperty('-webkit-touch-callout')
+    }
+  }, [])
+
   // PC では Ctrl/Cmd+Z・Shift+Z、Esc で閉じる。
   // ノートを開いている間はビューアのページ送り（←→）を奪わないよう、ここで止める。
   useEffect(() => {
@@ -210,6 +268,7 @@ export default function NoteOverlay({
     // 見出しの文字が範囲選択されたり、画面ごとスクロールしたりして
     // ペンの入力が途切れるのを防ぐ。
     <div
+      ref={rootRef}
       className="fixed inset-0 z-[60] bg-gray-800 flex flex-col select-none touch-none"
       style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
       onContextMenu={e => e.preventDefault()}
@@ -242,7 +301,7 @@ export default function NoteOverlay({
               className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-colors ${
                 tool === t.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
-            ><t.icon size={15} /><span className="hidden sm:inline">{t.label}</span></button>
+            ><t.icon size={15} /><span className="hidden md:inline">{t.label}</span></button>
           ))}
         </div>
 
@@ -276,7 +335,10 @@ export default function NoteOverlay({
 
         <div className="flex-1" />
 
-        {title && <span className="text-[11px] text-gray-400 truncate max-w-[8rem] hidden md:inline">{title}</span>}
+        {/* 文字は触れないようにする（選択の起点をツールバーから無くす）。 */}
+        {title && (
+          <span className="text-[11px] text-gray-400 truncate max-w-[8rem] hidden lg:inline pointer-events-none">{title}</span>
+        )}
         {/* 手のひら無視。スタイラスを持っていない端末では切っておけば指で書ける。 */}
         <button
           onClick={togglePenOnly}

@@ -113,6 +113,31 @@ export default function NoteCanvas({
     })
   }, [])
 
+  // iPadOS（Safari・Chrome とも WebKit）対策。書いている最中に「コピー／調べる」の
+  // 吹き出し（テキスト選択メニュー）やルーペが出て、線が途切れるのを止める。
+  //
+  //   ・pointerdown の preventDefault では止まらない。iOS でタッチの既定動作を消せるのは
+  //     touchstart / touchmove の preventDefault だけで、pointer 側の取り消しは
+  //     互換マウスイベントしか抑えない。
+  //   ・React の onTouchStart / onTouchMove は passive で付くため preventDefault が効かない。
+  //     ここだけ素の addEventListener（passive: false）で付ける必要がある。
+  //
+  // 描画面はボタンではないので、既定動作を丸ごと止めて困ることは無い
+  // （ページのスクロール・ピンチは touch-action: none で既に止めている）。
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const stop = (e: TouchEvent) => { if (e.cancelable) e.preventDefault() }
+    el.addEventListener('touchstart', stop, { passive: false })
+    el.addEventListener('touchmove', stop, { passive: false })
+    el.addEventListener('touchend', stop, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', stop)
+      el.removeEventListener('touchmove', stop)
+      el.removeEventListener('touchend', stop)
+    }
+  }, [])
+
   // 表示サイズの追従。回転・分割画面でも比率どおりに描き直す。
   useEffect(() => {
     const el = wrapRef.current
