@@ -10,8 +10,6 @@ import {
 // 取り消し／やり直しを親の履歴だけで完結させるため、
 // 「手を下ろした時点」で親に onGestureStart を伝え、以降の変更は履歴を積まない。
 
-// 消しゴムの当たり半径（論理単位＝幅1基準）。指でも狙えて、隣の式は消えない大きさ。
-const ERASER_R = 0.022
 // 手書きの点を拾う間隔。これ未満の移動は捨てる（点が増えすぎると保存も再描画も重くなる）。
 const MIN_STEP = 0.002
 // 書き終わりの間引き量。見た目が変わらない範囲に留める。
@@ -57,22 +55,28 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: NoteStroke, scale: nu
 }
 
 export default function NoteCanvas({
-  doc, tool, color, width, penOnly,
-  onGestureStart, onAddStroke, onRemoveStrokes, onMoveStrokes, onPenDetected,
+  doc, tool, color, width, eraserR, penOnly,
+  onGestureStart, onGestureCancel, onAddStroke, onRemoveStrokes, onErasePartial, onMoveStrokes, onPenDetected,
 }: {
   doc: NoteDoc
   tool: NoteTool
   color: string
   /** 論理単位の太さ（描画領域の幅に対する比）。 */
   width: number
+  /** 消しゴムの半径（論理単位）。 */
+  eraserR: number
   /** スタイラス以外（指・手のひら）の入力を無視するか。 */
   penOnly: boolean
   /** これから線が増える・消える・動く、を親へ伝える（親はここで履歴を1つ積む）。 */
   onGestureStart: () => void
+  /** 始めたジェスチャを無かったことにする（手のひらの誤入力をペンが引き継ぐとき）。 */
+  onGestureCancel: () => void
   onAddStroke: (stroke: NoteStroke) => void
   onRemoveStrokes: (ids: string[]) => void
+  /** 消しゴムが触れた部分だけを消す（線は断片に分かれる）。 */
+  onErasePartial: (x: number, y: number, r: number) => void
   onMoveStrokes: (ids: string[], dx: number, dy: number) => void
-  /** スタイラスの入力を初めて見たとき（親が手のひら無視の既定を決める）。 */
+  /** スタイラスの入力を初めて見たとき（親が手のひら無視を既定にする）。 */
   onPenDetected: () => void
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -80,17 +84,23 @@ export default function NoteCanvas({
   // 表示サイズ（CSS px）。canvas の実ピクセルは devicePixelRatio 倍で持つ。
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [selected, setSelected] = useState<string[]>([])
+  // 指の入力を捨てたことを短く知らせる。黙って無視すると「壊れている」に見えるため。
+  const [ignoredTouch, setIgnoredTouch] = useState(false)
+  const hintTimer = useRef(0)
 
   // 進行中のジェスチャ。1フレームに何度も来るため state ではなく ref に置き、
   // 再描画は requestAnimationFrame にまとめる。
   const gesture = useRef<{
     pointerId: number
+    pointerType: string
     kind: 'draw' | 'line' | 'erase' | 'lasso' | 'move'
     points: NotePoint[]
     /** 移動ツールの掴み始め（論理座標）と、今の移動量。 */
     from: { x: number; y: number }
     delta: { x: number; y: number }
     moving: string[]
+    /** 消しゴムを最後に当てた位置（動いたぶんだけ消すための間引き）。 */
+    lastErase: { x: number; y: number } | null
   } | null>(null)
   const drawRef = useRef<() => void>(() => {})
   const rafRef = useRef(0)
@@ -149,6 +159,18 @@ export default function NoteCanvas({
       drawStroke(ctx, { id: 'live', color, width, points: g.points }, scale)
     }
 
+    // 消しゴムの大きさを円で示す（どこまで消えるかが見えないと部分消しは狙えない）。
+    if (g?.kind === 'erase' && g.points.length > 0) {
+      const at = g.points[g.points.length - 1]
+      ctx.save()
+      ctx.strokeStyle = '#9ca3af'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.arc(at.x * scale, at.y * scale, eraserR * scale, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
     // 投げ縄の軌跡。
     if (g?.kind === 'lasso' && g.points.length > 1) {
       ctx.save()
@@ -189,8 +211,11 @@ export default function NoteCanvas({
     }
   }
 
-  useEffect(() => { schedule() }, [doc, size, selected, color, width, schedule])
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
+  useEffect(() => { schedule() }, [doc, size, selected, color, width, eraserR, schedule])
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    window.clearTimeout(hintTimer.current)
+  }, [])
 
   // 画面座標 → 論理座標（縦横とも「幅」で割る）。
   const toLogical = (e: React.PointerEvent): NotePoint => {
@@ -203,17 +228,41 @@ export default function NoteCanvas({
     }
   }
 
-  const eraseAt = (pt: NotePoint) => {
-    const ids = doc.strokes.filter(s => hitStroke(s, pt.x, pt.y, ERASER_R)).map(s => s.id)
-    if (ids.length > 0) onRemoveStrokes(ids)
+  // 触れた部分だけ消す。動いたぶんだけ当てる（同じ場所で何度も分割し直さない）。
+  const eraseAt = (pt: NotePoint, g: NonNullable<typeof gesture.current>) => {
+    const last = g.lastErase
+    if (last && Math.hypot(pt.x - last.x, pt.y - last.y) < eraserR * 0.4) return
+    g.lastErase = { x: pt.x, y: pt.y }
+    onErasePartial(pt.x, pt.y, eraserR)
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === 'pen') onPenDetected()
-    // スタイラス運用中は指・手のひらを無視する（ノートに手を置いて書ける）。
-    if (penOnly && e.pointerType !== 'pen') return
-    // 2本目以降の指は無視する（1本目の線が飛ぶのを防ぐ）。
-    if (gesture.current) return
+    // 手のひらで押さえたときに、下の文字が選択される・長押しメニューが出るのを止める。
+    e.preventDefault()
+    const isPen = e.pointerType === 'pen'
+    if (isPen) onPenDetected()
+
+    const active = gesture.current
+    if (active) {
+      // ペンは常に最優先。先に触れていた指・手のひらのジェスチャは無かったことにして
+      // ペンへ引き継ぐ（「手を置いてからペンを下ろす」が普通の持ち方なので、
+      // ここで譲らないと手を置いた瞬間に書けなくなる）。
+      if (isPen && active.pointerType !== 'pen') {
+        gesture.current = null
+        onGestureCancel()
+      } else {
+        // ペン使用中の指、2本目以降の指は無視する（線が飛ぶのを防ぐ）。
+        return
+      }
+    }
+    // スタイラス運用中は指・手のひらを最初から無視する。
+    if (penOnly && !isPen) {
+      setIgnoredTouch(true)
+      window.clearTimeout(hintTimer.current)
+      hintTimer.current = window.setTimeout(() => setIgnoredTouch(false), 1600)
+      return
+    }
+
     const pt = toLogical(e)
     e.currentTarget.setPointerCapture(e.pointerId)
 
@@ -223,8 +272,8 @@ export default function NoteCanvas({
       if (inside) {
         onGestureStart()
         gesture.current = {
-          pointerId: e.pointerId, kind: 'move', points: [pt],
-          from: { x: pt.x, y: pt.y }, delta: { x: 0, y: 0 }, moving: [...selected],
+          pointerId: e.pointerId, pointerType: e.pointerType, kind: 'move', points: [pt],
+          from: { x: pt.x, y: pt.y }, delta: { x: 0, y: 0 }, moving: [...selected], lastErase: null,
         }
         schedule()
         return
@@ -232,14 +281,16 @@ export default function NoteCanvas({
       setSelected([])
     }
 
-    const kind = tool === 'eraser' ? 'erase' : tool === 'lasso' ? 'lasso' : tool === 'line' ? 'line' : 'draw'
+    const kind = (tool === 'eraser' ? 'erase' : tool === 'lasso' ? 'lasso' : tool === 'line' ? 'line' : 'draw') as 'draw' | 'line' | 'erase' | 'lasso'
     // 線を消す・増やすジェスチャの直前に履歴を1つ積む（投げ縄の選択だけなら積まない）。
     if (kind !== 'lasso') onGestureStart()
-    gesture.current = {
-      pointerId: e.pointerId, kind, points: [pt],
-      from: { x: pt.x, y: pt.y }, delta: { x: 0, y: 0 }, moving: [],
+    const g = {
+      pointerId: e.pointerId, pointerType: e.pointerType, kind, points: [pt],
+      from: { x: pt.x, y: pt.y }, delta: { x: 0, y: 0 }, moving: [] as string[],
+      lastErase: null as { x: number; y: number } | null,
     }
-    if (kind === 'erase') eraseAt(pt)
+    gesture.current = g
+    if (kind === 'erase') eraseAt(pt, g)
     schedule()
   }
 
@@ -260,7 +311,9 @@ export default function NoteCanvas({
     }))
 
     if (g.kind === 'erase') {
-      for (const pt of pts) eraseAt(pt)
+      for (const pt of pts) eraseAt(pt, g)
+      g.points = [pts[pts.length - 1]]
+      schedule()
       return
     }
     if (g.kind === 'move') {
@@ -292,12 +345,13 @@ export default function NoteCanvas({
     if (g.kind === 'draw' || g.kind === 'line') {
       const pts = g.kind === 'line' ? g.points : simplifyPoints(g.points, SIMPLIFY_TOL)
       // 直線は2点そろって初めて線になる（点で終わったら何も足さない）。
-      if (g.kind === 'line' && pts.length < 2) { schedule(); return }
+      if (g.kind === 'line' && pts.length < 2) { onGestureCancel(); schedule(); return }
       onAddStroke({ id: newStrokeId(), color, width, points: pts })
     } else if (g.kind === 'lasso') {
       setSelected(strokesInLasso(doc.strokes, g.points))
     } else if (g.kind === 'move') {
       if (g.delta.x !== 0 || g.delta.y !== 0) onMoveStrokes(g.moving, g.delta.x, g.delta.y)
+      else onGestureCancel()
     }
     schedule()
   }
@@ -327,11 +381,17 @@ export default function NoteCanvas({
         onPointerMove={onPointerMove}
         onPointerUp={finish}
         onPointerCancel={finish}
+        onContextMenu={e => e.preventDefault()}
         // touch-action: none が無いと、書いている途中でブラウザのスクロール・
         // ピンチに取られて線が途切れる。
         className="absolute inset-0 w-full h-full touch-none select-none"
         style={{ cursor: tool === 'eraser' ? 'cell' : tool === 'lasso' ? 'move' : 'crosshair' }}
       />
+      {ignoredTouch && selected.length === 0 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 text-white text-[11px] px-3 py-1.5">
+          ペンのみ受付中です（指で書くには上の「ペンのみ」を押してください）
+        </div>
+      )}
       {/* 選択中の操作（切り取り）。指でも押せる大きさで、書く手の邪魔にならない上端に置く。 */}
       {selected.length > 0 && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-white/95 shadow-lg border border-gray-200 px-2 py-1">

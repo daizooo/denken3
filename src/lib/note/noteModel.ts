@@ -148,3 +148,95 @@ export function simplifyPoints(points: NotePoint[], tol: number): NotePoint[] {
   for (let i = 0; i < points.length; i++) if (keep[i]) out.push(points[i])
   return out
 }
+
+/** 点の列の長さ（論理単位）。消し残りの切れ端を捨てる判定に使う。 */
+export function pathLength(points: NotePoint[]): number {
+  let sum = 0
+  for (let i = 1; i < points.length; i++) sum += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+  return sum
+}
+
+// 消したあとに残る切れ端の下限。これ未満は点にしか見えないので捨てる。
+const MIN_FRAGMENT = 0.003
+
+/**
+ * 線分 a→b のうち円（中心 c・半径 R）の内側に入る区間 [t0,t1]（0〜1）。交わらなければ null。
+ * 線分が丸ごと内側なら [0,1]、掠めるだけ（接する）なら null。
+ */
+function circleInterval(
+  ax: number, ay: number, bx: number, by: number, cx: number, cy: number, R: number,
+): [number, number] | null {
+  const dx = bx - ax
+  const dy = by - ay
+  const fx = ax - cx
+  const fy = ay - cy
+  const A = dx * dx + dy * dy
+  if (A === 0) return fx * fx + fy * fy <= R * R ? [0, 1] : null
+  const B = 2 * (fx * dx + fy * dy)
+  const C = fx * fx + fy * fy - R * R
+  const disc = B * B - 4 * A * C
+  if (disc < 0) return null
+  const sq = Math.sqrt(disc)
+  let t0 = (-B - sq) / (2 * A)
+  let t1 = (-B + sq) / (2 * A)
+  if (t1 < 0 || t0 > 1) return null
+  t0 = Math.max(0, t0)
+  t1 = Math.min(1, t1)
+  if (t1 <= t0) return null
+  return [t0, t1]
+}
+
+/** 2点の間を t で内分する（筆圧も一緒に補間する）。 */
+function lerpPoint(a: NotePoint, b: NotePoint, t: number): NotePoint {
+  const pt: NotePoint = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+  if (a.p != null && b.p != null) pt.p = a.p + (b.p - a.p) * t
+  else if (a.p != null || b.p != null) pt.p = a.p ?? b.p
+  return pt
+}
+
+/**
+ * 消しゴム（中心 cx,cy・半径 r の円）で線を部分的に消す（GoodNotes と同じ挙動）。
+ * 触れた部分だけを抜き、残った手前・奥をそれぞれ別の線として返す
+ * ――「1本まるごと消える」と、長い分数の横線や補助線を少しだけ直したいときに困る。
+ *
+ * 返り値:
+ *   ・触れていない  → [stroke] そのもの（同一参照。呼び出し側の「変化なし」判定に使う）
+ *   ・消し尽くした  → []
+ *   ・部分的に消した → 残った断片（新しいID）
+ */
+export function eraseStroke(stroke: NoteStroke, cx: number, cy: number, r: number): NoteStroke[] {
+  // 見た目の太さのぶん、線は判定より外まで描かれている。半径に足して見た目と合わせる。
+  const R = r + stroke.width / 2
+  const pts = stroke.points
+  if (pts.length === 1) return Math.hypot(pts[0].x - cx, pts[0].y - cy) <= R ? [] : [stroke]
+
+  const frags: NotePoint[][] = []
+  let cur: NotePoint[] = []
+  let cut = false
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const iv = circleInterval(a.x, a.y, b.x, b.y, cx, cy, R)
+    if (!iv) {
+      // この線分はまるごと残る。
+      if (cur.length === 0) cur.push(a)
+      cur.push(b)
+      continue
+    }
+    cut = true
+    const [t0, t1] = iv
+    // 円に入るまで（手前）は残す。
+    if (t0 > 0) {
+      if (cur.length === 0) cur.push(a)
+      cur.push(lerpPoint(a, b, t0))
+    }
+    if (cur.length >= 2) frags.push(cur)
+    // 円を出たあと（奥）から次の断片を始める。
+    cur = t1 < 1 ? [lerpPoint(a, b, t1), b] : []
+  }
+  if (cur.length >= 2) frags.push(cur)
+  if (!cut) return [stroke]
+  return frags
+    .filter(f => pathLength(f) >= MIN_FRAGMENT)
+    .map(f => ({ ...stroke, id: newStrokeId(), points: f }))
+}

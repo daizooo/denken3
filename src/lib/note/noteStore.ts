@@ -89,3 +89,20 @@ export function hasNote(noteId: string): boolean {
     return false
   }
 }
+
+// パームリジェクト（指・手のひらを無視するか）は端末の持ちもので、問題ごとではない。
+// スタイラスを1度でも使った端末では次に開いたときも最初から効いている必要がある
+// ――「毎回ペンで一筆書いてから手を置く」では、手を置いて書けるとは言えない。
+const PEN_ONLY_KEY = 'denken3:note:pen-only'
+
+export function loadPenOnly(): boolean {
+  try {
+    return localStorage.getItem(PEN_ONLY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function savePenOnly(on: boolean): void {
+  try { localStorage.setItem(PEN_ONLY_KEY, on ? '1' : '0') } catch { /* 記憶できなくてもその場では効く */ }
+}
