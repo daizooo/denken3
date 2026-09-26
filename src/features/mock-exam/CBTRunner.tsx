@@ -4,6 +4,7 @@ import type { MockAnswer, MockMode, MockSession, PaperDefinition, PaperQuestion 
 import { isAnswered } from '../../lib/mock'
 import { useViewerZoom } from '../../lib/viewerZoom'
 import PaperImage from './PaperImage'
+import NoteLauncher from '../note/NoteLauncher'
 
 // CBT解答画面（§7.4(2)）。本番CBTに準拠した操作で解く。
 // - ヘッダー: 残り時間カウントダウン（cbtのみ。フリーはタイマー非表示）・解答済み/全問数
@@ -161,6 +162,8 @@ export default function CBTRunner({
         <button onClick={zoomIn} disabled={!canZoomIn} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:text-gray-300" title="拡大">
           <ZoomIn size={18} />
         </button>
+        {/* 計算用ノート（問題ごと）。本番も計算用紙が配られるため、ここから開けるようにする。 */}
+        <NoteLauncher noteId={`mock:${paper.id}:${q.id}`} title={`問${q.number}`} />
         <button onClick={() => setShowGrid(true)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100" title="問題一覧">
           <Grid3x3 size={18} />
         </button>
