@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  BookOpen, Eraser, EllipsisVertical, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2,
+  Eraser, EllipsisVertical, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2,
 } from 'lucide-react'
 import {
   emptyDoc, eraseStroke, hitStroke, translateStroke,
@@ -378,12 +378,16 @@ export default function NoteOverlay({
 
         <div className="flex-1" />
 
-        {/* 問題へ戻る。行き来が多いので右端の定位置に置き、いちばん目立たせる。 */}
+        {/* 全部消す。1問ぶん書き終えるたびに使うので、畳まず表に出す。
+            書いている途中の誤爆を避けるため、押すと確認を挟む。 */}
         <button
-          onClick={onHide}
-          title="問題へ戻る（2本指タップ・右端のつまみでも切り替わります）"
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700"
-        ><BookOpen size={15} />問題</button>
+          onClick={() => setAskClear(true)}
+          disabled={doc.strokes.length === 0}
+          title="全部消す"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border
+            text-red-600 border-red-200 bg-red-50 hover:bg-red-100
+            disabled:text-gray-300 disabled:border-gray-200 disabled:bg-white"
+        ><Trash2 size={15} /><span className="hidden sm:inline">全部消す</span></button>
 
         {/* たまにしか使わない操作。 */}
         <div className="relative">
@@ -405,13 +409,8 @@ export default function NoteOverlay({
                   <span className="flex-1 text-left">{penOnly ? 'ペンのみ受付中' : '指でも書ける'}</span>
                   <span className="text-[10px] text-gray-400">{penOnly ? '解除' : 'ONにする'}</span>
                 </button>
-                <button
-                  onClick={() => { setAskClear(true); setMenuOpen(false) }}
-                  disabled={doc.strokes.length === 0}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-600 hover:bg-red-50 disabled:text-gray-300 disabled:hover:bg-transparent"
-                ><Trash2 size={15} /><span className="flex-1 text-left">全部消す</span></button>
                 <p className="px-3 py-2 text-[10px] leading-relaxed text-gray-400 border-t border-gray-100 mt-1">
-                  2本指でタップ、または右端のつまみで問題と行き来できます。
+                  2本指でタップ、または左端の青いつまみで問題へ戻れます。
                   {title ? <><br />{title}</> : null}
                 </p>
               </div>
@@ -444,7 +443,7 @@ export default function NoteOverlay({
 
       {hint && !hidden && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-[62] rounded-full bg-black/70 text-white text-[11px] px-4 py-2 shadow-lg">
-          2本指でタップ、または右端の青いつまみで問題と行き来できます
+          2本指でタップ、または左端の青いつまみで問題に戻れます
         </div>
       )}
 
@@ -454,7 +453,7 @@ export default function NoteOverlay({
             <p className="text-sm font-bold text-gray-800">このノートを全部消しますか？</p>
             <p className="text-xs text-gray-500">書いた式はすべて消えます（「戻る」で1回だけ戻せます）。</p>
             <div className="flex gap-2">
-              <button onClick={() => setAskClear(false)} className="flex-1 py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200">戻る</button>
+              <button onClick={() => setAskClear(false)} className="flex-1 py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200">やめる</button>
               <button onClick={clearAll} className="flex-1 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700">全削除</button>
             </div>
           </div>
