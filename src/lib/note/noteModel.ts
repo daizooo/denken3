@@ -240,3 +240,95 @@ export function eraseStroke(stroke: NoteStroke, cx: number, cy: number, r: numbe
     .filter(f => pathLength(f) >= MIN_FRAGMENT)
     .map(f => ({ ...stroke, id: newStrokeId(), points: f }))
 }
+
+/** 線を「囲みの内側」と「外側」に切り分けた結果。 */
+export interface ClipResult {
+  /** 囲みの内側に入っていた部分（切り取り・移動の対象）。 */
+  inside: NoteStroke[]
+  /** 外側に残る部分。 */
+  outside: NoteStroke[]
+}
+
+/**
+ * 線分 a→b が多角形の辺と交わる位置（線分上の 0〜1）をすべて返す。
+ * 多角形の頂点ちょうどで交わる場合に同じ点を二重に拾いうるが、
+ * 下の clipStrokeByPolygon では中点で内外を判定するため、余分な切れ目があっても結果は変わらない。
+ */
+function polygonCrossings(
+  ax: number, ay: number, bx: number, by: number, poly: NotePoint[],
+): number[] {
+  const rx = bx - ax
+  const ry = by - ay
+  const ts: number[] = []
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const cx = poly[j].x, cy = poly[j].y
+    const sx = poly[i].x - cx, sy = poly[i].y - cy
+    const denom = rx * sy - ry * sx
+    // 平行（または長さ0）の辺は交点なしとして扱う。
+    if (Math.abs(denom) < 1e-12) continue
+    const t = ((cx - ax) * sy - (cy - ay) * sx) / denom
+    const u = ((cx - ax) * ry - (cy - ay) * rx) / denom
+    if (t > 0 && t < 1 && u >= 0 && u <= 1) ts.push(t)
+  }
+  return ts.sort((p, q) => p - q)
+}
+
+/**
+ * 投げ縄（多角形）で線を切り分ける。囲みの境界で線を割り、
+ * 内側に入った部分だけを inside として返す（GoodNotes の投げ縄と同じ挙動）。
+ *
+ * 「線に少しでも触れていたら1本まるごと選択」だと、長い補助線や式の一部だけを
+ * 動かしたいときに巻き添えが出るため、境界でちょうど切る。
+ *
+ * 丸ごと内側／丸ごと外側の線は、同じ参照のまま返す（呼び出し側の「変化なし」判定に使う）。
+ */
+export function clipStrokeByPolygon(stroke: NoteStroke, poly: NotePoint[]): ClipResult {
+  if (poly.length < 3) return { inside: [], outside: [stroke] }
+  const pts = stroke.points
+  if (pts.length === 1) {
+    return pointInPolygon(pts[0].x, pts[0].y, poly)
+      ? { inside: [stroke], outside: [] }
+      : { inside: [], outside: [stroke] }
+  }
+
+  // 内／外が切り替わるところで区切りながら、点列を断片に貯めていく。
+  const inside: NotePoint[][] = []
+  const outside: NotePoint[][] = []
+  let cur: NotePoint[] = []
+  let curInside: boolean | null = null
+  const flush = () => {
+    if (cur.length >= 2 && curInside !== null) (curInside ? inside : outside).push(cur)
+    cur = []
+  }
+
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const ts = polygonCrossings(a.x, a.y, b.x, b.y, poly)
+    let from = 0
+    for (const t of [...ts, 1]) {
+      if (t <= from) continue
+      const p0 = from === 0 ? a : lerpPoint(a, b, from)
+      const p1 = t === 1 ? b : lerpPoint(a, b, t)
+      // 小片の内外は中点で決める（端点は境界上にあるため判定に使えない）。
+      const isIn = pointInPolygon((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, poly)
+      if (curInside !== isIn) {
+        flush()
+        curInside = isIn
+        cur = [p0]
+      }
+      cur.push(p1)
+      from = t
+    }
+  }
+  flush()
+
+  // 一方に寄り切った場合は元の線をそのまま返す（IDを変えず、履歴も汚さない）。
+  if (inside.length === 0) return { inside: [], outside: [stroke] }
+  if (outside.length === 0) return { inside: [stroke], outside: [] }
+
+  const toStrokes = (frags: NotePoint[][]) => frags
+    .filter(f => pathLength(f) >= MIN_FRAGMENT)
+    .map(f => ({ ...stroke, id: newStrokeId(), points: f }))
+  return { inside: toStrokes(inside), outside: toStrokes(outside) }
+}

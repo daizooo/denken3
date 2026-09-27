@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Eraser, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2, X } from 'lucide-react'
+import { BookOpen, Eraser, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2 } from 'lucide-react'
 import {
   emptyDoc, eraseStroke, hitStroke, translateStroke,
   type NoteDoc, type NoteStroke, type NoteTool,
 } from '../../lib/note/noteModel'
-import { clearNote, loadNote, loadPenOnly, savePenOnly, saveNote } from '../../lib/note/noteStore'
+import { loadPenOnly, purgeSavedNotes, savePenOnly } from '../../lib/note/noteStore'
+import { watchTwoFingerTap } from '../../lib/note/twoFingerTap'
 import NoteCanvas from './NoteCanvas'
 
 // 計算用ノート（白紙）。問題の上にかぶせて開き、途中式・等価回路・ベクトル図を書く。
 // 電験の計算問題は紙が無いと解けない一方、タブレットで問題を見ていると紙とペンに
-// 持ち替える手間で中断が増える。そこで問題画面から1タップで開き、書いた内容は
-// 問題ごとに端末へ残す（解き直しのときに前回の自分の式を見られる）。
+// 持ち替える手間で中断が増える。そこで問題画面から1タップで開く。
+//
+// 中身はメモリにだけ置き、問題を閉じたら白紙に戻る（本番で配られる計算用紙と同じ扱い。
+// 前回の式が残っていると、解き直しのときに答えを思い出してしまい復習にならない）。
+// 解いている間はノートと問題を何度も行き来するので、2本指タップと閉じるボタンの
+// どちらでも一瞬で切り替えられるようにし、切り替えでは中身を消さない。
 //
 // 道具立ては GoodNotes に寄せる: ペン（色・太さ）／消しゴム（部分消し）／直線／
 // 切り取り（投げ縄）／全削除／戻る・進む。タブレット・スマホではスタイラスで書き、
@@ -56,19 +61,22 @@ interface NoteState {
   future: NoteDoc[]
 }
 
-function initialState(noteId: string): NoteState {
-  return { doc: loadNote(noteId), past: [], future: [] }
+function initialState(): NoteState {
+  return { doc: emptyDoc(), past: [], future: [] }
 }
 
 export default function NoteOverlay({
-  noteId, title, onClose,
+  noteId, title, hidden = false, onHide,
 }: {
-  /** ノートの保存単位。問題IDを渡す（問題ごとに別のノートになる）。 */
+  /** どの問題のノートか。変わったら白紙にする。 */
   noteId: string
   title?: string
-  onClose: () => void
+  /** 問題を見るために引っ込めている状態。中身は保ったまま隠すだけ。 */
+  hidden?: boolean
+  /** 問題表示へ戻る（2本指タップ・閉じるボタン）。 */
+  onHide: () => void
 }) {
-  const [state, setState] = useState<NoteState>(() => initialState(noteId))
+  const [state, setState] = useState<NoteState>(() => initialState())
   const { doc, past, future } = state
   const [tool, setTool] = useState<NoteTool>('pen')
   const [color, setColor] = useState(COLORS[0].value)
@@ -82,22 +90,19 @@ export default function NoteOverlay({
   const width = WIDTHS.find(w => w.key === widthKey)?.value ?? WIDTHS[1].value
   const eraserR = ERASER_R[widthKey] ?? ERASER_R.mid
 
-  // 問題が変わったらそのノートを開き直す（履歴も引き継がない）。
-  useEffect(() => { setState(initialState(noteId)) }, [noteId])
+  // 問題が変わったら白紙にする（履歴も引き継がない）。
+  useEffect(() => { setState(initialState()) }, [noteId])
 
-  // 書いた内容の保存。1本ごとに書き出すと重いので、落ち着いてから保存する。
-  // 閉じるとき・問題が変わるときは下の後始末で即書き出す。
-  const docRef = useRef(doc)
-  docRef.current = doc
-  const noteIdRef = useRef(noteId)
+  // 以前の版が端末に残した書き込みを消す（保存はもう行わない）。
+  useEffect(() => { purgeSavedNotes() }, [])
+
+  // 2本指タップで問題表示へ戻る。ペンで書いている最中には暴発しない
+  // （ペンは1点しか触れないため）。戻すのは問題側で同じ操作をする。
   useEffect(() => {
-    const iv = setTimeout(() => saveNote(noteId, doc), 400)
-    return () => clearTimeout(iv)
-  }, [noteId, doc])
-  useEffect(() => {
-    noteIdRef.current = noteId
-    return () => { saveNote(noteIdRef.current, docRef.current) }
-  }, [noteId])
+    const root = rootRef.current
+    if (!root || hidden) return
+    return watchTwoFingerTap(root, onHide)
+  }, [hidden, onHide])
 
   // 1手ぶんの控えを積む。線を増やす・消す・動かす直前に必ず呼ぶ。
   const pushHistory = useCallback(() => {
@@ -120,6 +125,11 @@ export default function NoteOverlay({
   const removeStrokes = useCallback((ids: string[]) => {
     const drop = new Set(ids)
     setState(s => ({ ...s, doc: { v: 1, strokes: s.doc.strokes.filter(x => !drop.has(x.id)) } }))
+  }, [])
+
+  // 線の集まりを丸ごと差し替える（投げ縄が境界で線を割ったとき）。
+  const replaceStrokes = useCallback((strokes: NoteStroke[]) => {
+    setState(s => ({ ...s, doc: { v: 1, strokes } }))
   }, [])
 
   // 部分消し。触れた線を「触れた部分だけ」抜き、残りを断片として置き換える。
@@ -169,7 +179,6 @@ export default function NoteOverlay({
 
   const clearAll = () => {
     setState(s => ({ doc: emptyDoc(), past: [...s.past.slice(-(HISTORY_MAX - 1)), s.doc], future: [] }))
-    clearNote(noteId)
     setAskClear(false)
   }
 
@@ -194,7 +203,7 @@ export default function NoteOverlay({
   // ボタンのタップだけは通す（既定動作を止めると click が出ない端末があるため）。
   useEffect(() => {
     const root = rootRef.current
-    if (!root) return
+    if (!root || hidden) return
     const stop = (e: TouchEvent) => {
       const target = e.target as HTMLElement | null
       if (target?.closest('button')) return
@@ -206,7 +215,7 @@ export default function NoteOverlay({
       root.removeEventListener('touchstart', stop)
       root.removeEventListener('touchmove', stop)
     }
-  }, [])
+  }, [hidden])
 
   // iPadOS でペン書き中に出る「コピー／Google で検索／調べる」の吹き出しを根元から止める。
   // 吹き出しはテキスト選択が生まれた時に出るので、ノートを開いている間は
@@ -216,7 +225,9 @@ export default function NoteOverlay({
   // ことで、選択が1文字も成立しない状態にする。
   // CSS（user-select: none）だけでは、選択の起点が背後の画面側にあると防ぎきれないため、
   // 開いている間は body にも掛ける。
+  // 引っ込めている間は掛けない（問題表示は元どおりの操作にする）。
   useEffect(() => {
+    if (hidden) return
     const stop = (e: Event) => { if (e.cancelable) e.preventDefault() }
     const clearSelection = () => {
       const sel = window.getSelection?.()
@@ -244,13 +255,14 @@ export default function NoteOverlay({
       if (prevCallout) body.style.setProperty('-webkit-touch-callout', prevCallout)
       else body.style.removeProperty('-webkit-touch-callout')
     }
-  }, [])
+  }, [hidden])
 
   // PC では Ctrl/Cmd+Z・Shift+Z、Esc で閉じる。
   // ノートを開いている間はビューアのページ送り（←→）を奪わないよう、ここで止める。
   useEffect(() => {
+    if (hidden) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'Escape') { onHide(); return }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         if (e.shiftKey) redo()
@@ -261,7 +273,7 @@ export default function NoteOverlay({
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose, undo, redo])
+  }, [hidden, onHide, undo, redo])
 
   return (
     // select-none / touch-none は必須。手のひらや手首が画面に触れたとき、
@@ -269,8 +281,14 @@ export default function NoteOverlay({
     // ペンの入力が途切れるのを防ぐ。
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[60] bg-gray-800 flex flex-col select-none touch-none"
-      style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+      className="fixed inset-0 z-[60] bg-gray-800 flex-col select-none touch-none"
+      // 引っ込めるときは外さずに隠す。書いた式と取り消し履歴をそのまま保つため
+      // （行き来のたびに消えるようでは、切り替えを速くした意味がない）。
+      style={{
+        display: hidden ? 'none' : 'flex',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
       onContextMenu={e => e.preventDefault()}
     >
       {/* 道具立て。片手で届く高さに1段で並べ、幅が足りなければ折り返す。 */}
@@ -355,9 +373,12 @@ export default function NoteOverlay({
           title="全削除"
           className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:text-gray-300"
         ><Trash2 size={17} /></button>
-        <button onClick={onClose} title="ノートを閉じる" className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
-          <X size={18} />
-        </button>
+        {/* 問題へ戻る。2本指タップでも同じことができる（どちらも中身は消えない）。 */}
+        <button
+          onClick={onHide}
+          title="問題へ戻る（2本指でタップしても切り替わります）"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100"
+        ><BookOpen size={15} />問題</button>
       </div>
 
       {/* 白紙。枠いっぱいに広げる（画面が広いほど書ける面積が増える）。 */}
@@ -374,6 +395,7 @@ export default function NoteOverlay({
             onGestureCancel={cancelGesture}
             onAddStroke={addStroke}
             onRemoveStrokes={removeStrokes}
+            onReplaceStrokes={replaceStrokes}
             onErasePartial={erasePartial}
             onMoveStrokes={moveStrokes}
             onPenDetected={onPenDetected}

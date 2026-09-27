@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  distToSegment, eraseStroke, hitStroke, pathLength, pointInPolygon, simplifyPoints,
-  strokeBBox, strokesInLasso, translateStroke,
+  clipStrokeByPolygon, distToSegment, eraseStroke, hitStroke, pathLength, pointInPolygon,
+  simplifyPoints, strokeBBox, strokesInLasso, translateStroke,
   type NoteStroke,
 } from './noteModel'
 
@@ -176,5 +176,67 @@ describe('eraseStroke（部分消し）', () => {
 describe('pathLength', () => {
   it('線分の長さを足し合わせる', () => {
     expect(pathLength([{ x: 0, y: 0 }, { x: 0.3, y: 0 }, { x: 0.3, y: 0.4 }])).toBeCloseTo(0.7)
+  })
+})
+
+describe('clipStrokeByPolygon（囲んだ部分だけを切り出す）', () => {
+  // x=0〜1 の水平線と、その真ん中 x=0.4〜0.6 を覆う四角い囲み。
+  const line0 = (pts: [number, number][]) => line('a', pts, 0)
+  const box = [
+    { x: 0.4, y: 0.3 }, { x: 0.6, y: 0.3 }, { x: 0.6, y: 0.7 }, { x: 0.4, y: 0.7 },
+  ]
+
+  it('囲みを横切る線は境界でちょうど割れる', () => {
+    const { inside, outside } = clipStrokeByPolygon(line0([[0, 0.5], [1, 0.5]]), box)
+    expect(inside).toHaveLength(1)
+    expect(inside[0].points[0].x).toBeCloseTo(0.4)
+    expect(inside[0].points[inside[0].points.length - 1].x).toBeCloseTo(0.6)
+    expect(outside).toHaveLength(2)
+    expect(outside[0].points[0].x).toBeCloseTo(0)
+    expect(outside[0].points[outside[0].points.length - 1].x).toBeCloseTo(0.4)
+    expect(outside[1].points[0].x).toBeCloseTo(0.6)
+    expect(outside[1].points[outside[1].points.length - 1].x).toBeCloseTo(1)
+  })
+
+  it('丸ごと内側なら元の線をそのまま返す', () => {
+    const s = line0([[0.45, 0.5], [0.55, 0.5]])
+    const { inside, outside } = clipStrokeByPolygon(s, box)
+    expect(inside[0]).toBe(s)
+    expect(outside).toEqual([])
+  })
+
+  it('丸ごと外側なら元の線をそのまま返す', () => {
+    const s = line0([[0, 0.9], [1, 0.9]])
+    const { inside, outside } = clipStrokeByPolygon(s, box)
+    expect(inside).toEqual([])
+    expect(outside[0]).toBe(s)
+  })
+
+  it('囲みへ入って出て、また入る線は断片が増える', () => {
+    // 内側を2回通る折れ線（一度上へ抜けてから戻る）。
+    const s = line0([[0.3, 0.5], [0.5, 0.5], [0.5, 0.1], [0.55, 0.1], [0.55, 0.5], [0.7, 0.5]])
+    const { inside, outside } = clipStrokeByPolygon(s, box)
+    expect(inside.length).toBe(2)
+    expect(outside.length).toBe(3)
+  })
+
+  it('切り出した断片は別ID・同じ色と太さ', () => {
+    const { inside, outside } = clipStrokeByPolygon(line0([[0, 0.5], [1, 0.5]]), box)
+    const ids = [...inside, ...outside].map(s => s.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).not.toContain('a')
+    expect(inside[0].color).toBe('#000')
+  })
+
+  it('置いた点は囲みの内外で振り分けられる', () => {
+    const inDot = line('d', [[0.5, 0.5]], 0.01)
+    expect(clipStrokeByPolygon(inDot, box).inside[0]).toBe(inDot)
+    const outDot = line('d', [[0.1, 0.5]], 0.01)
+    expect(clipStrokeByPolygon(outDot, box).outside[0]).toBe(outDot)
+  })
+
+  it('3点未満の囲みでは何も選ばない', () => {
+    const s = line0([[0, 0.5], [1, 0.5]])
+    expect(clipStrokeByPolygon(s, box.slice(0, 2)).inside).toEqual([])
   })
 })

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
 import {
-  hitStroke, newStrokeId, simplifyPoints, strokeBBox, strokesInLasso,
+  clipStrokeByPolygon, hitStroke, newStrokeId, simplifyPoints, strokeBBox,
   type NoteDoc, type NotePoint, type NoteStroke, type NoteTool,
 } from '../../lib/note/noteModel'
 
@@ -56,7 +56,8 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: NoteStroke, scale: nu
 
 export default function NoteCanvas({
   doc, tool, color, width, eraserR, penOnly,
-  onGestureStart, onGestureCancel, onAddStroke, onRemoveStrokes, onErasePartial, onMoveStrokes, onPenDetected,
+  onGestureStart, onGestureCancel, onAddStroke, onRemoveStrokes, onReplaceStrokes,
+  onErasePartial, onMoveStrokes, onPenDetected,
 }: {
   doc: NoteDoc
   tool: NoteTool
@@ -73,6 +74,8 @@ export default function NoteCanvas({
   onGestureCancel: () => void
   onAddStroke: (stroke: NoteStroke) => void
   onRemoveStrokes: (ids: string[]) => void
+  /** 線の集まりを丸ごと置き換える（投げ縄が線を境界で割るときに使う）。 */
+  onReplaceStrokes: (strokes: NoteStroke[]) => void
   /** 消しゴムが触れた部分だけを消す（線は断片に分かれる）。 */
   onErasePartial: (x: number, y: number, r: number) => void
   onMoveStrokes: (ids: string[], dx: number, dy: number) => void
@@ -373,7 +376,22 @@ export default function NoteCanvas({
       if (g.kind === 'line' && pts.length < 2) { onGestureCancel(); schedule(); return }
       onAddStroke({ id: newStrokeId(), color, width, points: pts })
     } else if (g.kind === 'lasso') {
-      setSelected(strokesInLasso(doc.strokes, g.points))
+      // 囲みの境界で線を割り、内側に入った部分だけを選ぶ。
+      // 割った結果をそのままノートに反映しておくと、以後の移動・切り取りは
+      // 「選ばれている線を動かす／消す」だけで済む（見た目は割る前と変わらない）。
+      const next: NoteStroke[] = []
+      const picked: string[] = []
+      let split = false
+      for (const s of doc.strokes) {
+        const { inside, outside } = clipStrokeByPolygon(s, g.points)
+        if (inside.length === 0) { next.push(s); continue }
+        if (outside.length > 0) split = true
+        for (const f of inside) { next.push(f); picked.push(f.id) }
+        next.push(...outside)
+      }
+      // 境界で割ったときだけ履歴を1つ積む（ただ選んだだけでは積まない）。
+      if (split) { onGestureStart(); onReplaceStrokes(next) }
+      setSelected(picked)
     } else if (g.kind === 'move') {
       if (g.delta.x !== 0 || g.delta.y !== 0) onMoveStrokes(g.moving, g.delta.x, g.delta.y)
       else onGestureCancel()
