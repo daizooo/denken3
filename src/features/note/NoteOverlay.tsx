@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BookOpen, Eraser, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2 } from 'lucide-react'
+import {
+  BookOpen, Eraser, EllipsisVertical, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2,
+} from 'lucide-react'
 import {
   emptyDoc, eraseStroke, hitStroke, translateStroke,
   type NoteDoc, type NoteStroke, type NoteTool,
@@ -32,10 +34,10 @@ const WIDTHS: { key: string; label: string; value: number }[] = [
 // ――道具ごとに別の大小を覚えさせるより、選んでいる「細・中・太」が効く方が迷わない。
 const ERASER_R: Record<string, number> = { thin: 0.012, mid: 0.022, bold: 0.04 }
 
-const COLORS: { key: string; value: string }[] = [
-  { key: 'black', value: '#111827' },
-  { key: 'red', value: '#dc2626' },
-  { key: 'blue', value: '#2563eb' },
+const COLORS: { key: string; label: string; value: string }[] = [
+  { key: 'black', label: '黒', value: '#111827' },
+  { key: 'red', label: '赤', value: '#dc2626' },
+  { key: 'blue', label: '青', value: '#2563eb' },
 ]
 
 const TOOLS: { key: NoteTool; label: string; icon: typeof PenLine }[] = [
@@ -47,6 +49,10 @@ const TOOLS: { key: NoteTool; label: string; icon: typeof PenLine }[] = [
 
 // 取り消しの深さ。1手ぶんの控えは丸ごとの複製なので、際限なく持たない。
 const HISTORY_MAX = 50
+
+// 切り替え方の案内は、この画面を初めて開いたときの1回だけ出す
+// （毎回出すと、行き来のたびに邪魔になる）。
+let hintShown = false
 
 // ノートの中身と取り消し履歴は1つの塊で持つ。
 // 別々の state に分けると、手のひらの誤入力をペンが引き継ぐ場面のように
@@ -85,6 +91,9 @@ export default function NoteOverlay({
   // ――スタイラスを使う端末では、開いた直後から効いていないと意味がない。
   const [penOnly, setPenOnly] = useState(() => loadPenOnly())
   const [askClear, setAskClear] = useState(false)
+  // たまにしか使わない操作（全削除・手のひら設定）はここへ畳む。
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [hint, setHint] = useState(!hintShown)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const width = WIDTHS.find(w => w.key === widthKey)?.value ?? WIDTHS[1].value
@@ -95,6 +104,14 @@ export default function NoteOverlay({
 
   // 以前の版が端末に残した書き込みを消す（保存はもう行わない）。
   useEffect(() => { purgeSavedNotes() }, [])
+
+  // 切り替え方の案内（初回だけ・数秒で消える）。
+  useEffect(() => {
+    if (!hint) return
+    hintShown = true
+    const iv = setTimeout(() => setHint(false), 5000)
+    return () => clearTimeout(iv)
+  }, [hint])
 
   // 2本指タップで問題表示へ戻る。ペンで書いている最中には暴発しない
   // （ペンは1点しか触れないため）。戻すのは問題側で同じ操作をする。
@@ -291,94 +308,116 @@ export default function NoteOverlay({
       }}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* 道具立て。片手で届く高さに1段で並べ、幅が足りなければ折り返す。 */}
-      <div className="shrink-0 bg-white border-b border-gray-200 px-2 py-1.5 flex items-center gap-1 flex-wrap">
-        {/* 戻る・進むは道具より先。書き損じの取り返しが一番よく使う操作で、
-            GoodNotes と同じく常に同じ場所（左端）に置く。 */}
-        <button
-          onClick={undo}
-          disabled={past.length === 0}
-          title="戻る（Ctrl/⌘+Z）"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
-        ><Undo2 size={17} /><span className="hidden sm:inline">戻る</span></button>
-        <button
-          onClick={redo}
-          disabled={future.length === 0}
-          title="進む（Ctrl/⌘+Shift+Z）"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
-        ><Redo2 size={17} /><span className="hidden sm:inline">進む</span></button>
+      {/* 道具立て。1段に収め、左から「取り消し」「道具」「その道具の設定」、
+          右端に「問題へ」を置く。たまにしか使わないものは「⋮」へ畳み、
+          書く面積と目のノイズを削る（手に持って使う道具だけを表に出す）。 */}
+      <div className="shrink-0 bg-white border-b border-gray-200 px-2 py-1.5 flex items-center gap-2">
+        {/* 取り消し・やり直し。書き損じの取り返しが一番よく使うので常に左端。 */}
+        <div className="flex items-center">
+          <button
+            onClick={undo}
+            disabled={past.length === 0}
+            title="戻る（Ctrl/⌘+Z）"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
+          ><Undo2 size={18} /></button>
+          <button
+            onClick={redo}
+            disabled={future.length === 0}
+            title="進む（Ctrl/⌘+Shift+Z）"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:text-gray-300"
+          ><Redo2 size={18} /></button>
+        </div>
 
-        <div className="w-px h-6 bg-gray-200 mx-0.5" />
-
-        <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
+        {/* 道具。今どれを持っているかが一目で分かるように、選択中だけ塗る。 */}
+        <div className="flex items-center rounded-xl bg-gray-100 p-0.5">
           {TOOLS.map(t => (
             <button
               key={t.key}
               onClick={() => setTool(t.key)}
               title={t.label}
-              className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-colors ${
-                tool === t.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                tool === t.key ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
               }`}
-            ><t.icon size={15} /><span className="hidden md:inline">{t.label}</span></button>
+            ><t.icon size={16} /><span className="hidden lg:inline">{t.label}</span></button>
           ))}
         </div>
 
-        {/* 色はペンと直線で共通（書くものの見た目は1つに保つ）。 */}
-        <div className="flex items-center gap-1 ml-1">
-          {COLORS.map(c => (
-            <button
-              key={c.key}
-              onClick={() => setColor(c.value)}
-              title="色"
-              className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                color === c.value ? 'border-blue-500 scale-110' : 'border-gray-200'
-              }`}
-              style={{ background: c.value }}
-            />
-          ))}
-        </div>
-        {/* 太さは消しゴムの大きさも兼ねる。 */}
-        <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
-          {WIDTHS.map(w => (
-            <button
-              key={w.key}
-              onClick={() => setWidthKey(w.key)}
-              title={tool === 'eraser' ? `消しゴムの大きさ：${w.label}` : `太さ：${w.label}`}
-              className={`px-2 py-1.5 text-xs font-medium ${
-                widthKey === w.key ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >{w.label}</button>
-          ))}
-        </div>
+        {/* 道具の設定。今の道具に関係するものだけ出す
+            （消しゴムに色は要らず、切り取りには色も太さも要らない）。 */}
+        {tool !== 'lasso' && (
+          <div className="flex items-center gap-2">
+            {tool !== 'eraser' && (
+              <div className="flex items-center gap-1.5">
+                {COLORS.map(c => (
+                  <button
+                    key={c.key}
+                    onClick={() => setColor(c.value)}
+                    title={c.label}
+                    className={`w-6 h-6 rounded-full transition-transform ${
+                      color === c.value ? 'ring-2 ring-offset-2 ring-blue-500 scale-105' : ''
+                    }`}
+                    style={{ background: c.value }}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="flex items-center rounded-xl bg-gray-100 p-0.5">
+              {WIDTHS.map(w => (
+                <button
+                  key={w.key}
+                  onClick={() => setWidthKey(w.key)}
+                  title={tool === 'eraser' ? `消しゴムの大きさ：${w.label}` : `太さ：${w.label}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    widthKey === w.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
+                  }`}
+                >{w.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1" />
 
-        {/* 文字は触れないようにする（選択の起点をツールバーから無くす）。 */}
-        {title && (
-          <span className="text-[11px] text-gray-400 truncate max-w-[8rem] hidden lg:inline pointer-events-none">{title}</span>
-        )}
-        {/* 手のひら無視。スタイラスを持っていない端末では切っておけば指で書ける。 */}
-        <button
-          onClick={togglePenOnly}
-          title={penOnly
-            ? 'スタイラスのみ受け付けています（手を置いたまま書けます。指で書くには解除）'
-            : '指でも書けます（手のひらの誤入力を防ぐにはON）'}
-          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border ${
-            penOnly ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-gray-500 border-gray-200'
-          }`}
-        ><Hand size={14} />{penOnly ? 'ペンのみ' : '指OK'}</button>
-        <button
-          onClick={() => setAskClear(true)}
-          disabled={doc.strokes.length === 0}
-          title="全削除"
-          className="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:text-gray-300"
-        ><Trash2 size={17} /></button>
-        {/* 問題へ戻る。2本指タップでも同じことができる（どちらも中身は消えない）。 */}
+        {/* 問題へ戻る。行き来が多いので右端の定位置に置き、いちばん目立たせる。 */}
         <button
           onClick={onHide}
-          title="問題へ戻る（2本指でタップしても切り替わります）"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100"
+          title="問題へ戻る（2本指タップ・右端のつまみでも切り替わります）"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700"
         ><BookOpen size={15} />問題</button>
+
+        {/* たまにしか使わない操作。 */}
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            title="その他"
+            className={`p-2 rounded-lg ${menuOpen ? 'bg-gray-100 text-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
+          ><EllipsisVertical size={18} /></button>
+          {menuOpen && (
+            <>
+              {/* 画面のどこを触っても閉じる受け皿。 */}
+              <div className="fixed inset-0 z-[65]" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-[66] w-56 rounded-xl bg-white shadow-xl border border-gray-200 p-1">
+                <button
+                  onClick={() => { togglePenOnly(); setMenuOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  <Hand size={15} className={penOnly ? 'text-amber-600' : 'text-gray-400'} />
+                  <span className="flex-1 text-left">{penOnly ? 'ペンのみ受付中' : '指でも書ける'}</span>
+                  <span className="text-[10px] text-gray-400">{penOnly ? '解除' : 'ONにする'}</span>
+                </button>
+                <button
+                  onClick={() => { setAskClear(true); setMenuOpen(false) }}
+                  disabled={doc.strokes.length === 0}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-600 hover:bg-red-50 disabled:text-gray-300 disabled:hover:bg-transparent"
+                ><Trash2 size={15} /><span className="flex-1 text-left">全部消す</span></button>
+                <p className="px-3 py-2 text-[10px] leading-relaxed text-gray-400 border-t border-gray-100 mt-1">
+                  2本指でタップ、または右端のつまみで問題と行き来できます。
+                  {title ? <><br />{title}</> : null}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 白紙。枠いっぱいに広げる（画面が広いほど書ける面積が増える）。 */}
@@ -402,6 +441,12 @@ export default function NoteOverlay({
           />
         </div>
       </div>
+
+      {hint && !hidden && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-[62] rounded-full bg-black/70 text-white text-[11px] px-4 py-2 shadow-lg">
+          2本指でタップ、または右端の青いつまみで問題と行き来できます
+        </div>
+      )}
 
       {askClear && (
         <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4" onClick={() => setAskClear(false)}>
