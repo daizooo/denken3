@@ -6,6 +6,7 @@ import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
 import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
 import SolveTimerBar from '../features/questions/SolveTimerBar'
+import NoteLauncher from '../features/note/NoteLauncher'
 import { playAlarm } from '../lib/alarm'
 import type { Status } from '../domain/types'
 
@@ -231,6 +232,8 @@ export default function ProblemViewer({
           className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:text-gray-300"
           title="拡大"
         ><ZoomIn size={18} /></button>
+        {/* 計算用ノート。問題を見ながら途中式を書く（問題ごとに端末へ残る）。 */}
+        <NoteLauncher noteId={questionId} title={title} />
         <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
           <X size={18} />
         </button>
