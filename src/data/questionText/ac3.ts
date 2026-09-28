@@ -1,5 +1,6 @@
 // 三相交流（ac3）章の会社向けテキスト転記。
-// scripts/generate-question-text.mjs --chapter ac3 が画像から自動生成する。
+// scripts/fetch-question-images.mjs で画像を取得し、書き起こし結果を
+// scripts/save-question-text.mjs --chapter ac3 で保存する（docs/question-text-ocr.md）。
 // 手で編集する場合も、既存エントリの並び替え・削除は避け、末尾に追記する（CLAUDE.md）。
 import type { QuestionText } from '../../lib/questionText'
 
