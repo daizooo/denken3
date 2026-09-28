@@ -1,6 +1,8 @@
-import { Image as ImageIcon, PencilLine } from 'lucide-react'
+import { useState } from 'react'
+import { Image as ImageIcon, PencilLine, ClipboardCopy, ClipboardCheck } from 'lucide-react'
 import type { MasterQuestion, Review, Status } from '../../domain/types'
 import { hasKnownAsset } from '../../lib/assets'
+import { hasQuestionText, getQuestionText, formatForClipboard } from '../../lib/questionText'
 import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
@@ -44,6 +46,22 @@ export default function QuestionCard({
   onResetDate: () => void
   onDeleteEntry: (index: number) => void
 }) {
+  // コピー直後だけアイコンを切り替えて「コピーした」ことを示す（会社では音も出せないため視覚のみ）。
+  const [copied, setCopied] = useState(false)
+  const questionText = hasQuestionText(q.id) ? getQuestionText(q.id) : undefined
+
+  const onCopyText = async () => {
+    if (!questionText) return
+    const title = `${q.chapterName} 問${q.number}　${q.title}`
+    try {
+      await navigator.clipboard.writeText(formatForClipboard(title, questionText))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // クリップボードAPIが使えない環境（非HTTPS・権限拒否）。ここでは黙って諦める。
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
       <div className="p-3.5">
@@ -175,6 +193,22 @@ export default function QuestionCard({
                 <PencilLine size={13} /> 問題を解く
               </button>
             </>
+          )}
+          {/* 会社向け：本文をメモ帳などに貼り付けられる形でコピーする（画像を開けない・周囲の目がある場面用）。
+              テキスト転記が無い問題（図必須など）ではボタン自体を出さない＝hasQuestionText と同じ判定。 */}
+          {questionText && (
+            <button
+              onClick={onCopyText}
+              title="問題文・選択肢をメモ帳などに貼り付けられる形でコピーします（解答は下の方に隠してあります）"
+              className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border transition-colors ${
+                copied
+                  ? 'text-emerald-600 border-emerald-200 bg-emerald-50'
+                  : 'text-amber-600 border-amber-200 hover:border-amber-400'
+              }`}
+            >
+              {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
+              {copied ? 'コピーしました' : 'テキストをコピー'}
+            </button>
           )}
           {activeTab === 'list' && (
             <button

@@ -37,6 +37,7 @@ export default function FilterBar({
   modes, statuses, onToggleMode, onToggleStatus, onClear,
   modeCounts, statusCounts, open, onToggleOpen,
   chapterCode, onChangeChapter, chapterOptions,
+  textOnly, onToggleTextOnly, textOnlyCount,
 }: {
   modes: Set<ModeKey>
   statuses: Set<Status>
@@ -51,9 +52,15 @@ export default function FilterBar({
   onChangeChapter: (code: string) => void
   /** 章セレクトの選択肢。code='ALL' を先頭に含める。disabled は未入力チャプター。 */
   chapterOptions: { code: string; label: string; disabled?: boolean }[]
+  /** 会社向けテキスト転記がある問題だけに絞る（画像を開けない場面向け）。 */
+  textOnly: boolean
+  onToggleTextOnly: () => void
+  /** 他の絞り込み（章・学習場所・理解度）を適用した上で、テキスト転記がある問題の件数。 */
+  textOnlyCount: number
 }) {
-  const activeCount = modes.size + statuses.size
+  const activeCount = modes.size + statuses.size + (textOnly ? 1 : 0)
   const summary = summarize(modes, statuses)
+  if (textOnly) summary.push('📋テキストのみ')
 
   return (
     <div className="bg-white rounded-xl border border-gray-100">
@@ -137,6 +144,23 @@ export default function FilterBar({
                 )
               })}
             </div>
+          </div>
+
+          {/* テキスト転記（会社向け）。画像を開けない場面で解ける問題だけに絞る。 */}
+          <div>
+            <p className="text-[11px] font-medium text-gray-400 mb-1.5">会社向けテキスト</p>
+            <button
+              onClick={onToggleTextOnly}
+              title="メモ帳などにコピーして解けるテキスト転記がある問題だけを表示します"
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                textOnly
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
+              }`}
+            >
+              📋 テキスト対応のみ
+              <span className={`ml-1 ${textOnly ? 'text-amber-100' : 'text-gray-300'}`}>{textOnlyCount}</span>
+            </button>
           </div>
 
           {/* 理解度 */}

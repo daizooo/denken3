@@ -37,6 +37,7 @@ import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
+import { hasQuestionText } from './lib/questionText'
 import TodayPanel from './features/questions/TodayPanel'
 
 // ==============================
@@ -65,6 +66,8 @@ export default function App() {
   // セッション内のみの状態（永続化しない）。
   const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
+  // 会社向けテキスト転記がある問題だけに絞る（画像を開けない場面向け）。単独のON/OFF。
+  const [filterTextOnly, setFilterTextOnly] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし（「すべて」）。
   // Phase B-2 で denken_settings へ永続化する（従来はリロードで消えていた・設計書 §1.1）。
@@ -562,9 +565,13 @@ export default function App() {
       return next
     })
   }, [])
+  const toggleFilterTextOnly = useCallback(() => {
+    setFilterTextOnly(v => !v)
+  }, [])
   const clearFilters = useCallback(() => {
     setFilterModes(new Set())
     setFilterStatuses(new Set())
+    setFilterTextOnly(false)
   }, [])
 
   // 弱点ランキング・学習曲線（§7.7(2)(3)）。ペース分析は合格ライン目標を使うため後段。
@@ -802,19 +809,25 @@ export default function App() {
     (id: string) => filterStatuses.size === 0 || filterStatuses.has(reviews[id]?.status ?? '未着手'),
     [filterStatuses, reviews]
   )
+  const matchText = useCallback(
+    (id: string) => !filterTextOnly || hasQuestionText(id),
+    [filterTextOnly]
+  )
 
   // チップの件数（ファセット）。各軸の件数は「他方の軸の選択」を尊重して数える。
   const filterCounts = useMemo(() => {
     const modeCounts = { calc: 0, memory: 0, unset: 0 } as Record<ModeKey, number>
     const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
+    let textOnlyCount = 0
     for (const q of baseQuestions) {
       const mk: ModeKey = q.studyMode ?? 'unset'
       const st: Status = reviews[q.id]?.status ?? '未着手'
-      if (matchStatus(q.id)) modeCounts[mk]++
-      if (matchMode(q)) statusCounts[st]++
+      if (matchStatus(q.id) && matchText(q.id)) modeCounts[mk]++
+      if (matchMode(q) && matchText(q.id)) statusCounts[st]++
+      if (matchMode(q) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
     }
-    return { modeCounts, statusCounts }
-  }, [baseQuestions, reviews, matchMode, matchStatus])
+    return { modeCounts, statusCounts, textOnlyCount }
+  }, [baseQuestions, reviews, matchMode, matchStatus, matchText])
 
   // 今日のライン（planToday.ts・Phase B-1）。
   //
@@ -846,7 +859,7 @@ export default function App() {
   )
 
   const filteredQuestions = useMemo(() => {
-    const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id))
+    const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id) && matchText(q.id))
     if (activeTab !== 'review') return filtered
     // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
     //
@@ -874,7 +887,7 @@ export default function App() {
     return [...filtered].sort(
       (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     )
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
+  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, matchText, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
 
   // いま一覧に出ているキュー全体の推定所要分（今日パネルの見出しに出す従属表示）。
   //
@@ -1199,12 +1212,15 @@ export default function App() {
               chapterCode={chapterCode}
               onChangeChapter={setChapterCode}
               chapterOptions={chapterOptions}
+              textOnly={filterTextOnly}
+              onToggleTextOnly={toggleFilterTextOnly}
+              textOnlyCount={filterCounts.textOnlyCount}
             />
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                {(filterModes.size > 0 || filterStatuses.size > 0) && baseQuestions.length > 0 ? (
+                {(filterModes.size > 0 || filterStatuses.size > 0 || filterTextOnly) && baseQuestions.length > 0 ? (
                   <>
                     <p className="text-gray-400 text-sm">絞り込み条件に一致する問題がありません</p>
                     <button
@@ -1239,6 +1255,7 @@ export default function App() {
                     chapterCode === 'ALL' &&
                     filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
+                    !filterTextOnly &&
                     idx === todayPlan.recommendedCount &&
                     todayPlan.recommendedCount < filteredQuestions.length
 
