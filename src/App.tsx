@@ -13,7 +13,7 @@ import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
-import { planToday, forwardSlotsToday, orderByDensity } from './lib/planToday'
+import { planToday, orderByDensity } from './lib/planToday'
 import { buildTodaySummary } from './lib/todaySummary'
 import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
@@ -685,37 +685,7 @@ export default function App() {
     [subjectQuestions, reviews, currentPlan, todayStr, passTarget, goalValidated]
   )
 
-  // 「今日の学習」の新規着手枠（課題3）。復習due だけの画面だと、5分の隙間に開いて
-  // 「今日の復習はありません」と出た日に、ユーザーが自分でタブを移動して絞り込みを
-  // 開く必要がある。その操作こそが隙間時間を食うので、新規着手候補も同じキューに載せる。
-  //
-  // 枠数＝今日の前進枠 − 今日すでに着手した数（記録するたびに枠が減り、やがて空になる。
-  // 補充し続けると「今日の分が終わった」状態に到達できない）。
-  // 章フィルタに依らず科目全体で決めるので、章チップの件数と表示件数が食い違わない。
-  //
-  // 【Phase B-1】枠数の根拠を pace.recommendedNorm からポリシーへ移した。
-  // recommendedNorm は clamp(必要ペース, 現在ペース×0.8, 現在ペース×1.3) で決まるため、
-  // 停止が続いて現在ペースが 0 に近づくと枠も 0 へ張り付く（設計書 §3.1）。
-  // 「勉強できないから要求を下げる」という利用者が明確に禁止した挙動そのものなので、
-  // 今日の枠は現在ペースを見ず「残り ÷ 残り日数」だけから決める（forwardSlotsToday）。
-  const todayNew = useMemo(() => {
-    const subjectQs = currentChapters.flatMap(c => c.questions)
-    const startedToday = subjectQs.filter(q => reviews[q.id]?.first_reviewed === todayStr).length
-    const slots = forwardSlotsToday(policy, startedToday)
-    const ids = new Set<string>()
-    const picked: typeof subjectQs = []
-    for (const q of subjectQs) {
-      if (picked.length >= slots) break
-      const r = reviews[q.id]
-      if (r?.due_date) continue                  // 復習キューに載っている＝新規ではない
-      if (r && r.status !== '未着手') continue   // S（復習不要）も対象外
-      ids.add(q.id)
-      picked.push(q)
-    }
-    return { ids, count: picked.length, minutes: sumEstimateMinutes(picked, reviews, timeStats) }
-  }, [currentChapters, reviews, policy, todayStr, timeStats])
-
-  // 問題画像の先読み（課題7c・Phase F）。今日のキュー（復習due＋新規着手枠）の画像を
+  // 問題画像の先読み（課題7c・Phase F）。今日のキュー（復習due）の画像を
   // オンラインのうちに Cache Storage へ置いておく。電波が弱い場面こそが隙間時間なので、
   // 「開いてから待つ」をなくす。鍵は storage_path（署名URLは TTL 3600秒で毎回変わるため
   // 鍵にできない・§9.4）。実処理と上限は lib/problemImageCache.ts。
@@ -724,10 +694,10 @@ export default function App() {
     return qs
       .filter(q => {
         const due = reviews[q.id]?.due_date
-        return todayNew.ids.has(q.id) || !!(due && due <= todayStr)
+        return !!(due && due <= todayStr)
       })
       .map(q => q.id)
-  }, [currentChapters, reviews, todayNew, todayStr])
+  }, [currentChapters, reviews, todayStr])
 
   useEffect(() => {
     if (!user || !online) return
@@ -754,8 +724,8 @@ export default function App() {
       const dStr = addDaysStr(today, i)
       const count = allQuestions.filter(q => {
         const r = reviews[q.id]
-        // 今日は復習due＋新規着手枠（課題3）。表示件数と一致させる。
-        if (i === 0) return !!(r?.due_date && r.due_date <= dStr) || todayNew.ids.has(q.id)
+        // 今日は期限超過を含む復習due。未着手は復習に混ぜない（新規着手は全問題タブから）。
+        if (i === 0) return !!(r?.due_date && r.due_date <= dStr)
         return reviews[q.id]?.due_date === dStr
       }).length
       const label = i === 0 ? '今日' : i === 1 ? '明日' : formatMD(dStr)
@@ -773,7 +743,7 @@ export default function App() {
       isOverflow: true,
     })
     return days
-  }, [allQuestions, reviews, todayNew])
+  }, [allQuestions, reviews])
 
   // 絞り込み前の母数（タブ・日付・復習キューのロジックだけを適用）。
   // 学習場所×理解度の絞り込みと、そのチップ件数（ファセット）は、この母数から導く。
@@ -786,9 +756,9 @@ export default function App() {
         // 記録した瞬間に「復習済み」として消す（次回復習日が更新される前でも即反映）。
         if (reviewedNowIds.has(q.id)) return false
         if (selectedDate === today) {
-          // 今日は「復習due」＋「新規着手枠」を1つのキューにまとめる（課題3）。
+          // 今日は「復習due」のみ。未着手を混ぜると復習と区別が付かない。
           const isDue = r?.due_date && r.due_date <= today
-          if (!isDue && !todayNew.ids.has(q.id)) return false
+          if (!isDue) return false
         } else if (selectedDate >= overflowStart) {
           // 「◯/◯以降」タブ: overflowStart 以降の予定をすべて表示
           if (!(r?.due_date && r.due_date >= overflowStart)) return false
@@ -798,7 +768,7 @@ export default function App() {
       }
       return true
     })
-  }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds, todayNew])
+  }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds])
 
   // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
   const matchMode = useCallback(
@@ -843,7 +813,7 @@ export default function App() {
       candidates: allQuestions
         .filter(q => {
           const r = reviews[q.id]
-          return !!(r?.due_date && r.due_date <= todayStr) || todayNew.ids.has(q.id)
+          return !!(r?.due_date && r.due_date <= todayStr)
         })
         .map(q => ({ question: q, review: reviews[q.id] })),
       policy,
@@ -851,11 +821,10 @@ export default function App() {
       stats: timeStats,
       today: todayStr,
       examDate: currentPlan?.exam_date ?? null,
-      // 今日の新規着手枠。planToday はこれを「予算を超えても切らない」分として扱う
-      // （①の期限超過ぶんで予算を使い切った日に、新規着手が0問へ落ちるのを防ぐ）。
-      newIds: todayNew.ids,
+      // 新規着手枠は復習キューに混ぜない（未着手は全問題タブから着手する）。
+      newIds: new Set<string>(),
     }),
-    [allQuestions, reviews, todayNew, policy, timeBudget, timeStats, todayStr, currentPlan]
+    [allQuestions, reviews, policy, timeBudget, timeStats, todayStr, currentPlan]
   )
 
   const filteredQuestions = useMemo(() => {
@@ -965,9 +934,9 @@ export default function App() {
     questions.filter(q => {
       const r = reviews[q.id]
       if (selectedDate === todayStr) {
-        // 今日の表示対象は「復習due＋新規着手枠」。ここを一致させないと
+        // 今日の表示対象は「復習due」。ここを一致させないと
         // チップの件数と実際の表示件数が食い違う（課題3）。
-        return !!(r?.due_date && r.due_date <= todayStr) || todayNew.ids.has(q.id)
+        return !!(r?.due_date && r.due_date <= todayStr)
       }
       if (selectedDate >= overflowStart) {
         return !!(r?.due_date && r.due_date >= overflowStart)
