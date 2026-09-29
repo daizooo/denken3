@@ -30,9 +30,14 @@ const WIDTHS: { key: string; label: string; value: number }[] = [
   { key: 'bold', label: '太', value: 0.009 },
 ]
 
-// 消しゴムの半径（論理単位）。太さの選択をそのまま消しゴムの大きさにも使う
-// ――道具ごとに別の大小を覚えさせるより、選んでいる「細・中・太」が効く方が迷わない。
-const ERASER_R: Record<string, number> = { thin: 0.012, mid: 0.022, bold: 0.04 }
+// 消しゴムの半径（論理単位）。ペンの太さとは別に選ぶ
+// ――ペンは細い線、消しゴムは広い面を消すので、欲しい大きさの幅が違いすぎる。
+// 幅820pxなら半径は約33/57/90px。
+const ERASER_SIZES: { key: string; label: string; value: number }[] = [
+  { key: 'small', label: '小', value: 0.04 },
+  { key: 'mid', label: '中', value: 0.07 },
+  { key: 'large', label: '大', value: 0.11 },
+]
 
 const COLORS: { key: string; label: string; value: string }[] = [
   { key: 'black', label: '黒', value: '#111827' },
@@ -87,6 +92,7 @@ export default function NoteOverlay({
   const [tool, setTool] = useState<NoteTool>('pen')
   const [color, setColor] = useState(COLORS[0].value)
   const [widthKey, setWidthKey] = useState('mid')
+  const [eraserKey, setEraserKey] = useState('small')
   // 手のひらを置いたまま書けるか（指の入力を捨てるか）。端末の持ちものとして覚える
   // ――スタイラスを使う端末では、開いた直後から効いていないと意味がない。
   const [penOnly, setPenOnly] = useState(() => loadPenOnly())
@@ -97,7 +103,7 @@ export default function NoteOverlay({
   const rootRef = useRef<HTMLDivElement>(null)
 
   const width = WIDTHS.find(w => w.key === widthKey)?.value ?? WIDTHS[1].value
-  const eraserR = ERASER_R[widthKey] ?? ERASER_R.mid
+  const eraserR = ERASER_SIZES.find(e => e.key === eraserKey)?.value ?? ERASER_SIZES[0].value
 
   // 問題が変わったら白紙にする（履歴も引き継がない）。
   useEffect(() => { setState(initialState()) }, [noteId])
@@ -362,13 +368,13 @@ export default function NoteOverlay({
               </div>
             )}
             <div className="flex items-center rounded-xl bg-gray-100 p-0.5">
-              {WIDTHS.map(w => (
+              {(tool === 'eraser' ? ERASER_SIZES : WIDTHS).map(w => (
                 <button
                   key={w.key}
-                  onClick={() => setWidthKey(w.key)}
+                  onClick={() => (tool === 'eraser' ? setEraserKey(w.key) : setWidthKey(w.key))}
                   title={tool === 'eraser' ? `消しゴムの大きさ：${w.label}` : `太さ：${w.label}`}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    widthKey === w.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
+                    (tool === 'eraser' ? eraserKey : widthKey) === w.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
                   }`}
                 >{w.label}</button>
               ))}
