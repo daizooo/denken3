@@ -20,6 +20,13 @@ function widthAt(base: number, p: number | undefined): number {
   return p == null ? base : base * (0.45 + 0.55 * Math.min(1, Math.max(0, p)))
 }
 
+/** ペンの筆圧。0 が返る瞬間（復帰直後など）は中間値に置き換える。
+ *  筆圧の無い点は最大の太さで描かれるため、そのまま通すと線の一部だけ太く見える。 */
+function penPressure(pointerType: string, pressure: number): number | undefined {
+  if (pointerType !== 'pen') return undefined
+  return pressure > 0 ? pressure : 0.5
+}
+
 function drawStroke(ctx: CanvasRenderingContext2D, stroke: NoteStroke, scale: number) {
   const pts = stroke.points
   ctx.strokeStyle = stroke.color
@@ -145,12 +152,27 @@ export default function NoteCanvas({
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const read = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    const read = () => setSize(prev => (
+      prev.w === el.clientWidth && prev.h === el.clientHeight ? prev : { w: el.clientWidth, h: el.clientHeight }
+    ))
     read()
     const ro = new ResizeObserver(read)
     ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+    // 他アプリ・他タブから戻ったときは、大きさが同じでも描き直す。
+    // 裏にいる間は rAF が止まり、戻る直前に画面の倍率（devicePixelRatio）や
+    // 大きさが変わっていても、次に何か描くまで古い解像度のまま引き伸ばされて
+    // 線が太く滲んで見える。
+    const resync = () => { if (!document.hidden) { read(); schedule() } }
+    document.addEventListener('visibilitychange', resync)
+    window.addEventListener('pageshow', resync)
+    window.addEventListener('focus', resync)
+    return () => {
+      ro.disconnect()
+      document.removeEventListener('visibilitychange', resync)
+      window.removeEventListener('pageshow', resync)
+      window.removeEventListener('focus', resync)
+    }
+  }, [schedule])
 
   // 全部描き直す。線の本数はせいぜい数百本で、rAF に間引けば実用上これで足りる
   // （差分描画にすると、消しゴム・移動・取り消しのたびに整合を取る必要が出る）。
@@ -252,7 +274,7 @@ export default function NoteCanvas({
     return {
       x: (e.clientX - rect.left) / w,
       y: (e.clientY - rect.top) / w,
-      p: e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : undefined,
+      p: penPressure(e.pointerType, e.pressure),
     }
   }
 
@@ -335,7 +357,7 @@ export default function NoteCanvas({
     const pts: NotePoint[] = events.map(ev => ({
       x: (ev.clientX - rect.left) / w,
       y: (ev.clientY - rect.top) / w,
-      p: e.pointerType === 'pen' && ev.pressure > 0 ? ev.pressure : undefined,
+      p: penPressure(e.pointerType, ev.pressure),
     }))
 
     if (g.kind === 'erase') {
