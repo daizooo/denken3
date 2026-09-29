@@ -73,9 +73,12 @@ export function buildPlanAlert(params: {
   const goalLabel = pace.goalMode === 'pass' ? '合格ライン到達' : '全問A以上'
   const shortageMinutes = Math.max(0, f.requiredMinutesPerDay - f.availableMinutesPerDay)
 
+  // 予測が試験日を超える場合、日数は試験後まで外挿した値なので出さない（pace.finishesAfterExam）。
+  const delayLabel = pace.finishesAfterExam ? '現ペースでは試験日に届きません' : `遅延 ${pace.verdictDays}日`
+
   const headline = shortfall
-    ? behind ? `時間が足りません（遅延 ${pace.verdictDays}日）` : '時間が足りません'
-    : `遅れが続いています（${pace.verdictDays}日）`
+    ? behind ? `時間が足りません（${delayLabel}）` : '時間が足りません'
+    : `遅れが続いています（${delayLabel}）`
 
   const facts: string[] = []
   if (shortfall) {
@@ -86,9 +89,12 @@ export function buildPlanAlert(params: {
   }
   if (behind && pace.projectedFinishDate && pace.bunyaTargetDate) {
     facts.push(
-      `現ペース（${pace.currentPace.toFixed(1)}問/日）だと ${goalLabel} は ` +
-      `${formatMD(pace.projectedFinishDate)} 見込みで、目標 ${formatMD(pace.bunyaTargetDate)} を ` +
-      `${pace.verdictDays}日 超過します。`,
+      pace.finishesAfterExam
+        ? `現ペース（${pace.currentPace.toFixed(1)}問/日）だと ${goalLabel} は試験日までに到達しません` +
+          `（目標 ${formatMD(pace.bunyaTargetDate)} に必要なのは ${pace.requiredPace.toFixed(1)}問/日）。`
+        : `現ペース（${pace.currentPace.toFixed(1)}問/日）だと ${goalLabel} は ` +
+          `${formatMD(pace.projectedFinishDate)} 見込みで、目標 ${formatMD(pace.bunyaTargetDate)} を ` +
+          `${pace.verdictDays}日 超過します。`,
     )
   }
 

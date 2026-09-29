@@ -54,7 +54,11 @@ function PaceCard({ pace }: { pace: PaceResult }) {
         {/* 判定はこのカードの結論なので見出しの高さに置く。試験までの日数はヘッダが
             常時出しているので、ここでは繰り返さない（課題15）。 */}
         <span className={`text-xs font-semibold ${v.cls}`}>
-          {pace.verdict === 'done' ? `${goalLabel} 達成` : v.label(pace.verdictDays)}
+          {pace.verdict === 'done'
+            ? `${goalLabel} 達成`
+            : pace.verdict === 'behind' && pace.finishesAfterExam
+              ? '現ペースでは試験日に届かない'
+              : v.label(pace.verdictDays)}
         </span>
       </div>
 
@@ -82,7 +86,9 @@ function PaceCard({ pace }: { pace: PaceResult }) {
       >
         未修得 <b className="text-gray-700">{pace.masteryRemainingQ}</b> / {pace.totalQ}問
         {pace.projectedFinishDate && (
-          <> · {goalLabel} 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
+          pace.finishesAfterExam
+            ? <> · {goalLabel} は試験日までに到達しない見込み</>
+            : <> · {goalLabel} 予測 <b className="text-gray-700">{formatMD(pace.projectedFinishDate)}</b></>
         )}
       </div>
 
