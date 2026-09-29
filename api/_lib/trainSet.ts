@@ -82,12 +82,12 @@ export function buildTrainSet(
     for (const r of seq) stats.ratings[r.rating]++
     for (let i = 1; i < seq.length; i++) {
       const item = seq.slice(0, i + 1)
-      // 【必須】経過日数が全て 0 のアイテムを渡してはならない。
-      // fsrs-rs は "Invalid FSRS item: at least one review with delta_t > 0 is required"
-      // で **panic し、Node のプロセスごと abort する**（例外ではないので catch できない）。
-      // 同じ問題を同じ日に2回記録すると簡単に発生する ―― 本番データには現時点で0件だが、
-      // 起こりうる入力でサーバが落ちる形なので、ここで必ず落とす。
-      if (!item.some(r => r.deltaT > 0)) continue
+      // 【必須】最後の演習（＝予測対象）の経過日数が 0 のアイテムを渡してはならない。
+      // 同じ問題を同じ日に2回以上記録すると起きる。fsrs-rs の evaluate は
+      // `InvalidInput`、全て 0 のアイテムなら panic（Node ごと abort・catch 不可）になる。
+      // 「前回から何日後に想起できたか」が観測できない演習は、学習に使えない。
+      // 最後が 0 でなければ、途中に 0 があっても（同日の再挑戦を含む系列でも）受け付けられる。
+      if (item[item.length - 1].deltaT === 0) continue
       items.push(item)
     }
   }

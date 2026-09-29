@@ -77,6 +77,15 @@ describe('buildTrainSet', () => {
     expect(items[0].map(r => r.deltaT)).toEqual([0, 0, 5])
   })
 
+  it('最後の演習が同日再挑戦のアイテムは捨てる（fsrs-rs の evaluate が InvalidInput になるため）', () => {
+    // 本番で 9/24 以降に発生: 日をまたいだあと同じ日に2回解くと、末尾の deltaT が 0 になる。
+    const { items } = buildTrainSet([
+      { review_history: [h('2026-08-15', 'C'), h('2026-08-19', 'A'), h('2026-09-24', 'C'), h('2026-09-24', 'C')] },
+    ])
+    // [C,A] と [C,A,C(9/24)] は残り、[C,A,C,C(同日)] だけ落ちる
+    expect(items.map(i => i.map(r => r.deltaT))).toEqual([[0, 4], [0, 4, 36]])
+  })
+
   it('履歴が空・null の行は無視する', () => {
     const { items, stats } = buildTrainSet([
       { review_history: [] }, { review_history: null },

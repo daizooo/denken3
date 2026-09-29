@@ -79,6 +79,9 @@ export interface PaceResult {
   verdictDays: number      // 先行/遅延の日数（onTrack/done/stalled は 0）
 
   needsReplan: boolean     // 遅延が持続し計画見直しが要るか
+  // 予測日が試験日より後ろ。この場合の「遅延N日」は試験後まで外挿した数字で意味を持たない
+  // （休止明けは EWMA が低く出て数百日になる）ため、表示側は日数ではなくこの旗で文言を切り替える。
+  finishesAfterExam: boolean
 
   milestones: Milestone[]
   weeklyLoad: WeeklyLoad[]
@@ -242,6 +245,9 @@ export function analyzePace(
     else verdict = 'onTrack'
   }
 
+  const finishesAfterExam =
+    remainingQ > 0 && !!projectedFinishDate && !!examDate && projectedFinishDate > examDate
+
   // 今日の推奨ノルマ（A以上へ引き上げる問数）: max(必要ペース, 現在ペース×0.8)。
   //
   // 【Phase B・adaptive-fsrs-policy.md §3.1】上限 `現在ペース×1.3` を外した。
@@ -309,6 +315,7 @@ export function analyzePace(
     verdict,
     verdictDays,
     needsReplan,
+    finishesAfterExam,
     milestones,
     weeklyLoad,
   }

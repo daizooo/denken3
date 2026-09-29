@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest'
 import {
   FSRSBinding, FSRSBindingItem, FSRSBindingReview, computeParameters,
 } from '@open-spaced-repetition/binding'
+import { generatorParameters } from 'ts-fsrs'
 import { buildTrainSet } from './trainSet.js'
 import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 
@@ -60,6 +61,28 @@ describe('buildTrainSet → オプティマイザ', () => {
     const before = new FSRSBinding().evaluate(trainSet)
     expect(Number.isFinite(before.logLoss)).toBe(true)
     expect(Number.isFinite(before.rmseBins)).toBe(true)
+  })
+
+  it('同日再挑戦を含む履歴でも、既定パラメータの評価が InvalidInput にならない', () => {
+    // 4回以上の演習で末尾の経過日数が 0 のアイテムは、fsrs-rs の evaluate が InvalidInput で落とす
+    // （本番で 9/24 以降に発生。trainSet が捨てていることの確認）。
+    const base = Array.from({ length: 200 }, (_, i) => ({
+      review_history: [
+        { date: '2026-07-01', status: (['C', 'B', 'A'] as Status[])[i % 3] },
+        { date: `2026-07-${String(2 + (i % 9)).padStart(2, '0')}`, status: 'A' as Status },
+      ],
+    }))
+    const rows = [
+      ...base,
+      { review_history: [
+        { date: '2026-08-15', status: 'C' as Status }, { date: '2026-08-19', status: 'A' as Status },
+        { date: '2026-09-24', status: 'C' as Status }, { date: '2026-09-24', status: 'C' as Status },
+      ] },
+    ]
+    const set = buildTrainSet(rows).items.map(seq =>
+      new FSRSBindingItem(seq.map(r => new FSRSBindingReview(r.rating, r.deltaT))),
+    )
+    expect(() => new FSRSBinding(generatorParameters({}).w as number[]).evaluate(set)).not.toThrow()
   })
 
   it('先頭の経過日数は 0（オプティマイザの前提条件）', () => {
