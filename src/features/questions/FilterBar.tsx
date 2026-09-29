@@ -1,15 +1,13 @@
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react'
-import type { Status, StudyMode } from '../../domain/types'
-import { STATUS_BG, STATUS_LABEL } from '../shared/status'
+import type { Status } from '../../domain/types'
+import { STATUS_BG, STATUS_LABEL, type StudyPlace } from '../shared/status'
 
-// 学習場所（studyMode）の絞り込みキー。未設定（機械/電力/法規や未分類の理論）は 'unset' に集約する。
-export type ModeKey = StudyMode | 'unset'
+// 学習場所の絞り込みキー。テキストコピーができる問題＝会社、それ以外＝自宅（shared/status.ts §studyPlaceOf）。
+export type ModeKey = StudyPlace
 
-// 学習場所チップの表示定義（会社=暗記・概念 / 自宅=計算。types.ts §StudyMode）。
 const MODE_OPTIONS: { key: ModeKey; label: string; title: string }[] = [
-  { key: 'calc',   label: '🏠 自宅（計算）', title: '計算問題（立式・紙で式展開）。自宅向け' },
-  { key: 'memory', label: '🏢 会社（暗記）', title: '暗記・概念問題（論説・穴埋・選択）。会社の休憩向け' },
-  { key: 'unset',  label: '未分類',          title: '学習場所が未設定の問題' },
+  { key: 'home',    label: '🏠 自宅', title: 'テキストコピーができない問題。自宅向け' },
+  { key: 'company', label: '🏢 会社', title: 'テキストコピーができる問題。会社の休憩向け' },
 ]
 
 const STATUS_OPTIONS: Status[] = ['S', 'A', 'B', 'C', '未着手']

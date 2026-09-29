@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
 import ProblemViewer from './components/ProblemViewer'
 import ImportPanel from './components/ImportPanel'
-import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, StudyMode, Subject } from './domain/types'
+import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
@@ -38,6 +38,7 @@ import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type ModeKey } from './features/questions/FilterBar'
 import { hasQuestionText } from './lib/questionText'
+import { studyPlaceOf } from './features/shared/status'
 import TodayPanel from './features/questions/TodayPanel'
 
 // ==============================
@@ -772,7 +773,7 @@ export default function App() {
 
   // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
   const matchMode = useCallback(
-    (q: { studyMode?: StudyMode }) => filterModes.size === 0 || filterModes.has(q.studyMode ?? 'unset'),
+    (id: string) => filterModes.size === 0 || filterModes.has(studyPlaceOf(id)),
     [filterModes]
   )
   const matchStatus = useCallback(
@@ -786,15 +787,15 @@ export default function App() {
 
   // チップの件数（ファセット）。各軸の件数は「他方の軸の選択」を尊重して数える。
   const filterCounts = useMemo(() => {
-    const modeCounts = { calc: 0, memory: 0, unset: 0 } as Record<ModeKey, number>
+    const modeCounts = { home: 0, company: 0 } as Record<ModeKey, number>
     const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
     let textOnlyCount = 0
     for (const q of baseQuestions) {
-      const mk: ModeKey = q.studyMode ?? 'unset'
+      const mk: ModeKey = studyPlaceOf(q.id)
       const st: Status = reviews[q.id]?.status ?? '未着手'
       if (matchStatus(q.id) && matchText(q.id)) modeCounts[mk]++
-      if (matchMode(q) && matchText(q.id)) statusCounts[st]++
-      if (matchMode(q) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
+      if (matchMode(q.id) && matchText(q.id)) statusCounts[st]++
+      if (matchMode(q.id) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
     }
     return { modeCounts, statusCounts, textOnlyCount }
   }, [baseQuestions, reviews, matchMode, matchStatus, matchText])
@@ -828,7 +829,7 @@ export default function App() {
   )
 
   const filteredQuestions = useMemo(() => {
-    const filtered = baseQuestions.filter(q => matchMode(q) && matchStatus(q.id) && matchText(q.id))
+    const filtered = baseQuestions.filter(q => matchMode(q.id) && matchStatus(q.id) && matchText(q.id))
     if (activeTab !== 'review') return filtered
     // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
     //
