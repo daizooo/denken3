@@ -5,6 +5,7 @@ import { panesOf, type Rect } from '../lib/viewerPages'
 import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
 import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
+import { usePagerSwipe } from '../lib/usePagerSwipe'
 import SolveTimerBar from '../features/questions/SolveTimerBar'
 import NoteLauncher from '../features/note/NoteLauncher'
 import ViewSwitch, { type ViewMode } from '../features/note/ViewSwitch'
@@ -200,6 +201,9 @@ export default function ProblemViewer({
     })
   }, [pageCount])
 
+  // 横ドラッグ（スワイプ）でのページ送り。ブラウザ標準のスナップには頼らない。
+  const swipe = usePagerSwipe(stripRef, pageCount)
+
   // PC ではキーボードの左右でもページを送る。
   useEffect(() => {
     if (pageCount < 2) return
@@ -254,18 +258,17 @@ export default function ProblemViewer({
             key={`${questionId}:${showAnswer ? 'a' : 'q'}`}
             ref={stripRef}
             onScroll={onStripScroll}
-            className="h-full flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            {...swipe}
+            // 横は自前で動かす（overflow-x-hidden・pan-y）。縦スクロールだけブラウザに任せる。
+            style={{ touchAction: 'pan-y pinch-zoom' }}
+            className="h-full flex overflow-x-hidden"
           >
             {visible.map((p, i) => (
-              // 1ページ＝1枠。スナップの対象（外側）と縦スクロール（内側）は別の要素にする。
-              // スクロールコンテナ自身をスナップ対象にすると、iOS Safari で2ページ目以降から
-              // 横フリックが効かなくなることがある。snap-always も同じ理由で付けない。
-              <div key={i} className="w-full h-full shrink-0 snap-start">
-                <div className="w-full h-full overflow-auto p-3">
-                  <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
-                    <div className="rounded-xl overflow-hidden shadow-lg">
-                      <CropImage url={urls[p.path]} rect={p.rect} />
-                    </div>
+              // 1ページ＝1枠。枠ごとに縦スクロールを持たせ、横スワイプと干渉させない。
+              <div key={i} className="w-full h-full shrink-0 overflow-auto p-3">
+                <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
+                  <div className="rounded-xl overflow-hidden shadow-lg">
+                    <CropImage url={urls[p.path]} rect={p.rect} />
                   </div>
                 </div>
               </div>
