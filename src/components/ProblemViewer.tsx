@@ -7,6 +7,7 @@ import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
 import SolveTimerBar from '../features/questions/SolveTimerBar'
 import NoteLauncher from '../features/note/NoteLauncher'
+import ViewSwitch, { type ViewMode } from '../features/note/ViewSwitch'
 import { playAlarm } from '../lib/alarm'
 import type { Status } from '../domain/types'
 
@@ -74,6 +75,8 @@ export default function ProblemViewer({
   const [assets, setAssets] = useState<QuestionAsset[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [showAnswer, setShowAnswer] = useState(false)
+  // ノートを前面に出しているか（トップバーの切り替えスイッチとノート側で共有する）。
+  const [noteShowing, setNoteShowing] = useState(false)
   // 何ページ目を見ているか。問題／解答・問題の切り替えで先頭に戻す。
   const [page, setPage] = useState(0)
   const { zoom, zoomIn, zoomOut, canZoomIn, canZoomOut, label: zoomLabel } = useViewerZoom('bunya')
@@ -115,6 +118,13 @@ export default function ProblemViewer({
     alarmedRef.current = true
     playAlarm()
   }, [timed, cutoff, elapsedSec, showAnswer, paused])
+
+  const viewMode: ViewMode = noteShowing ? 'note' : showAnswer ? 'answer' : 'question'
+  const selectView = useCallback((next: ViewMode) => {
+    setNoteShowing(next === 'note')
+    if (next !== 'note') setShowAnswer(next === 'answer')
+  }, [])
+  const viewSwitch = <ViewSwitch value={viewMode} onChange={selectView} />
 
   const togglePause = () => {
     const next = !paused
@@ -206,18 +216,8 @@ export default function ProblemViewer({
       {/* トップバー: 問題⇄解答の切り替えを主役に置く（何度も行き来するため）。 */}
       <div className="flex items-center gap-1 px-3 py-2 bg-white/95 shrink-0">
         <p className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0">{title}</p>
-        {/* 問題／解答スイッチ。今どちらを見ているかが一目で分かる2択にする。 */}
-        <div className="flex shrink-0 rounded-lg border-2 border-blue-600 overflow-hidden">
-          {([false, true] as const).map(ans => (
-            <button
-              key={String(ans)}
-              onClick={() => setShowAnswer(ans)}
-              className={`px-3 py-1 text-xs font-bold transition-colors ${
-                showAnswer === ans ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
-              }`}
-            >{ans ? '解答' : '問題'}</button>
-          ))}
-        </div>
+        {/* 問題／ノート／解答スイッチ。今どれを見ているかが一目で分かる3択にする。 */}
+        {viewSwitch}
         {/* 自動フィットからの微調整。倍率は端末ごとに記憶する（毎回押し直さない）。 */}
         <button
           onClick={zoomOut}
@@ -233,7 +233,13 @@ export default function ProblemViewer({
           title="拡大"
         ><ZoomIn size={18} /></button>
         {/* 計算用ノート。問題を見ながら途中式を書く（問題ごとに端末へ残る）。 */}
-        <NoteLauncher noteId={questionId} title={title} />
+        <NoteLauncher
+          noteId={questionId}
+          title={title}
+          showing={noteShowing}
+          onShowingChange={setNoteShowing}
+          switcher={viewSwitch}
+        />
         <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
           <X size={18} />
         </button>
@@ -251,11 +257,15 @@ export default function ProblemViewer({
             className="h-full flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {visible.map((p, i) => (
-              // 1ページ＝1枠。枠ごとに縦スクロールを持たせ、横フリックと干渉させない。
-              <div key={i} className="w-full h-full shrink-0 snap-start snap-always overflow-auto p-3">
-                <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
-                  <div className="rounded-xl overflow-hidden shadow-lg">
-                    <CropImage url={urls[p.path]} rect={p.rect} />
+              // 1ページ＝1枠。スナップの対象（外側）と縦スクロール（内側）は別の要素にする。
+              // スクロールコンテナ自身をスナップ対象にすると、iOS Safari で2ページ目以降から
+              // 横フリックが効かなくなることがある。snap-always も同じ理由で付けない。
+              <div key={i} className="w-full h-full shrink-0 snap-start">
+                <div className="w-full h-full overflow-auto p-3">
+                  <div className="mx-auto" style={{ width: `${zoom * 100}%`, maxWidth: FIT_MAX_PX * zoom }}>
+                    <div className="rounded-xl overflow-hidden shadow-lg">
+                      <CropImage url={urls[p.path]} rect={p.rect} />
+                    </div>
                   </div>
                 </div>
               </div>
