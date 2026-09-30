@@ -7,7 +7,7 @@ import ImportPanel from './components/ImportPanel'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
-import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
+import { deriveFromHistory, defaultReview, RETENTION_DEFAULT } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
@@ -528,18 +528,6 @@ export default function App() {
   const boostReview = useCallback((sourceQuestionId: string) => {
     const current = reviews[sourceQuestionId] ?? defaultReview(sourceQuestionId)
     saveReview({ ...current, due_date: todayStr })
-  }, [reviews, saveReview, todayStr])
-
-  // 試験日を設定・変更したとき、S（復習不要）の試験前最終確認を張り直す（Phase 0）。
-  // S は due_date=null で復習キューに出ないため、記録の機会が来ず deriveFromHistory による
-  // 自己修復が起きない。試験日が無い状態で S を付けた問題が、後から試験日を入れても
-  // 永久に最終確認へ戻らないのを防ぐ（migration 015 と同じ是正をアプリ側でも行う）。
-  const refreshFinalChecks = useCallback((examDate: string | null) => {
-    const due = finalCheckDue(todayStr, examDate)
-    if (!due) return
-    for (const r of Object.values(reviews)) {
-      if (r.status === 'S' && !r.due_date) void saveReview({ ...r, due_date: due })
-    }
   }, [reviews, saveReview, todayStr])
 
   // S（復習不要）にした問題を、いつでも復習に戻す。
@@ -1117,7 +1105,6 @@ export default function App() {
             onFsrsParamsChanged={reloadFsrsParams}
             onSaved={p => {
               setPlans(prev => ({ ...prev, [p.subject_id]: p }))
-              refreshFinalChecks(p.exam_date)
             }}
           />
         ) : activeTab === 'dashboard' ? (

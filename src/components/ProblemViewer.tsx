@@ -352,11 +352,6 @@ export default function ProblemViewer({
               className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700 transition-colors"
             >{s}</button>
           ))}
-          <button
-            onClick={() => onRecord('S')}
-            title={STATUS_LABEL['S']}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-purple-500 border-purple-200 hover:border-purple-400 hover:text-purple-700 transition-colors"
-          >S</button>
           {solving && onAbort && (
             <button
               onClick={onAbort}

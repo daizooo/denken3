@@ -3,7 +3,7 @@ import type { Policy } from '../../lib/policy'
 import {
   RETENTION_BUFFER_CALC, RETENTION_BUFFER_MEMORY, RETENTION_CORE,
 } from '../../lib/policy'
-import { RETENTION_ENDGAME, RETENTION_ENDGAME_DAYS, FINAL_CHECK_DAYS_BEFORE_EXAM } from '../../lib/fsrs'
+import { RETENTION_ENDGAME, RETENTION_ENDGAME_DAYS } from '../../lib/fsrs'
 import { formatMinutes } from '../../lib/estimateMinutes'
 import { formatMD } from '../../lib/date'
 
@@ -143,7 +143,6 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
               ? `全問共通。直前期（試験${RETENTION_ENDGAME_DAYS}日前以内）のため ${RETENTION_ENDGAME}`
               : `全問共通。試験${RETENTION_ENDGAME_DAYS}日前から ${RETENTION_ENDGAME} へ自動で上がる`,
         )}
-        {row('S の試験前 最終確認', `試験${FINAL_CHECK_DAYS_BEFORE_EXAM}日前`, '復習不要にした問題を1回だけキューへ戻す')}
         {!policy.layer3Active && (
           <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5 leading-relaxed">
             <AlertTriangle size={11} className="inline-block mr-1 -mt-0.5" />

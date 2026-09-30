@@ -85,26 +85,13 @@ function schedulerFor(retention: number, version?: number): FSRS {
   return s
 }
 
-// S（復習不要）の試験前最終確認（§6-4・課題4）。
-// S にした問題は due_date=null で忘却追跡から完全に外れ、そのままだと試験まで一度も
-// 戻ってこない。試験日の21日前に1回だけ復習キューへ戻す。
-// - 試験日が未設定なら従来どおり null（復習キューから外れたまま）。
-// - 最終確認日が実施日を過ぎている場合も null。過去日を due にすると毎日 due に
-//   居座り、直前期に S を付け直すたびに翌日また出てくることになるため。
-export const FINAL_CHECK_DAYS_BEFORE_EXAM = 21
-
-export function finalCheckDue(eventDate: string, examDate?: string | null): string | null {
-  if (!examDate) return null
-  const due = addDaysStr(examDate, -FINAL_CHECK_DAYS_BEFORE_EXAM)
-  return due > eventDate ? due : null
-}
-
 const RATING_MAP: Record<Status, Grade> = {
   A: Rating.Easy,
   B: Rating.Good,
   C: Rating.Again,
-  // S・未着手 はスケジューラを回さない（calcFSRS で早期リターン）。便宜上の既定値。
+  // S（復習不要）は廃止した。過去の S は A として扱う（Easy）。
   S: Rating.Easy,
+  // 未着手 はスケジューラを回さない（calcFSRS で早期リターン）。便宜上の既定値。
   '未着手': Rating.Good,
 }
 
@@ -172,7 +159,7 @@ function clipDueToExam(due: string, eventDate: string, examDate?: string | null)
  *
  * 【どこへ動かすか ―― 固定日ではなく保持率で決める】
  * 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
- * `finalCheckDue` は固定値であって FSRS の出力ではなく、**58件を1日へ潰してしまう**。
+ * 旧 `finalCheckDue`（S の最終確認）は固定値であって FSRS の出力ではなく、**58件を1日へ潰してしまう**。
  * 実測では、この58件の素の予定日は「試験当日」から「試験の224日後」まで224日の幅がある。
  *
  * 代わりに、**この枠組みが既に持っている直前期の基準で引き直す**。
@@ -243,10 +230,6 @@ export function calcFSRS(
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
   const eDate = eventDate ?? todayJST()
-  // S（完璧に理解・復習不要）: 通常の復習キューからは外し、試験前の最終確認だけ残す。
-  // stability 等の FSRS 値は現状のまま温存するので、後で復習に戻す（due_date 再設定）／
-  // A・B・C で再採点したときに、それまでの学習履歴を失わずスケジューリングを再開できる。
-  if (status === 'S') return { due_date: finalCheckDue(eDate, examDate), last_reviewed: eDate }
   const rating = RATING_MAP[status]
   const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
@@ -301,7 +284,8 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
     review_history: sorted,
     first_reviewed: sorted.length ? sorted[0].date : null,
     last_reviewed: sorted.length ? sorted[sorted.length - 1].date : null,
-    status: (sorted.length ? sorted[sorted.length - 1].status : '未着手') as Status,
+    // 廃止した S は A として返す（再計算すると S の問題は A に移る）。
+    status: (sorted.length ? (sorted[sorted.length - 1].status === 'S' ? 'A' : sorted[sorted.length - 1].status) : '未着手') as Status,
   }
 }
 

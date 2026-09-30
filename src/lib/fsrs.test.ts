@@ -14,11 +14,9 @@ import { describe, it, expect } from 'vitest'
 import {
   RETENTION_DEFAULT,
   RETENTION_ENDGAME,
-  FINAL_CHECK_DAYS_BEFORE_EXAM,
   calcFSRS,
   deriveFromHistory,
   defaultReview,
-  finalCheckDue,
   registerParams,
   resetParams,
   retentionFor,
@@ -157,28 +155,20 @@ describe('学習済みパラメータの版管理', () => {
   })
 })
 
-describe('S（復習不要）の扱い', () => {
-  it('試験日が設定されていれば、21日前に最終確認へ戻す', () => {
-    expect(finalCheckDue('2026-07-26', EXAM)).toBe('2027-01-16')
-    expect(FINAL_CHECK_DAYS_BEFORE_EXAM).toBe(21)
+describe('S（復習不要）の廃止', () => {
+  it('過去の S の記録は A（Easy）として再生される', () => {
+    const asS = deriveFromHistory([h('2026-07-19', 'C'), h('2026-07-21', 'A'), h('2026-07-26', 'S')], EXAM)
+    const asA = deriveFromHistory([h('2026-07-19', 'C'), h('2026-07-21', 'A'), h('2026-07-26', 'A')], EXAM)
+    expect(asS).toEqual({ ...asA, review_history: asS.review_history })
+    expect(asS.status).toBe('A')
+    expect(asS.repetitions).toBe(3) // スケジューラを回す（旧仕様は回さなかった）
+    expect(asS.due_date).not.toBeNull()
   })
 
-  it('試験日が未設定なら復習キューから外れたまま（due なし）', () => {
-    expect(finalCheckDue('2026-07-26', null)).toBeNull()
-  })
-
-  it('最終確認日を過ぎてから S にした場合は due を付けない（毎日 due に居座らせない）', () => {
-    expect(finalCheckDue('2027-01-20', EXAM)).toBeNull()
-  })
-
-  it('S にしても FSRS の学習状態は温存され、復習へ戻せる', () => {
-    const withS = deriveFromHistory(
-      [h('2026-07-19', 'C'), h('2026-07-21', 'A'), h('2026-07-26', 'S')], EXAM,
-    )
-    expect(withS.status).toBe('S')
-    expect(withS.stability).toBeGreaterThan(0)
-    expect(withS.repetitions).toBe(2) // S ではスケジューラを回さない
-    expect(withS.due_date).toBe('2027-01-16')
+  it('S を記録しても復習予定から外れない（最終確認日への固定をしない）', () => {
+    const r = calcFSRS(null, 'S', '2026-07-26', EXAM)
+    expect(r.due_date).toBeTruthy()
+    expect(r.repetitions).toBe(1)
   })
 })
 
@@ -211,7 +201,7 @@ describe('試験日クリップ（§7.3）', () => {
     // しかもその時期は年度別演習が主軸（nendo_start_date = 2026-11-30）。
     //
     // 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
-    // finalCheckDue は固定値で、58件を1日へ潰してしまう（素の予定日は224日の幅がある）。
+    // 旧 finalCheckDue は固定値で、58件を1日へ潰してしまう（素の予定日は224日の幅がある）。
     // 代わりに直前期の基準 RETENTION_ENDGAME(0.90) で引き直すと、各カード自身の
     // 忘却曲線が日付を決めるので自然に散る。
     resetParams()
@@ -226,7 +216,7 @@ describe('試験日クリップ（§7.3）', () => {
       expect(due).not.toBe(EXAM)
       expect(due < EXAM).toBe(true)
     }
-    // 固定日（finalCheckDue = 2027-01-16）へ潰していない。
+    // 固定日（旧 finalCheckDue = 2027-01-16）へ潰していない。
     // 個々のカードが偶然その日になるのは構わないが、全部が同じ日に寄ってはいけない。
     // 実測では 55件が22日へ散った（同一日の最大10件）。
     expect(new Set(dues).size).toBeGreaterThan(1)

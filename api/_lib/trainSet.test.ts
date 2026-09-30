@@ -21,10 +21,9 @@ describe('toReviewSequence', () => {
     expect(a).toEqual(b)
   })
 
-  it('S はスケジューラを回さない記録なので学習から外し、経過日数は次へ繰り越す', () => {
-    // 7/18 → (7/22 は S) → 7/26。S を無視して 7/18→7/26 の 8日として数える。
+  it('過去の S は A として学習に入れる（復習スケジュールの再生と同じ扱い）', () => {
     const seq = toReviewSequence([h('2026-07-18', 'A'), h('2026-07-22', 'S'), h('2026-07-26', 'A')])
-    expect(seq).toEqual([{ rating: 4, deltaT: 0 }, { rating: 4, deltaT: 8 }])
+    expect(seq).toEqual([{ rating: 4, deltaT: 0 }, { rating: 4, deltaT: 4 }, { rating: 4, deltaT: 4 }])
   })
 
   it('未着手は履歴に載らない想定だが、混ざっても落とす', () => {

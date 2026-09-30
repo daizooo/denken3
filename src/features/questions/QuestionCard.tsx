@@ -153,12 +153,6 @@ export default function QuestionCard({
               className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600 transition-all"
             >{s}</button>
           ))}
-          {/* S＝完璧に理解（復習不要）。押すと復習キューから外れる。いつでも「復習に戻す」で復帰できる。 */}
-          <button
-            onClick={() => onRecordStatus('S')}
-            title={STATUS_LABEL['S']}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-purple-400 border-purple-200 hover:border-purple-400 hover:text-purple-600 transition-all"
-          >S</button>
           {/* S にした問題を復習に戻す（復習不要を解除） */}
           {review.status === 'S' && (
             <button
