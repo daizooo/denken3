@@ -290,7 +290,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
         </h3>
         <p className="text-xs text-gray-400">
           解答時間の計測データがまだありません。「問題を解く」から解いてA/B/Cを記録すると、
-          本番の持ち時間（A問題5分・B問題10分）と比べた「速い/遅い」で弱点を分類します。
+          本番の持ち時間（A問題4分・B問題8分）と比べた「速い/遅い」で弱点を分類します。
         </p>
       </div>
     )
@@ -339,7 +339,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
         </div>
       )}
       <p className="text-[10px] text-gray-300">
-        「遅い」は本番の持ち時間（A問題5分・B問題10分）超え。「A・遅い」は正答できていても
+        「遅い」は本番の持ち時間（A問題4分・B問題8分）超え。「A・遅い」は正答できていても
         本番では時間切れで失点しやすい隠れ弱点です。直前期の訓練対象に。
       </p>
     </div>

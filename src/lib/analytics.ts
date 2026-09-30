@@ -146,7 +146,7 @@ export interface QuadrantItem {
   status: Status           // 直近理解度
   seconds: number          // 直近の計測解答時間
   ratio: number            // seconds / 同難易度帯の中央値（同程度の問題との比較・表示用）
-  limitSeconds: number     // 本番の持ち時間（A問題5分・B問題10分）。これを超えたら「遅い」
+  limitSeconds: number     // 本番の持ち時間（A問題4分・B問題8分）。これを超えたら「遅い」
   difficulty: 1 | 2 | 3
 }
 

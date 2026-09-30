@@ -66,8 +66,8 @@ describe('cutoffSeconds', () => {
 
   it('⑤ 実測中央値は伸ばす方向にだけ効く', () => {
     const slow = emptyStats()
-    slow.byModeBand[1].calc = 200 // 既定120秒より遅い → 200×1.5
-    expect(cutoffSeconds(q(1, 'calc'), slow)).toBe(300)
+    slow.byModeBand[1].calc = 150 // 既定120秒より遅い → 150×1.5（持ち時間240秒の内側）
+    expect(cutoffSeconds(q(1, 'calc'), slow)).toBe(225)
 
     const fast = emptyStats()
     fast.byModeBand[1].calc = 40 // 既定より速くても既定を下回らない
