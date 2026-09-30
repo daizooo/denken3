@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Eraser, EllipsisVertical, Hand, Minus, PenLine, Redo2, Scissors, Trash2, Undo2,
 } from 'lucide-react'
@@ -77,7 +77,7 @@ function initialState(): NoteState {
 }
 
 export default function NoteOverlay({
-  noteId, title, hidden = false, onHide,
+  noteId, title, hidden = false, onHide, switcher,
 }: {
   /** どの問題のノートか。変わったら白紙にする。 */
   noteId: string
@@ -86,6 +86,8 @@ export default function NoteOverlay({
   hidden?: boolean
   /** 問題表示へ戻る（2本指タップ・閉じるボタン）。 */
   onHide: () => void
+  /** ツールバーに出す切り替えスイッチ（問題／ノート／解答）。 */
+  switcher?: ReactNode
 }) {
   const [state, setState] = useState<NoteState>(() => initialState())
   const { doc, past, future } = state
@@ -383,6 +385,9 @@ export default function NoteOverlay({
         )}
 
         <div className="flex-1" />
+
+        {/* 問題／ノート／解答の切り替え。問題画面のトップバーと同じもの。 */}
+        {switcher}
 
         {/* 全部消す。1問ぶん書き終えるたびに使うので、畳まず表に出す。
             書いている途中の誤爆を避けるため、押すと確認を挟む。 */}

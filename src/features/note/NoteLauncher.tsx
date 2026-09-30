@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { BookOpen, NotebookPen } from 'lucide-react'
 import { watchTwoFingerTap } from '../../lib/note/twoFingerTap'
 import NoteOverlay from './NoteOverlay'
@@ -15,20 +15,35 @@ import NoteOverlay from './NoteOverlay'
 // 切り替えは本体を外さずに隠すだけなので、書いた式も取り消し履歴も残る。
 // 問題そのものを閉じるとこの入口ごと消え、ノートは白紙に戻る。
 export default function NoteLauncher({
-  noteId, title,
+  noteId, title, showing: showingProp, onShowingChange, switcher,
 }: {
   /** どの問題のノートか。 */
   noteId: string
   title?: string
+  /** ノートを表示中か（親が持つとき。省略すると内部で持つ）。 */
+  showing?: boolean
+  onShowingChange?: (showing: boolean) => void
+  /** ノート画面のツールバーに出す切り替えスイッチ（問題／ノート／解答）。 */
+  switcher?: ReactNode
 }) {
   // opened: ノート本体を作ったか（＝この問題で一度でも開いたか）
-  // hidden: 問題を見るために引っ込めているか
+  // showing: 今ノートを前面に出しているか（false なら問題を見るために引っ込めている）
   const [opened, setOpened] = useState(false)
-  const [hidden, setHidden] = useState(false)
-  const showing = opened && !hidden
+  const [innerShowing, setInnerShowing] = useState(false)
+  const controlled = showingProp !== undefined
+  const showing = controlled ? showingProp : innerShowing
+  const hidden = !showing
 
-  const show = useCallback(() => { setOpened(true); setHidden(false) }, [])
-  const hide = useCallback(() => setHidden(true), [])
+  // 親が showing を立てたときも「一度は開いた」を記録する（引っ込めても中身を残すため）。
+  useEffect(() => { if (showing) setOpened(true) }, [showing])
+
+  const setShowing = useCallback((next: boolean) => {
+    if (next) setOpened(true)
+    if (controlled) onShowingChange?.(next)
+    else setInnerShowing(next)
+  }, [controlled, onShowingChange])
+  const show = useCallback(() => setShowing(true), [setShowing])
+  const hide = useCallback(() => setShowing(false), [setShowing])
   const toggle = useCallback(() => (showing ? hide() : show()), [showing, hide, show])
 
   // 問題を見ている間の2本指タップでノートを開く。
@@ -59,8 +74,8 @@ export default function NoteLauncher({
         {showing ? <BookOpen size={18} /> : <NotebookPen size={18} />}
       </button>
 
-      {opened && (
-        <NoteOverlay noteId={noteId} title={title} hidden={hidden} onHide={hide} />
+      {(opened || showing) && (
+        <NoteOverlay noteId={noteId} title={title} hidden={hidden} onHide={hide} switcher={switcher} />
       )}
     </>
   )
