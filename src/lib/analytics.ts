@@ -5,6 +5,7 @@
 
 import type { Chapter, MasterQuestion, MockSession, Review, Status } from '../domain/types'
 import { examTimeLimitSeconds } from './examTime'
+import { RETENTION_ENDGAME, retrievability } from './fsrs'
 
 // 弱点スコアの重み（初期値・使用感で調整）。時間超過率(w3)は Phase 1 では未使用。
 const W_INCORRECT = 0.5  // (1 - 直近正答率)
@@ -261,6 +262,32 @@ export function quadrantMatrix(
 //
 // S（完璧に理解・復習不要）は A と同等とみなす（インパクトの上限 STATUS_PROB.A に合わせる）。
 export const STATUS_PROB: Record<Status, number> = { S: 0.75, A: 0.75, B: 0.35, C: 0.15, '未着手': 0 }
+
+// 【忘却の補正（2026-10-01）】STATUS_PROB は「記録した時点の理解度」の確率で、時間が経って
+// 忘れた分を見ていなかった。復習が遅れた A も、記録直後の A と同じ 0.75 で数えていたので、
+// 溜まりが増えても想定得点が下がらず、FSRS の予定（頭打ち・試験日の地平）とも噛み合わなかった。
+//
+// 現在の想起確率 R で、確率を**下げる方向にだけ**補正する:
+//
+//   cardProb = STATUS_PROB[理解度] × min(1, R ÷ 0.90)
+//
+// - 基準 0.90 は「試験当日の R ≥ 0.90」という目標（review-schedule-realism.md §3-1）。
+//   R が 0.90 以上のカードは補正なし（0.75 のまま）＝記録直後と同じ。
+// - **上げない。** R が高いことを理由に 0.75 を超えさせない。A の 0.75 は自己申告への
+//   保守的な置き方（上の訂正）で、客観的な較正ができるまで楽観側へ動かさない（原則 §0）。
+// - R が出ないカード（未着手・履歴なし・予定日なし）は補正しない（理解度の確率のまま）。
+//
+// 純関数で、R は履歴と今日の日付だけから決まる（決定的）。
+export const RETRIEVABILITY_REF = RETENTION_ENDGAME
+
+/** 1問の本番正答確率。理解度の確率に、忘却の補正（下げる方向のみ）を掛けたもの。 */
+export function cardProb(review: Review | undefined, today?: string): number {
+  const base = STATUS_PROB[review?.status ?? '未着手']
+  if (base === 0) return 0
+  const r = retrievability(review, today)
+  if (r === null) return base
+  return base * Math.min(1, Math.max(0, r) / RETRIEVABILITY_REF)
+}
 // 未収録分（原本にあるがアプリに取り込んでいない問題）も同じ理由で 0 とする。
 const BASELINE = 0
 
@@ -282,6 +309,7 @@ export interface ScoreEstimate {
   chapters: ChapterImpact[]  // impact 降順
   actual: number | null      // 直近CBT実測（あれば）
   gap: number | null         // actual - estimate
+  forgettingPenalty: number  // 忘却の補正で下がった点数（≥0・理解度だけで数えた値との差）
 }
 
 export function estimateScore(
@@ -289,14 +317,16 @@ export function estimateScore(
   reviews: Record<string, Review>,
   sessions: MockSession[] = [],
   passingScore = 60,
+  today?: string,
 ): ScoreEstimate {
   // 出題比率の分母（原本問題数の総和）。0 なら推定不可。
   const totalWeightBase = chapters.reduce((s, c) => s + Math.max(c.totalCount, c.questions.length), 0)
   if (totalWeightBase === 0) {
-    return { hasData: false, estimate: 0, passingGap: passingScore, studiedRatio: 0, passingScore, chapters: [], actual: null, gap: null }
+    return { hasData: false, estimate: 0, passingGap: passingScore, studiedRatio: 0, passingScore, chapters: [], actual: null, gap: null, forgettingPenalty: 0 }
   }
 
   let estimate = 0
+  let estimateNoDecay = 0 // 忘却の補正をかけない値（補正による減点を出すため）
   let studiedNum = 0
   const rows: ChapterImpact[] = []
 
@@ -305,22 +335,28 @@ export function estimateScore(
     const weight = denom / totalWeightBase
     // 収録済み問題は理解度確率、未収録分（denom - 収録数）はベースライン。
     let probSum = 0
+    let probSumNoDecay = 0
     let attempted = 0
     for (const q of c.questions) {
       const st = reviews[q.id]?.status ?? '未着手'
       if (st !== '未着手') attempted++
-      probSum += STATUS_PROB[st]
+      probSum += cardProb(reviews[q.id], today)
+      probSumNoDecay += STATUS_PROB[st]
     }
     const unknown = Math.max(0, denom - c.questions.length)
     probSum += unknown * BASELINE
+    probSumNoDecay += unknown * BASELINE
     const expectedRate = probSum / denom
     estimate += weight * expectedRate
+    estimateNoDecay += weight * (probSumNoDecay / denom)
     studiedNum += attempted
-    // インパクト: この章を全問A（0.92）まで引き上げたときの総得点増分。
+    // インパクト: この章を全問A（STATUS_PROB.A）へ新鮮な状態で引き上げたときの総得点増分。
+    // expectedRate は忘却の補正後なので、溜まっている章ほど伸びしろが大きく出る。
     const impact = weight * (STATUS_PROB.A - expectedRate) * 100
     rows.push({ code: c.code, name: c.name, expectedRate, weight, studiedRatio: c.questions.length ? attempted / c.questions.length : 0, impact })
   }
 
+  const forgettingPenalty = Math.max(0, Math.round(estimateNoDecay * 100) - Math.round(estimate * 100))
   estimate = Math.round(estimate * 100)
   rows.sort((a, b) => b.impact - a.impact)
 
@@ -339,5 +375,6 @@ export function estimateScore(
     chapters: rows,
     actual,
     gap: actual != null ? actual - estimate : null,
+    forgettingPenalty,
   }
 }

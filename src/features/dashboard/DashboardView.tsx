@@ -9,6 +9,7 @@ import type { PaceResult, PaceVerdict } from '../../lib/pace'
 import type { PassTarget } from '../../lib/passTarget'
 import type { PlanAlert } from '../../lib/planAlert'
 import type { ChapterWeakness, WeeklyLearningPoint, QuadrantItem, QuadrantMatrix, ScoreEstimate } from '../../lib/analytics'
+import type { RequiredPace, WeeklyForecast } from '../../lib/reviewForecast'
 import { buildChapterPriority } from '../../lib/chapterPriority'
 import { STATUS_COLOR } from '../shared/status'
 import { formatDuration } from '../../lib/timer'
@@ -24,7 +25,15 @@ const VERDICT_STYLE: Record<PaceVerdict, { label: (n: number) => string; cls: st
   stalled: { label: () => '実績待ち', cls: 'text-gray-400' },
 }
 
-function PaceCard({ pace }: { pace: PaceResult }) {
+function PaceCard({
+  pace, required, weekly,
+}: {
+  pace: PaceResult
+  /** 復習タブの「合格に必要なペース」と同じ値（reviewForecast.requiredPace）。 */
+  required: RequiredPace | null
+  /** 復習タブの先の予定（forecastLoad）を週ごとに束ねた値。 */
+  weekly: WeeklyForecast[]
+}) {
   if (!pace.hasPlan) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
@@ -41,8 +50,8 @@ function PaceCard({ pace }: { pace: PaceResult }) {
   const v = VERDICT_STYLE[pace.verdict]
   // ゴールは既定が「合格ライン到達」、達成後に「全問A以上」へ昇格する（課題2）。
   const goalLabel = pace.goalMode === 'pass' ? '合格ライン到達' : '全問A以上'
-  const loadData = pace.weeklyLoad.map(w => ({
-    week: w.weekLabel, 既存: w.due, 演習予測: w.projectedNew,
+  const loadData = weekly.map(w => ({
+    week: formatMD(w.weekStart), 既存: w.reviews, 演習予測: w.newWork,
   }))
 
   return (
@@ -111,9 +120,23 @@ function PaceCard({ pace }: { pace: PaceResult }) {
         </div>
       )}
 
+      {/* 合格に必要なペース。復習タブと同じ値（件数＝復習＋未着手の着手・再演習）。
+          上の「必要ペース A以上/日」は A への引き上げ問数で、こちらは演習の総回数。 */}
+      {required && required.days > 0 && (
+        <div
+          className="text-xs text-gray-500 border-t border-gray-100 pt-3"
+          title="試験前日までの復習・未着手の着手と再演習の総回数 ÷ 日数。実績ペースには依存しません"
+        >
+          合格に必要なペース <b className="text-gray-700">約{required.perDay.toFixed(1)}</b>問/日
+          <span className="text-gray-400">
+            {' '}· 復習{required.scheduledReviews}回＋未着手の着手・再演習{required.newWork}回（試験まで{required.days}日）
+          </span>
+        </div>
+      )}
+
       {/* 週次の復習負荷予測 */}
       <div>
-        <p className="text-xs font-medium text-gray-500 mb-2">週次の復習負荷予測</p>
+        <p className="text-xs font-medium text-gray-500 mb-2">週次の復習負荷予測（予定どおりにやった場合）</p>
         <ResponsiveContainer width="100%" height={160}>
           <BarChart data={loadData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -170,7 +193,7 @@ function LearningCurve({ points }: { points: WeeklyLearningPoint[] }) {
 // ここでは物差しを1本にする。基準は目標（合格＋マージン）に統一し、合格ラインは
 // 得点バーの目盛りとして残す。不足点はそのまま「あと何問A以上にするか」へ翻訳する。
 // 理解度の内訳は、同じデータの2表現（カウント4枚＋円グラフ）をやめて積み上げバー1本にした。
-const STATUS_ORDER: Status[] = ['S', 'A', 'B', 'C', '未着手']
+const STATUS_ORDER: Status[] = ['A', 'B', 'C', '未着手']
 
 function CurrentStandingCard({
   est, target, counts, totalQ, masteredQ,
@@ -231,7 +254,12 @@ function CurrentStandingCard({
           </p>
 
           <p className="text-[11px] text-gray-400">
-            直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
+            直近理解度と想起確率からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・未着手は0点で計算）
+            {est.forgettingPenalty > 0 && (
+              <span className="text-gray-500" title="復習が遅れて想起確率が0.90を下回ったカードの分。復習すると戻ります">
+                ／忘却で <b>−{est.forgettingPenalty}点</b>
+              </span>
+            )}
             {est.actual != null && (
               <span className="text-gray-500">
                 ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
@@ -348,7 +376,7 @@ function QuadrantCard({ m }: { m: QuadrantMatrix }) {
 
 export default function DashboardView({
   data, chapters, reviews, totalQ, masteredQ, pace, weakness, learningCurve, quadrant, scoreEstimate,
-  passTarget, planAlert,
+  passTarget, planAlert, requiredPace, weeklyLoad,
 }: {
   data: { counts: Record<Status, number> }
   chapters: Chapter[]
@@ -366,6 +394,9 @@ export default function DashboardView({
    * 出す必要が無ければ null。
    */
   planAlert: PlanAlert | null
+  /** 復習タブと同じ「合格に必要なペース」。試験日未設定なら 0 日の値（表示しない）。 */
+  requiredPace: RequiredPace | null
+  weeklyLoad: WeeklyForecast[]
 }) {
   // 章別の3つの表（伸びしろ・弱点・進捗）を1行に束ねる（課題15）。既存の出力を
   // 突き合わせるだけなので、新しい集計はここでも増やしていない。
@@ -392,7 +423,7 @@ export default function DashboardView({
         masteredQ={masteredQ}
       />
 
-      <PaceCard pace={pace} />
+      <PaceCard pace={pace} required={requiredPace} weekly={weeklyLoad} />
 
       <ChapterPriorityTable rows={chapterRows} />
 

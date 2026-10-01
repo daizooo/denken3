@@ -68,10 +68,15 @@ export interface ForecastInput {
   today: string
   examDate: string | null
   days?: number
+  /**
+   * この日以降は未着手を新たに着手しない（分野別の目標日 = pace.bunyaTargetDate）。
+   * それ以降は維持の復習だけになる。未指定は期限なし。
+   */
+  newUntil?: string | null
 }
 
 export function forecastLoad(input: ForecastInput): ForecastDay[] {
-  const { cards, today, examDate, newPerDay, attemptsPerMastery } = input
+  const { cards, today, examDate, newPerDay, attemptsPerMastery, newUntil } = input
   const days = input.days ?? FORECAST_DAYS
   const followCount = Math.max(0, Math.round(attemptsPerMastery) - 1)
 
@@ -97,7 +102,8 @@ export function forecastLoad(input: ForecastInput): ForecastDay[] {
       if (next.due_date && next.due_date > date) put(next.due_date, next)
     }
 
-    const newStarts = Math.min(unstarted, Math.max(0, newPerDay))
+    const canStart = !newUntil || date < newUntil
+    const newStarts = canStart ? Math.min(unstarted, Math.max(0, newPerDay)) : 0
     unstarted -= newStarts
     for (let k = 0; k < followCount; k++) {
       const key = addDaysStr(date, FOLLOW_UP_OFFSETS[Math.min(k, FOLLOW_UP_OFFSETS.length - 1)])
@@ -156,4 +162,43 @@ export function requiredPace(input: {
   const newWork = Math.round(unstarted * (Math.max(1, attemptsPerMastery) + FINAL_REVIEWS_PER_NEW))
   const total = scheduled + newWork
   return { total, days, perDay: total / days, backlog, scheduledReviews: scheduled, newWork }
+}
+
+// 分析タブの「週次の復習負荷予測」。復習タブの先の予定（forecastLoad）と同じ値を週ごとに束ねる。
+// 旧 pace.weeklyLoad は DB の次回予定日を数えるだけで、消化後の再復習も頭打ち・試験日の地平も
+// 反映していなかったため、同じ「予定どおりにやった場合」でも復習タブと数字が合わなかった。
+export const WEEKLY_FORECAST_MAX_WEEKS = 16
+// 試験日が無いときに見せる週数。
+const WEEKLY_FORECAST_DEFAULT_WEEKS = 12
+
+export interface WeeklyForecast {
+  /** 週の開始日（今日から7日ごと。月曜始まりではない）。 */
+  weekStart: string
+  /** 期限が来たカードの復習（今週は溜まりを含む）。 */
+  reviews: number
+  /** 未着手の着手 ＋ その再演習。 */
+  newWork: number
+  total: number
+}
+
+export function weeklyForecast(input: Omit<ForecastInput, 'days'>): WeeklyForecast[] {
+  const { today, examDate } = input
+  // 数える地平は試験前日まで（試験当日は受験する日で復習日にならない）。
+  const horizon = examDate
+    ? Math.min(
+        WEEKLY_FORECAST_MAX_WEEKS * 7,
+        diffDays(today, addDaysStr(examDate, -LAST_REVIEW_LEAD_DAYS)) + 1,
+      )
+    : WEEKLY_FORECAST_DEFAULT_WEEKS * 7
+  if (horizon <= 0) return []
+
+  const daily = forecastLoad({ ...input, days: horizon })
+  const weeks: WeeklyForecast[] = []
+  for (let i = 0; i < daily.length; i += 7) {
+    const chunk = daily.slice(i, i + 7)
+    const reviews = chunk.reduce((s, d) => s + d.reviews, 0)
+    const newWork = chunk.reduce((s, d) => s + d.newStarts + d.followUps, 0)
+    weeks.push({ weekStart: chunk[0].date, reviews, newWork, total: reviews + newWork })
+  }
+  return weeks
 }

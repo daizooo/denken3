@@ -32,10 +32,6 @@ const REPLAN_LATE_DAYS = 14
 const DEFAULT_BUNYA_LEAD_DAYS = 90
 // 年度別演習に最低限確保したい日数（後ろ倒しの限界日算出に使う）。
 export const MIN_NENDO_DAYS = 30
-// 1問を A 以上へ引き上げるまでに要する演習回数の既定値（実績が無いときのフォールバック）と上限。
-// 復習負荷予測で「修得ノルマ → 発生する演習回数」を見積もるのに使う。
-const DEFAULT_ATTEMPTS_PER_MASTERY = 2
-const MAX_ATTEMPTS_PER_MASTERY = 5
 
 export type PaceVerdict = 'done' | 'ahead' | 'onTrack' | 'behind' | 'stalled'
 
@@ -50,12 +46,6 @@ export interface Milestone {
   label: string
   date: string
   daysFromToday: number
-}
-
-export interface WeeklyLoad {
-  weekLabel: string
-  due: number          // その週に既に予定されている復習（due_date 分布）
-  projectedNew: number // 推奨ノルマ（A以上への引き上げ）に伴って発生する演習の推定
 }
 
 export interface PaceResult {
@@ -84,7 +74,6 @@ export interface PaceResult {
   finishesAfterExam: boolean
 
   milestones: Milestone[]
-  weeklyLoad: WeeklyLoad[]
 }
 
 interface QLike { id: string }
@@ -142,42 +131,6 @@ function ewmaOfDaily(daily: Map<string, number>, today: string): number {
   return ewma
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v))
-}
-
-// 週次の復習負荷予測（§7.2 復習負荷予測）。
-// 既存 due_date 分布に、推奨ノルマ（A以上への引き上げ）に伴って発生する演習の見込みを重ねる。
-function buildWeeklyLoad(
-  questions: QLike[],
-  reviews: Record<string, Review>,
-  today: string,
-  horizonWeeks: number,
-  recommendedNorm: number,
-  attemptsPerMastery: number,
-  bunyaTargetDate: string | null,
-): WeeklyLoad[] {
-  const weeks: WeeklyLoad[] = []
-  for (let w = 0; w < horizonWeeks; w++) {
-    const start = addDaysStr(today, w * 7)
-    const end = addDaysStr(today, (w + 1) * 7) // [start, end)
-    const due = questions.filter(q => {
-      const d = reviews[q.id]?.due_date
-      if (!d) return false
-      // 最初の週は「今日以前の遅延分」も含める
-      if (w === 0) return d < end
-      return d >= start && d < end
-    }).length
-    // 1問を A 以上へ引き上げるには平均 attemptsPerMastery 回の演習が要り、
-    // それがおおむね翌週以降の演習として発生すると仮定した軽量な推定。
-    const withinTarget = !bunyaTargetDate || start < bunyaTargetDate
-    const projectedNew =
-      w >= 1 && withinTarget ? Math.round(recommendedNorm * attemptsPerMastery * 7) : 0
-    weeks.push({ weekLabel: formatMD(start), due, projectedNew })
-  }
-  return weeks
-}
-
 export function analyzePace(
   questions: QLike[],
   reviews: Record<string, Review>,
@@ -197,15 +150,6 @@ export function analyzePace(
 
   const dailyGains = dailyMasteryGains(questions, reviews)
   const currentPace = ewmaOfDaily(dailyGains, today)
-
-  // 1問あたりの実演習回数（実績ベース）。復習負荷予測でノルマを演習回数へ換算するのに使う。
-  const totalGains = [...dailyGains.values()].reduce((a, b) => a + b, 0)
-  const totalAttempts = questions.reduce(
-    (n, q) => n + (reviews[q.id]?.review_history?.length ?? 0), 0,
-  )
-  const attemptsPerMastery = totalGains > 0
-    ? clamp(totalAttempts / totalGains, 1, MAX_ATTEMPTS_PER_MASTERY)
-    : DEFAULT_ATTEMPTS_PER_MASTERY
 
   const examDate = plan?.exam_date ?? null
   const daysToExam = examDate ? diffDays(today, examDate) : null
@@ -290,14 +234,6 @@ export function analyzePace(
   push('exam', '試験日', examDate)
   milestones.sort((a, b) => a.date.localeCompare(b.date))
 
-  // 週次の復習負荷予測（試験日まで、最大16週）。
-  const horizonWeeks = daysToExam && daysToExam > 0
-    ? Math.min(16, Math.ceil(daysToExam / 7))
-    : 12
-  const weeklyLoad = buildWeeklyLoad(
-    questions, reviews, today, horizonWeeks, recommendedNorm, attemptsPerMastery, bunyaTargetDate,
-  )
-
   return {
     hasPlan,
     examDate,
@@ -317,7 +253,6 @@ export function analyzePace(
     needsReplan,
     finishesAfterExam,
     milestones,
-    weeklyLoad,
   }
 }
 

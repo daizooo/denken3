@@ -28,7 +28,7 @@
 // （現行モデルでは内訳に情報量がなく、並び順を「最適な章配分」と誤読させるだけ）。
 
 import type { Chapter, MockSession, Review, Status } from '../domain/types'
-import { STATUS_PROB, type ScoreEstimate } from './analytics'
+import { STATUS_PROB, cardProb, type ScoreEstimate } from './analytics'
 
 // ペースの目標モード。`pass` を既定とし、達成したら `mastery` へ自動昇格する（§6-1）。
 export type GoalMode = 'pass' | 'mastery'
@@ -88,20 +88,30 @@ export function planPassTarget(
   reviews: Record<string, Review>,
   est: ScoreEstimate,
   marginPoints: number = DEFAULT_PASS_MARGIN,
+  today?: string,
 ): PassTarget {
   const targetScore = Math.min(100, est.passingScore + marginPoints)
   const weightOf = new Map(est.chapters.map(c => [c.code, c.weight]))
 
   // 未修得（A・S 以外）の1問ごとの「A以上へ引き上げたときの得点の伸び」。
+  // 現在の確率は忘却の補正後（cardProb）。想定得点（est.estimate）と同じ物差しで測る。
   const gains: { id: string; gain: number }[] = []
+  // 既に A・S だが忘れかけている問題を、復習で新鮮な A へ戻したときの伸び。
+  // 「A以上へ引き上げる問数」には数えない（masteryRemainingQ・requiredQ は理解度のまま）が、
+  // 想定得点が忘却で下がっている以上、到達上限 maxScore には含めないと矛盾する。
+  let recoverable = 0
   for (const c of chapters) {
     const denom = Math.max(c.totalCount, c.questions.length)
     const weight = weightOf.get(c.code) ?? 0
     if (denom === 0 || weight === 0) continue
     for (const q of c.questions) {
       const status: Status = reviews[q.id]?.status ?? '未着手'
-      const gain = (weight / denom) * (STATUS_PROB.A - STATUS_PROB[status]) * 100
-      if (gain <= 0) continue // A・S は伸びしろ 0＝対象外
+      const gain = (weight / denom) * (STATUS_PROB.A - cardProb(reviews[q.id], today)) * 100
+      if (status === 'A' || status === 'S') {
+        recoverable += Math.max(0, gain) // 理解度は修得済み＝引き上げ対象ではない
+        continue
+      }
+      if (gain <= 0) continue
       gains.push({ id: q.id, gain })
     }
   }
@@ -109,10 +119,10 @@ export function planPassTarget(
 
   const masteryRemainingQ = gains.length
   const maxGain = gains.reduce((s, g) => s + g.gain, 0)
-  const maxScore = Math.round(est.estimate + maxGain)
+  const maxScore = Math.round(est.estimate + maxGain + recoverable)
   const pointGap = Math.max(0, targetScore - est.estimate)
   const achieved = pointGap === 0
-  const reachable = maxGain >= pointGap
+  const reachable = maxGain + recoverable >= pointGap
 
   // 伸びの大きい順に、不足点を埋めきるまで積む。
   // 届かない場合（reachable=false）は収録済みの全未修得問題が必要ということ。
