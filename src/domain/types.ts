@@ -88,6 +88,9 @@ export interface ReviewHistoryEntry {
   // 版を書き残さずに差し替えると過去の予定日がすべて書き換わる。
   // 省略・0 は ts-fsrs の既定パラメータ（学習前）を意味する。
   policy?: { retention: number; w_version?: number }
+  // 記録時に FSRS へ渡した評価（1=Again/2=Hard/3=Good/4=Easy）。解答時間から決まる（solveRating.ts）。
+  // 持たない旧データは従来の写像（A→Easy / B→Good / C→Again）で再生する。
+  rating?: 1 | 2 | 3 | 4
 }
 
 export interface Review {

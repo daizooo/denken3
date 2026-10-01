@@ -53,7 +53,8 @@ export function toReviewSequence(history: ReviewHistoryEntry[]): TrainReview[] {
   let previousDate: string | null = null
   // S などで飛ばした日数は捨てずに次へ繰り越す（間隔を実際より短く見せない）。
   for (const e of sorted) {
-    const rating = RATING_OF[e.status]
+    // 記録時に書き残した評価（解答時間由来）があればそれを、無ければ従来の写像を使う。
+    const rating = e.rating ?? RATING_OF[e.status]
     if (rating === undefined) continue
     const deltaT = previousDate === null ? 0 : Math.max(0, daysBetween(previousDate, e.date))
     out.push({ rating, deltaT })

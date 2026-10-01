@@ -244,11 +244,12 @@ export function calcFSRS(
   examDate?: string | null,
   retention?: number,
   wVersion?: number,
+  ratingOverride?: Grade,
 ) {
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
   const eDate = eventDate ?? todayJST()
-  const rating = RATING_MAP[status]
+  const rating = ratingOverride ?? RATING_MAP[status]
   const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
@@ -290,7 +291,7 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
     due_date: null, last_reviewed: null, fsrs_state: State.New,
   }
   for (const e of sorted) {
-    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate, e.policy?.retention, e.policy?.w_version) }
+    acc = { ...acc, ...calcFSRS(acc, e.status, e.date, examDate, e.policy?.retention, e.policy?.w_version, e.rating) }
   }
   return {
     stability: acc.stability ?? 0,
