@@ -85,26 +85,33 @@ function schedulerFor(retention: number, version?: number): FSRS {
   return s
 }
 
-// S（復習不要）の試験前最終確認（§6-4・課題4）。
-// S にした問題は due_date=null で忘却追跡から完全に外れ、そのままだと試験まで一度も
-// 戻ってこない。試験日の21日前に1回だけ復習キューへ戻す。
-// - 試験日が未設定なら従来どおり null（復習キューから外れたまま）。
-// - 最終確認日が実施日を過ぎている場合も null。過去日を due にすると毎日 due に
-//   居座り、直前期に S を付け直すたびに翌日また出てくることになるため。
-export const FINAL_CHECK_DAYS_BEFORE_EXAM = 21
+// 安定度の信頼上限（review-schedule-realism.md §3-1）。
+// 安定度 S は「想起確率が 0.90 まで下がるのにかかる日数」なので、S を主張できるのは、
+// 実際に成功が確認できた最長のギャップまで。この学習者の実測では最長51日で、それを超える
+// 範囲（たとえば A→A で S=236日・次回515日後）は外挿でしかなく、31日超の演習の約3割は
+// 忘れていた。上限は定数にして、実施日・試験日以外のデータに依存させない（決定的再生）。
+// 実測が貯まって、より長い間隔で成功が確認できたら引き上げる（下げる側の判断は要らない）。
+export const CREDIBLE_STABILITY_DAYS = 50
 
-export function finalCheckDue(eventDate: string, examDate?: string | null): string | null {
-  if (!examDate) return null
-  const due = addDaysStr(examDate, -FINAL_CHECK_DAYS_BEFORE_EXAM)
-  return due > eventDate ? due : null
+// カードの安定度を上限で頭打ちにし、次回までの間隔も頭打ち後の S から引き直す。
+function capCard(card: Card, scheduler: FSRS, now: Date): Card {
+  if (card.stability <= CREDIBLE_STABILITY_DAYS) return card
+  const days = scheduler.next_interval(CREDIBLE_STABILITY_DAYS, 0)
+  return {
+    ...card,
+    stability: CREDIBLE_STABILITY_DAYS,
+    scheduled_days: days,
+    due: new Date(now.getTime() + days * 86400000),
+  }
 }
 
 const RATING_MAP: Record<Status, Grade> = {
   A: Rating.Easy,
   B: Rating.Good,
   C: Rating.Again,
-  // S・未着手 はスケジューラを回さない（calcFSRS で早期リターン）。便宜上の既定値。
+  // S（復習不要）は廃止した。過去の S は A として扱う（Easy）。
   S: Rating.Easy,
+  // 未着手 はスケジューラを回さない（calcFSRS で早期リターン）。便宜上の既定値。
   '未着手': Rating.Good,
 }
 
@@ -128,15 +135,14 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
 // 復習できる最後の日は試験前日。試験当日は受験するので復習日にならない。
 export const LAST_REVIEW_LEAD_DAYS = 1
 
-// 直前期テーパーが効き始める残日数（§7.3）。ここから内側は「間隔が開きすぎて忘れる」を
-// 防ぐために間隔へ上限をかける。この範囲では、モデルが安全と言っても必ず1回は入れる。
-export const TAPER_FROM_DAYS = 28
-
 // 試験日クリップ（§7.3）。
 // FSRS が出した次回復習日(due)を、試験前日を越えない範囲に丸める。
 // - interval = min(interval, 試験前日までの残日数)
-// - 直前期テーパー：残28日以内→間隔上限14日 / 残14日以内→間隔上限7日
-//   （直前に間隔が開きすぎて忘れるのを防ぐ）
+//
+// 【2026-10-01 撤廃】直前期テーパー（残28日以内→間隔上限14日 / 残14日以内→間隔上限7日）。
+// 目標は「試験当日の想起確率 R ≥ 0.90」で、テーパーはそれを超えて全カードを毎週復習させ、
+// 試験直前の5日に約52問/日を積んでいた（実データ試算）。分野別が主軸でない時期に分野別の山を
+// 作る設計と矛盾する。R が目標を割るカードにだけ復習を入れる規則は applyExamHorizon が持つ。
 // examDate 未指定・試験日を過ぎている場合は素通し（現行挙動を維持）。
 //
 // 【2026-09-04 修正】上限を「残日数」から「残日数 − 1」へ変えた。
@@ -149,9 +155,7 @@ function clipDueToExam(due: string, eventDate: string, examDate?: string | null)
   if (daysToExam <= 0) return due // 試験日当日/経過後はクリップしない
   const interval = diffDays(eventDate, due)
   if (interval <= 0) return due
-  let maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
-  if (daysToExam <= 14) maxInterval = Math.min(maxInterval, 7)
-  else if (daysToExam <= TAPER_FROM_DAYS) maxInterval = Math.min(maxInterval, 14)
+  const maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
   if (maxInterval <= 0) return due // 試験前日以降は丸めない（次の復習は無い）
   const clipped = Math.min(interval, maxInterval)
   return clipped >= interval ? due : addDaysStr(eventDate, clipped)
@@ -172,7 +176,7 @@ function clipDueToExam(due: string, eventDate: string, examDate?: string | null)
  *
  * 【どこへ動かすか ―― 固定日ではなく保持率で決める】
  * 当初は S と同じ最終確認（試験21日前）へ集約しようとしたが、それは誤りだった。
- * `finalCheckDue` は固定値であって FSRS の出力ではなく、**58件を1日へ潰してしまう**。
+ * 旧 `finalCheckDue`（S の最終確認）は固定値であって FSRS の出力ではなく、**58件を1日へ潰してしまう**。
  * 実測では、この58件の素の予定日は「試験当日」から「試験の224日後」まで224日の幅がある。
  *
  * 代わりに、**この枠組みが既に持っている直前期の基準で引き直す**。
@@ -211,16 +215,17 @@ function applyExamHorizon(params: {
   if (rawDue < examDate) return { due: clipDueToExam(rawDue, eventDate, examDate), card: null }
 
   // 試験日を越えた → 直前期の基準（0.90）で引き直す。
-  const endgame = schedulerFor(RETENTION_ENDGAME, wVersion).repeat(card, now)[rating].card
+  const endgameScheduler = schedulerFor(RETENTION_ENDGAME, wVersion)
+  const endgame = capCard(endgameScheduler.repeat(card, now)[rating].card, endgameScheduler, now)
   const endgameDue = endgame.due.toISOString().split('T')[0]
-  // 直前期テーパーの範囲内では、モデルが安全と言っても必ず1回は入れる。
-  // ここを「触れない」にすると、テーパーが防ごうとした
-  // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
-  if (endgameDue < examDate || daysToExam <= TAPER_FROM_DAYS) {
+  // 0.90 を割る日が試験前に来る ＝ 試験当日に基準を割る。割る前に1回入れる。
+  if (endgameDue < examDate) {
     return { due: clipDueToExam(endgameDue, eventDate, examDate), card: endgame }
   }
-  // 0.90 でも越える ＝ 試験日時点で基準を満たす。触れない。
-  return { due: rawDue, card: null }
+  // 0.90 でも越える ＝ 試験日時点で R ≥ 0.90 を満たす。復習は要らないので触れない
+  // （直前期でも一律には入れない。試験当日の想起確率を守ることだけが目的）。
+  // ただし試験当日そのものには置かない（当日は受験するので予定として成立しない）。
+  return { due: rawDue === examDate ? addDaysStr(examDate, 1) : rawDue, card: null }
 }
 
 // eventDate = 実施日（過去日でもよい）。未指定なら今日。
@@ -243,17 +248,13 @@ export function calcFSRS(
   if (status === '未着手') return {}
   // 実施日未指定なら JST基準の「今日」を使う（UTC日付ズレ防止）
   const eDate = eventDate ?? todayJST()
-  // S（完璧に理解・復習不要）: 通常の復習キューからは外し、試験前の最終確認だけ残す。
-  // stability 等の FSRS 値は現状のまま温存するので、後で復習に戻す（due_date 再設定）／
-  // A・B・C で再採点したときに、それまでの学習履歴を失わずスケジューリングを再開できる。
-  if (status === 'S') return { due_date: finalCheckDue(eDate, examDate), last_reviewed: eDate }
   const rating = RATING_MAP[status]
   const now = dateAtUTCNoon(eDate)
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
-  const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
-    .repeat(card, now)[rating].card
+  const scheduler = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
+  const newCard = capCard(scheduler.repeat(card, now)[rating].card, scheduler, now)
   const rawDue = newCard.due.toISOString().split('T')[0]
   const horizon = applyExamHorizon({
     card, rating, now, eventDate: eDate, examDate, wVersion, rawDue,
@@ -301,7 +302,8 @@ export function deriveFromHistory(history: ReviewHistoryEntry[], examDate?: stri
     review_history: sorted,
     first_reviewed: sorted.length ? sorted[0].date : null,
     last_reviewed: sorted.length ? sorted[sorted.length - 1].date : null,
-    status: (sorted.length ? sorted[sorted.length - 1].status : '未着手') as Status,
+    // 廃止した S は A として返す（再計算すると S の問題は A に移る）。
+    status: (sorted.length ? (sorted[sorted.length - 1].status === 'S' ? 'A' : sorted[sorted.length - 1].status) : '未着手') as Status,
   }
 }
 

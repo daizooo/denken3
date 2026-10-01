@@ -250,3 +250,48 @@ describe('forwardSlotsToday（今日の新規着手枠）', () => {
     expect(forwardSlotsToday(p, 99)).toBe(0)
   })
 })
+
+describe('⑥ 件数基準（targetCount）: 時間ではなく合格に必要な件数で線を引く', () => {
+  const nonUrgent = (ids: string[]): TodayCandidate[] =>
+    ids.map(id => ({ question: q(id), review: reviewFrom(id, [{ date: '2026-09-02', status: 'B' }]) }))
+
+  it('時間を一切見ずに、指定した件数までを今日の分にする', () => {
+    const ids = ['n1', 'n2', 'n3', 'n4', 'n5']
+    const plan = planToday({
+      candidates: nonUrgent(ids),
+      policy: policyOf({ coreIds: new Set(ids), dailyFloor: 1 }),
+      budgetMinutes: null, targetCount: 2,
+      stats: stats({ n1: 30, n2: 30, n3: 30, n4: 30, n5: 30 }), // 時間は巨大でも件数どおり
+      today: TODAY, examDate: EXAM, newIds: new Set(),
+    })
+    expect(plan.recommendedCount).toBe(2)
+    expect(plan.waitingCount).toBe(3)
+    expect(plan.totalCount).toBe(5) // 総量は減らない
+    expect(plan.overBudget).toBe(false)
+  })
+
+  it('コアの🔴優先は件数を超えても必ず線の上に残る', () => {
+    const plan = planToday({
+      candidates: overdueCandidates(),
+      policy: policyOf({ coreIds: new Set(['a1', 'a2', 'a3']) }),
+      budgetMinutes: null, targetCount: 1,
+      stats: stats({ a1: 4, a2: 4, a3: 4 }),
+      today: TODAY, examDate: EXAM, newIds: new Set(),
+    })
+    expect(plan.recommendedCount).toBe(3)
+    expect(plan.urgentCount).toBe(3)
+  })
+
+  it('件数が候補より多ければ全部が今日の分（順番待ちは0）', () => {
+    const ids = ['n1', 'n2']
+    const plan = planToday({
+      candidates: nonUrgent(ids),
+      policy: policyOf({ coreIds: new Set(ids), dailyFloor: 1 }),
+      budgetMinutes: null, targetCount: 10,
+      stats: stats({ n1: 1, n2: 1 }),
+      today: TODAY, examDate: EXAM, newIds: new Set(),
+    })
+    expect(plan.recommendedCount).toBe(2)
+    expect(plan.waitingCount).toBe(0)
+  })
+})

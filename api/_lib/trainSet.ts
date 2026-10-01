@@ -24,7 +24,7 @@ import type { ReviewHistoryEntry, Status } from '../../src/domain/types.js'
 /** FSRS の Rating（1=Again / 2=Hard / 3=Good / 4=Easy）。 */
 export type Rating = 1 | 2 | 3 | 4
 
-const RATING_OF: Partial<Record<Status, Rating>> = { A: 4, B: 3, C: 1 }
+const RATING_OF: Partial<Record<Status, Rating>> = { A: 4, B: 3, C: 1, S: 4 }
 
 export interface TrainReview {
   rating: Rating

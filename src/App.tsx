@@ -7,17 +7,18 @@ import ImportPanel from './components/ImportPanel'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, Subject } from './domain/types'
 import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
-import { deriveFromHistory, defaultReview, finalCheckDue, RETENTION_DEFAULT } from './lib/fsrs'
+import { deriveFromHistory, defaultReview, RETENTION_DEFAULT } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
 import { planPassTarget, isEstimateValidated } from './lib/passTarget'
 import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { planToday, orderByDensity } from './lib/planToday'
+import { forecastLoad, requiredPace } from './lib/reviewForecast'
 import { buildTodaySummary } from './lib/todaySummary'
 import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
-  buildTimeStats, sumEstimateMinutes,
+  buildTimeStats,
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
@@ -70,9 +71,6 @@ export default function App() {
   // 会社向けテキスト転記がある問題だけに絞る（画像を開けない場面向け）。単独のON/OFF。
   const [filterTextOnly, setFilterTextOnly] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
-  // 時間予算モード（課題1・提案B）。選択中の予算（分）。null＝指定なし（「すべて」）。
-  // Phase B-2 で denken_settings へ永続化する（従来はリロードで消えていた・設計書 §1.1）。
-  const [timeBudget, setTimeBudget] = useState<number | null>(null)
   // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
   // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
   const [fsrsParams, setFsrsParams] = useState<FsrsParamsRow | null>(null)
@@ -117,7 +115,6 @@ export default function App() {
   const plansLoadedKeyRef = useRef<string | null>(null)
   // 設定（時間予算）の読み込みが終わったか（Phase B-2）。読み込み前に保存すると、
   // 初期値 null を書き戻して他端末で選んだ予算を消してしまうため、保存の門にする。
-  const settingsLoadedRef = useRef(false)
   const todayStr = todayJST()
   // その問題の「実施日」。未指定なら今日。
   // useCallback にしてあるのは、updateStatus がこれを呼んでおり、素の関数のままだと
@@ -242,24 +239,6 @@ export default function App() {
       })
   }, [user, examId])
 
-  // ---- Fetch settings（時間予算・Phase B-2）----
-  // 従来 timeBudget は useState だけに存在し、リロードで消えていた（設計書 §1.1）。
-  // 端末をまたいで同じ予算で今日のラインが引かれるよう denken_settings に置く。
-  useEffect(() => {
-    settingsLoadedRef.current = false
-    if (!user) return
-    supabase
-      .from('denken_settings')
-      .select('time_budget_minutes')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) console.error(error)
-        else setTimeBudget(data?.time_budget_minutes ?? null)
-        settingsLoadedRef.current = true
-      })
-  }, [user])
-
   // ---- Fetch FSRS パラメータ（採用中の版・Phase D）----
   // 読めなくても既定パラメータで動くので、起動を止める理由にはしない
   // （履歴に刻まれた版は fsrs.ts 側で既定へフォールバックする）。
@@ -281,16 +260,6 @@ export default function App() {
       .finally(() => { if (!cancelled) setFsrsParamsReady(true) })
     return () => { cancelled = true }
   }, [user, examId, fsrsReloadKey])
-
-  // 時間予算の変更（即時保存）。失敗しても画面の選択は保つ（次の変更で再送される）。
-  const changeTimeBudget = useCallback((minutes: number | null) => {
-    setTimeBudget(minutes)
-    if (!user || !settingsLoadedRef.current) return
-    void supabase
-      .from('denken_settings')
-      .upsert({ user_id: user.id, time_budget_minutes: minutes })
-      .then(({ error }) => { if (error) console.error(error) })
-  }, [user])
 
   // ---- オフライン対応（課題7・Phase F）----
   // 接続状態。ヘッダの表示と、記録を直接送るか送信待ちに積むかの判断に使う。
@@ -528,18 +497,6 @@ export default function App() {
   const boostReview = useCallback((sourceQuestionId: string) => {
     const current = reviews[sourceQuestionId] ?? defaultReview(sourceQuestionId)
     saveReview({ ...current, due_date: todayStr })
-  }, [reviews, saveReview, todayStr])
-
-  // 試験日を設定・変更したとき、S（復習不要）の試験前最終確認を張り直す（Phase 0）。
-  // S は due_date=null で復習キューに出ないため、記録の機会が来ず deriveFromHistory による
-  // 自己修復が起きない。試験日が無い状態で S を付けた問題が、後から試験日を入れても
-  // 永久に最終確認へ戻らないのを防ぐ（migration 015 と同じ是正をアプリ側でも行う）。
-  const refreshFinalChecks = useCallback((examDate: string | null) => {
-    const due = finalCheckDue(todayStr, examDate)
-    if (!due) return
-    for (const r of Object.values(reviews)) {
-      if (r.status === 'S' && !r.due_date) void saveReview({ ...r, due_date: due })
-    }
   }, [reviews, saveReview, todayStr])
 
   // S（復習不要）にした問題を、いつでも復習に戻す。
@@ -809,24 +766,53 @@ export default function App() {
   //
   // 1日全体の概念なので、絞り込み（学習場所×理解度）には依らない。復習due と新規着手枠を
   // 同じ土俵に並べる（維持コアと前進コアの1問あたりの点数影響はほぼ同じ大きさ・§3.3）。
-  const todayPlan = useMemo(
-    () => planToday({
-      candidates: allQuestions
-        .filter(q => {
-          const r = reviews[q.id]
-          return !!(r?.due_date && r.due_date <= todayStr)
-        })
-        .map(q => ({ question: q, review: reviews[q.id] })),
+  // 合格に必要なライン（reviewForecast.ts・2026-10-01）。時間予算・見込み時間・実績ペースは使わない。
+  // 利用者が消化できるかどうかに関わらず、試験までに必要な量をそのまま出す。
+  // 科目全体（章フィルタに依らない）の着手済みカードと未着手数から求める。
+  const examDateStr = currentPlan?.exam_date ?? null
+  const requiredLine = useMemo(() => {
+    const all = currentChapters.flatMap(c => c.questions)
+    const started: Review[] = []
+    let unstarted = 0
+    for (const q of all) {
+      const r = reviews[q.id]
+      if (r?.due_date) started.push(r)
+      else if (!r || r.status === '未着手') unstarted++
+    }
+    const newPerDay = Math.max(0, Math.ceil(policy.requiredPaceQ))
+    return {
+      pace: requiredPace({
+        cards: started, unstarted, attemptsPerMastery: policy.attemptsPerMastery,
+        today: todayStr, examDate: examDateStr,
+      }),
+      forecast: forecastLoad({
+        cards: started, unstarted, newPerDay, attemptsPerMastery: policy.attemptsPerMastery,
+        today: todayStr, examDate: examDateStr,
+      }),
+      newPerDay,
+    }
+  }, [currentChapters, reviews, policy, todayStr, examDateStr])
+
+  const todayPlan = useMemo(() => {
+    const candidates = allQuestions
+      .filter(q => {
+        const r = reviews[q.id]
+        return !!(r?.due_date && r.due_date <= todayStr)
+      })
+      .map(q => ({ question: q, review: reviews[q.id] }))
+    return planToday({
+      candidates,
       policy,
-      budgetMinutes: timeBudget,
+      // 時間では線を引かない。期限が来ているカードは、消化できるかどうかに関わらず今日の分。
+      budgetMinutes: null,
+      targetCount: candidates.length,
       stats: timeStats,
       today: todayStr,
       examDate: currentPlan?.exam_date ?? null,
       // 新規着手枠は復習キューに混ぜない（未着手は全問題タブから着手する）。
       newIds: new Set<string>(),
-    }),
-    [allQuestions, reviews, policy, timeBudget, timeStats, todayStr, currentPlan]
-  )
+    })
+  }, [allQuestions, reviews, policy, timeStats, todayStr, currentPlan])
 
   const filteredQuestions = useMemo(() => {
     const filtered = baseQuestions.filter(q => matchMode(q.id) && matchStatus(q.id) && matchText(q.id))
@@ -858,17 +844,6 @@ export default function App() {
       (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     )
   }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, matchText, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
-
-  // いま一覧に出ているキュー全体の推定所要分（今日パネルの見出しに出す従属表示）。
-  //
-  // 【一本化】かつては estimateMinutes.planByBudget で「予算に収まる位置」も同時に求めて
-  // いたが、その線は使われておらず（totalMinutes 以外のフィールドは未参照）、今日のラインは
-  // planToday が引いている。予算の線を引く実装が2つ動いている状態だったため、単純合計に
-  // 置き換えて planByBudget ごと削除した。
-  const queueMinutes = useMemo(
-    () => sumEstimateMinutes(filteredQuestions, reviews, timeStats),
-    [filteredQuestions, reviews, timeStats]
-  )
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
   // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
@@ -1117,7 +1092,6 @@ export default function App() {
             onFsrsParamsChanged={reloadFsrsParams}
             onSaved={p => {
               setPlans(prev => ({ ...prev, [p.subject_id]: p }))
-              refreshFinalChecks(p.exam_date)
             }}
           />
         ) : activeTab === 'dashboard' ? (
@@ -1142,6 +1116,7 @@ export default function App() {
             subjectId={subjectIdOf(examId, subject)}
             papers={currentPapers}
             passingScore={passingScore}
+            targetScore={policy.targetScore}
             onBoostReview={boostReview}
           />
         ) : (
@@ -1156,9 +1131,10 @@ export default function App() {
                 isToday={isTodayView}
                 dateLabel={formatMD(selectedDate)}
                 queueCount={filteredQuestions.length}
-                queueMinutes={queueMinutes}
-                budget={timeBudget}
-                onBudgetChange={changeTimeBudget}
+                pace={requiredLine.pace}
+                forecast={requiredLine.forecast}
+                newPerDay={requiredLine.newPerDay}
+                daysToExam={daysToExam}
                 dates={reviewSchedule}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -1235,9 +1211,7 @@ export default function App() {
                       <div className="flex items-center gap-2 py-1 select-none">
                         <div className="flex-1 h-px bg-gray-200" />
                         <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                          {timeBudget !== null
-                            ? `ここまでが${timeBudget}分ぶん · 以降は順番待ち（翌日以降に戻ります）`
-                            : 'ここまでが今日の推奨 · 以降は順番待ち（翌日以降に戻ります）'}
+                          ここまでが今日の分 · 以降は順番待ち（翌日以降に戻ります）
                         </span>
                         <div className="flex-1 h-px bg-gray-200" />
                       </div>

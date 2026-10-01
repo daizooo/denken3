@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Play, Clock, RefreshCw, Trophy, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { MockAnswer, MockMode, MockSession, PaperDefinition } from '../../domain/types'
-import { scorePaper, transitionJudgment } from '../../lib/mock'
+import { TRANSITION_WINDOW, scorePaper, transitionJudgment } from '../../lib/mock'
 import { formatMD, toDateStr } from '../../lib/date'
 import CBTRunner from './CBTRunner'
 import ResultView from './ResultView'
@@ -30,13 +30,15 @@ function toSession(r: Record<string, unknown>): MockSession {
 
 // 年度別演習タブ（features/mock-exam）。CBT模試の一覧・受験・結果を束ねる（§7.4）。
 export default function MockExamView({
-  userId, examId, subjectId, papers, passingScore = 60, onBoostReview,
+  userId, examId, subjectId, papers, passingScore = 60, targetScore, onBoostReview,
 }: {
   userId: string
   examId: string
   subjectId: string
   papers: PaperDefinition[]
   passingScore?: number
+  /** 移行判定の目標点（policy.targetScore）。未指定は合格点＋既定マージン。 */
+  targetScore?: number
   onBoostReview?: (sourceQuestionId: string) => void
 }) {
   const [sessions, setSessions] = useState<MockSession[]>([])
@@ -65,7 +67,7 @@ export default function MockExamView({
   const ready = papers.filter(p => !p.draft)
   const drafts = papers.filter(p => p.draft)
   const inProgress = sessions.find(s => s.status === 'in_progress')
-  const judgment = transitionJudgment(sessions, passingScore)
+  const judgment = transitionJudgment(sessions, passingScore, targetScore)
 
   // 各ペーパーの受験回数・ベスト・最終受験日。
   const statOf = (paperId: string) => {
@@ -177,6 +179,7 @@ export default function MockExamView({
         session={active.session}
         sessions={sessions}
         passingScore={passingScore}
+        targetScore={targetScore}
         onClose={() => { setPhase('list'); setActive(null) }}
         onBoostReview={onBoostReview}
       />
@@ -190,11 +193,13 @@ export default function MockExamView({
       <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
         <Trophy size={20} className={judgment.met ? 'text-emerald-500' : 'text-gray-300'} />
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-700">移行判定（{passingScore}点×2回連続）</p>
+          <p className="text-sm font-semibold text-gray-700">移行判定（直近{TRANSITION_WINDOW}回の平均{judgment.targetScore}点以上）</p>
           <p className="text-xs text-gray-500">
             {judgment.met
               ? '達成：機械科目へ移行OK'
-              : `直近の連続合格 ${judgment.streak} 回 ／ あと ${Math.max(0, 2 - judgment.streak)} 回`}
+              : judgment.needMore > 0
+                ? `あと ${judgment.needMore} 回の受験で判定できます${judgment.recentAvg !== null ? `（現在の平均 ${Math.round(judgment.recentAvg)}点）` : ''}`
+                : `直近${TRANSITION_WINDOW}回の平均 ${Math.round(judgment.recentAvg ?? 0)}点 ／ 目標まであと ${Math.ceil(judgment.shortfall)}点`}
           </p>
         </div>
       </div>

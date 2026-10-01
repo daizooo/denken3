@@ -205,6 +205,15 @@ export function planToday(params: {
   candidates: TodayCandidate[]
   policy: Policy
   budgetMinutes: number | null
+  /**
+   * 今日の件数（問）。指定すると**時間ではなく件数で**今日のラインを引く
+   * （review-schedule-realism.md §3-2・2026-10-01）。時間予算・見込み時間は育児の都合で
+   * 読めず使われていないため、合格に必要なペース（`requiredPace`）の件数をそのまま渡す。
+   * 🔴優先（コア）と新規着手枠は件数を超えても切らない（下の①②）。
+   * 並び順（点数影響 ÷ 所要時間）は変えない。時間を「読む」ためではなく、単位時間あたりの
+   * 効きを比べるためにだけ使う。
+   */
+  targetCount?: number | null
   stats: TimeStats
   today: string
   examDate: string | null
@@ -216,6 +225,8 @@ export function planToday(params: {
   newIds: Set<string>
 }): TodayPlan {
   const { candidates, policy, budgetMinutes, stats, today, examDate, newIds } = params
+  const countMode = typeof params.targetCount === 'number'
+  const targetCount = params.targetCount ?? 0
 
   // ---- 1. 密度（点数影響 ÷ 所要時間）の降順に並べる ----
   const ordered = orderByDensity({ candidates, policy, stats, today, examDate, newIds })
@@ -301,12 +312,12 @@ export function planToday(params: {
   //    入らない問題は飛ばして次を見る（後ろの短い問題で隙間を埋める）。
   for (const i of ordered) {
     if (!i.core || selected.has(i.id)) continue
-    if (minutes + i.minutes > targetMinutes) continue
+    if (countMode ? selected.size >= targetCount : minutes + i.minutes > targetMinutes) continue
     take(i)
   }
   for (const i of ordered) {
     if (i.core || selected.has(i.id)) continue
-    if (minutes + i.minutes > targetMinutes) continue
+    if (countMode ? selected.size >= targetCount : minutes + i.minutes > targetMinutes) continue
     take(i)
   }
 
@@ -336,6 +347,7 @@ export function planToday(params: {
     totalMinutes,
     targetMinutes,
     budgetMinutes,
-    overBudget: recommendedMinutes > targetMinutes,
+    // 件数基準のときは時間の超過という概念が無い。
+    overBudget: !countMode && recommendedMinutes > targetMinutes,
   }
 }
