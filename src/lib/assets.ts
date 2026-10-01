@@ -31,6 +31,10 @@ export interface AssetRef {
   // 2問同居画像(region top/bottom)の上下分割位置(%)。既定50=画像のちょうど半分。
   // 2問目の見出しが中央にかからない画像は、この値で境界を実レイアウトに合わせる。
   regionYPct?: number
+  // 解答ページ（右ページ）の上下境界が regionYPct と違う2問同居画像だけに指定する(%)。
+  // 上の問題の解答が長く、下の問題の見出しが左ページより右ページで低い位置に来る見開き用。
+  // 未指定（既定）は regionYPct と同じ。
+  answerRegionYPct?: number
 }
 
 // 取り込み時に DB へ書く answer_x_pct を決める。明示指定を優先し、
@@ -88,6 +92,8 @@ export interface QuestionAsset {
   answer_y_pct: number
   answer_right_y_pct: number
   region_y_pct: number
+  // 解答側だけ上下境界が違うときの値。null＝region_y_pct と同じ。
+  answer_region_y_pct: number | null
   sort: number
   // 年度別ペーパー（1問1枚・縦長）の表示範囲(%)。分野別の見開き画像では使わない。
   // DBが唯一の正で、修正はSQLのUPDATE1行で完結する（docs/data-correction-workflow.md §5-A）。
@@ -110,6 +116,8 @@ export function normalizeAsset(a: QuestionAsset): QuestionAsset {
     answer_y_pct: num(a.answer_y_pct, 100),
     answer_right_y_pct: num(a.answer_right_y_pct, 0),
     region_y_pct: num(a.region_y_pct, 50),
+    // null は「問題側と同じ」の意味なので 0 などに丸めず null のまま通す。
+    answer_region_y_pct: a.answer_region_y_pct == null ? null : num(a.answer_region_y_pct, 50),
     sort: num(a.sort, 0),
     question_start_pct: num(a.question_start_pct, 0),
     explanation_end_pct: num(a.explanation_end_pct, 100),
@@ -120,7 +128,7 @@ export function normalizeAsset(a: QuestionAsset): QuestionAsset {
 export async function fetchAssets(questionId: string): Promise<QuestionAsset[]> {
   const { data, error } = await supabase
     .from('denken_question_assets')
-    .select('storage_path, region, answer_x_pct, answer_y_pct, answer_right_y_pct, region_y_pct, sort, question_start_pct, explanation_end_pct')
+    .select('storage_path, region, answer_x_pct, answer_y_pct, answer_right_y_pct, region_y_pct, answer_region_y_pct, sort, question_start_pct, explanation_end_pct')
     .eq('question_id', questionId)
     .order('sort', { ascending: true })
   if (error) throw error

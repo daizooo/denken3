@@ -139,6 +139,7 @@ export default function ReplacePanel({ userId }: { userId: string }) {
           user_id: userId, question_id: r.questionId, storage_path: path, region: r.region, sort: r.sort,
           answer_x_pct: defaultAnswerXPct(r), answer_y_pct: r.answerYPct ?? 100,
           answer_right_y_pct: r.answerRightYPct ?? 0, region_y_pct: r.regionYPct ?? 50,
+          answer_region_y_pct: r.answerRegionYPct ?? null,
         })),
       }
     }

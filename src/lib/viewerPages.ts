@@ -22,9 +22,13 @@ export const MIN_PAGE_W = 15
 /**
  * 2問同居画像（region top/bottom）の、この問題が使う縦の帯。
  * answer_y_pct / answer_right_y_pct はこの帯に対する%で入っている。
+ *
+ * 上下の境界は左右のページで一致するとは限らない（上の問題の解答が長く、下の問題の見出しが
+ * 左ページより右ページで低い位置に来る見開きがある）。解答ページの境界が違うときだけ
+ * answer_region_y_pct に入れ、`side: 'answer'` で読む。未設定（null）は問題側と同じ region_y_pct。
  */
-export function bandOf(a: QuestionAsset): { start: number; span: number } {
-  const ry = a.region_y_pct ?? 50
+export function bandOf(a: QuestionAsset, side: 'question' | 'answer' = 'question'): { start: number; span: number } {
+  const ry = (side === 'answer' ? a.answer_region_y_pct : null) ?? a.region_y_pct ?? 50
   const region: Region = a.region
   if (region === 'top') return { start: 0, span: ry }
   if (region === 'bottom') return { start: ry, span: 100 - ry }
@@ -59,7 +63,7 @@ export function problemRects(a: QuestionAsset): Rect[] {
  * 続きの「丸ごと解答ページ」が受け持つ。
  */
 export function answerRects(a: QuestionAsset): Rect[] {
-  const b = bandOf(a)
+  const b = bandOf(a, 'answer')
   const end = b.start + b.span
   if (a.answer_x_pct <= 0) return [{ x0: 0, x1: 100, y0: b.start, y1: end }]
   const out: Rect[] = []

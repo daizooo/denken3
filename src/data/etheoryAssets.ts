@@ -6,7 +6,8 @@
 //  - 解答またがり: 長い問題で問題と解答が別画像に分かれるもの。同一 questionId に sort 0(問題)/1(解答続き)。
 //      問13(0550+0551)・問35(0575+0576)・問40(0581+0582)・問46(0588+0589)。
 //  - 捨て問(問5,9,20,45)はマッピングに含めない（MASTER未登録）。いずれも各1画像で除外。
-// short_answer 該当なし（全問 左ページ=問題・右ページ=解答の標準見開き）→ answerYPct は全問 既定(100)。
+// 標準は 左ページ=問題・右ページ=解答（answerYPct 既定100）。変則は各行に明示:
+//   answerXPct:100=右ページも問題（問13,35,40,46）／answerYPct=左ページ下から解答（問36）。
 import type { AssetMap } from '../lib/assets'
 
 export const ETHEORY_ASSETS: AssetMap = {
@@ -23,7 +24,7 @@ export const ETHEORY_ASSETS: AssetMap = {
   'newIMG_0548.png': [{ questionId: 'etheory_11', region: null, sort: 0 }],
   'newIMG_0549.png': [{ questionId: 'etheory_12', region: null, sort: 0 }],
   // 解答またがり: 問13(問題=0550 / 解答=0551)
-  'newIMG_0550.png': [{ questionId: 'etheory_13', region: null, sort: 0 }],
+  'newIMG_0550.png': [{ questionId: 'etheory_13', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0551.png': [{ questionId: 'etheory_13', region: null, sort: 1 }],
   'newIMG_0553.png': [{ questionId: 'etheory_14', region: null, sort: 0 }],
   'newIMG_0554.png': [{ questionId: 'etheory_15', region: null, sort: 0 }],
@@ -47,14 +48,14 @@ export const ETHEORY_ASSETS: AssetMap = {
   'newIMG_0573.png': [{ questionId: 'etheory_33', region: null, sort: 0 }],
   'newIMG_0574.png': [{ questionId: 'etheory_34', region: null, sort: 0 }],
   // 解答またがり: 問35(問題=0575 / 解答=0576)
-  'newIMG_0575.png': [{ questionId: 'etheory_35', region: null, sort: 0 }],
+  'newIMG_0575.png': [{ questionId: 'etheory_35', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0576.png': [{ questionId: 'etheory_35', region: null, sort: 1 }],
-  'newIMG_0577.png': [{ questionId: 'etheory_36', region: null, sort: 0 }],
+  'newIMG_0577.png': [{ questionId: 'etheory_36', region: null, sort: 0, answerYPct: 57 }],
   'newIMG_0578.png': [{ questionId: 'etheory_37', region: null, sort: 0 }],
   'newIMG_0579.png': [{ questionId: 'etheory_38', region: null, sort: 0 }],
   'newIMG_0580.png': [{ questionId: 'etheory_39', region: null, sort: 0 }],
   // 解答またがり: 問40(問題=0581 / 解答=0582)
-  'newIMG_0581.png': [{ questionId: 'etheory_40', region: null, sort: 0 }],
+  'newIMG_0581.png': [{ questionId: 'etheory_40', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0582.png': [{ questionId: 'etheory_40', region: null, sort: 1 }],
   'newIMG_0583.png': [{ questionId: 'etheory_41', region: null, sort: 0 }],
   'newIMG_0584.png': [{ questionId: 'etheory_42', region: null, sort: 0 }],
@@ -62,6 +63,6 @@ export const ETHEORY_ASSETS: AssetMap = {
   'newIMG_0586.png': [{ questionId: 'etheory_44', region: null, sort: 0 }],
   // 0587 = 問45 捨て問（ダイオード H27-A11・1画像）
   // 解答またがり: 問46(問題=0588 / 解答=0589)
-  'newIMG_0588.png': [{ questionId: 'etheory_46', region: null, sort: 0 }],
+  'newIMG_0588.png': [{ questionId: 'etheory_46', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0589.png': [{ questionId: 'etheory_46', region: null, sort: 1 }],
 }

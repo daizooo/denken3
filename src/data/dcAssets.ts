@@ -22,7 +22,7 @@ export const DC_ASSETS: AssetMap = {
   'newIMG_0298.png': [{ questionId: 'dc_16', region: null, sort: 0 }],
   'newIMG_0299.png': [{ questionId: 'dc_17', region: null, sort: 0 }],
   'newIMG_0300.png': [{ questionId: 'dc_18', region: null, sort: 0 }],
-  'newIMG_0301.png': [{ questionId: 'dc_20', region: 'bottom', sort: 0 }, { questionId: 'dc_19', region: 'top', sort: 0 }],
+  'newIMG_0301.png': [{ questionId: 'dc_20', region: 'bottom', sort: 0, answerRegionYPct: 60 }, { questionId: 'dc_19', region: 'top', sort: 0, answerRegionYPct: 60 }],
   'newIMG_0302.png': [{ questionId: 'dc_21', region: null, sort: 0 }],
   'newIMG_0303.png': [{ questionId: 'dc_22', region: null, sort: 0 }],
   'newIMG_0304.png': [{ questionId: 'dc_23', region: null, sort: 0 }],

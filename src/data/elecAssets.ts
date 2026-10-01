@@ -50,7 +50,7 @@ export const ELEC_ASSETS: AssetMap = {
   'newIMG_0167.png': [{ questionId: 'elec_24', region: null, sort: 0 }],
   'newIMG_0168.png': [{ questionId: 'elec_25', region: null, sort: 0 }],
   // 2問同居: 問26(上)＋問27(下)
-  'newIMG_0169.png': [{ questionId: 'elec_26', region: 'top', sort: 0 }, { questionId: 'elec_27', region: 'bottom', sort: 0 }],
+  'newIMG_0169.png': [{ questionId: 'elec_26', region: 'top', sort: 0, regionYPct: 48 }, { questionId: 'elec_27', region: 'bottom', sort: 0, regionYPct: 48 }],
   'newIMG_0170.png': [{ questionId: 'elec_28', region: null, sort: 0 }],
   'newIMG_0171.png': [{ questionId: 'elec_29', region: null, sort: 0 }],
   'newIMG_0172.png': [{ questionId: 'elec_30', region: null, sort: 0 }],

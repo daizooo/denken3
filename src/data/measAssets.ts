@@ -43,14 +43,14 @@ export const MEAS_ASSETS: AssetMap = {
   'newIMG_0506.png': [{ questionId: 'meas_27', region: null, sort: 0 }],
   // 解答またがり: 問28(a=0507 / b=0508)
   'newIMG_0507.png': [{ questionId: 'meas_28', region: null, sort: 0 }],
-  'newIMG_0508.png': [{ questionId: 'meas_28', region: null, sort: 1 }],
+  'newIMG_0508.png': [{ questionId: 'meas_28', region: null, sort: 1, answerXPct: 50 }],
   // 0509 = 問29 捨て問（指示電気計器/電圧計/電流計 R7-B16・1画像）
   'newIMG_0510.png': [{ questionId: 'meas_30', region: null, sort: 0 }],
   // 2問同居: 問31(上)＋問32(下)
-  'newIMG_0511.png': [{ questionId: 'meas_31', region: 'top', sort: 0 }, { questionId: 'meas_32', region: 'bottom', sort: 0 }],
+  'newIMG_0511.png': [{ questionId: 'meas_31', region: 'top', sort: 0, regionYPct: 43 }, { questionId: 'meas_32', region: 'bottom', sort: 0, regionYPct: 43 }],
   'newIMG_0512.png': [{ questionId: 'meas_33', region: null, sort: 0 }],
   // 解答またがり: 問34(問題=0513 / 解答=0514)
-  'newIMG_0513.png': [{ questionId: 'meas_34', region: null, sort: 0 }],
+  'newIMG_0513.png': [{ questionId: 'meas_34', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0514.png': [{ questionId: 'meas_34', region: null, sort: 1 }],
   'newIMG_0515.png': [{ questionId: 'meas_35', region: null, sort: 0 }],
   'newIMG_0516.png': [{ questionId: 'meas_36', region: null, sort: 0 }],
@@ -63,16 +63,16 @@ export const MEAS_ASSETS: AssetMap = {
   'newIMG_0524.png': [{ questionId: 'meas_43', region: null, sort: 0 }],
   // 0525 = 問44 捨て問（指示電気計器/電力計 H18-A14・1画像）
   // 解答またがり: 問45(問題=0526 / 解答=0527)
-  'newIMG_0526.png': [{ questionId: 'meas_45', region: null, sort: 0 }],
+  'newIMG_0526.png': [{ questionId: 'meas_45', region: null, sort: 0, answerXPct: 100 }],
   'newIMG_0527.png': [{ questionId: 'meas_45', region: null, sort: 1 }],
   // 解答またがり: 問46(0528+0529+0530の3画像)
-  'newIMG_0528.png': [{ questionId: 'meas_46', region: null, sort: 0 }],
-  'newIMG_0529.png': [{ questionId: 'meas_46', region: null, sort: 1 }],
+  'newIMG_0528.png': [{ questionId: 'meas_46', region: null, sort: 0, answerXPct: 100 }],
+  'newIMG_0529.png': [{ questionId: 'meas_46', region: null, sort: 1, answerXPct: 50 }],
   'newIMG_0530.png': [{ questionId: 'meas_46', region: null, sort: 2 }],
   'newIMG_0531.png': [{ questionId: 'meas_47', region: null, sort: 0 }],
   // 0532+0533 = 問48 捨て問（電位差計 H16-B17/R4上-B16・見開き2画像）
   'newIMG_0534.png': [{ questionId: 'meas_49', region: null, sort: 0 }],
   'newIMG_0535.png': [{ questionId: 'meas_50', region: null, sort: 0 }],
   'newIMG_0536.png': [{ questionId: 'meas_51', region: null, sort: 0 }],
-  'newIMG_0537.png': [{ questionId: 'meas_51', region: null, sort: 1 }],
+  'newIMG_0537.png': [{ questionId: 'meas_51', region: null, sort: 1, answerXPct: 50 }],
 }

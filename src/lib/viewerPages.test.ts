@@ -11,6 +11,7 @@ function asset(over: Partial<QuestionAsset> = {}): QuestionAsset {
     answer_y_pct: 100,
     answer_right_y_pct: 0,
     region_y_pct: 50,
+    answer_region_y_pct: null,
     sort: 0,
     question_start_pct: 0,
     explanation_end_pct: 100,
@@ -90,5 +91,44 @@ describe('panesOf', () => {
       { x0: 0, x1: 50, y0: 40, y1: 100 },
       { x0: 50, x1: 100, y0: 40, y1: 100 },
     ])
+  })
+})
+
+describe('panesOf: 全面問題・解答の続きに問題が残る見開き', () => {
+  // 単相交流29（0382+0383）。右ページにも図2・図3と選択肢があり、解答は次の見開きから。
+  it('全面問題＋解答の続き画像: 問題は左右2ページ、解答は続き画像の左右2ページ', () => {
+    const assets = [
+      asset({ storage_path: 'q.png', sort: 0, answer_x_pct: 100 }),
+      asset({ storage_path: 'a.png', sort: 1, answer_x_pct: 0 }),
+    ]
+    expect(panesOf(assets, false).map(p => [p.path, p.rect.x0, p.rect.x1])).toEqual([['q.png', 0, 50], ['q.png', 50, 100]])
+    expect(panesOf(assets, true).map(p => [p.path, p.rect.x0, p.rect.x1])).toEqual([['a.png', 0, 50], ['a.png', 50, 100]])
+  })
+
+  // 電子回路26（0626+0627）。続き画像の左ページが問題(b)、右ページが解答の始まり。
+  it('続き画像の左ページが問題(b)なら、問題側の最後のページになる', () => {
+    const assets = [
+      asset({ storage_path: 'p0.png', sort: 0, answer_x_pct: 100 }),
+      asset({ storage_path: 'p1.png', sort: 1, answer_x_pct: 50 }),
+    ]
+    expect(panesOf(assets, false).map(p => [p.path, p.rect.x0, p.rect.x1])).toEqual([['p0.png', 0, 50], ['p0.png', 50, 100], ['p1.png', 0, 50]])
+    expect(panesOf(assets, true).map(p => [p.path, p.rect.x0, p.rect.x1])).toEqual([['p1.png', 50, 100]])
+  })
+})
+
+describe('2問同居の解答側だけ違う境界（answer_region_y_pct）', () => {
+  const top = asset({ region: 'top', region_y_pct: 50, answer_region_y_pct: 60 })
+  const bottom = asset({ region: 'bottom', region_y_pct: 50, answer_region_y_pct: 60 })
+
+  it('問題側は region_y_pct、解答側は answer_region_y_pct で帯を切る', () => {
+    expect(panesOf([top], false).map(p => p.rect)).toEqual([{ x0: 0, x1: 50, y0: 0, y1: 50 }])
+    expect(panesOf([top], true).map(p => p.rect)).toEqual([{ x0: 50, x1: 100, y0: 0, y1: 60 }])
+    expect(panesOf([bottom], false).map(p => p.rect)).toEqual([{ x0: 0, x1: 50, y0: 50, y1: 100 }])
+    expect(panesOf([bottom], true).map(p => p.rect)).toEqual([{ x0: 50, x1: 100, y0: 60, y1: 100 }])
+  })
+
+  it('未設定（null）なら従来どおり問題側と同じ境界', () => {
+    const plain = asset({ region: 'top', region_y_pct: 45 })
+    expect(panesOf([plain], true).map(p => p.rect)).toEqual([{ x0: 50, x1: 100, y0: 0, y1: 45 }])
   })
 })

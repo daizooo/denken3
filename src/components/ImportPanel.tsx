@@ -248,6 +248,7 @@ export default function ImportPanel({ userId, onClose }: { userId: string; onClo
           // 右ページ上部が問題の続きの見開き（解答は途中から）／2問同居の上下境界。
           answer_right_y_pct: r.answerRightYPct ?? 0,
           region_y_pct: r.regionYPct ?? 50,
+          answer_region_y_pct: r.answerRegionYPct ?? null,
         }))
         const ins = await supabase
           .from('denken_question_assets')
