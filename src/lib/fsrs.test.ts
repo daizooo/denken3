@@ -12,6 +12,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  CREDIBLE_STABILITY_DAYS,
   RETENTION_DEFAULT,
   RETENTION_ENDGAME,
   calcFSRS,
@@ -169,6 +170,45 @@ describe('S（復習不要）の廃止', () => {
     const r = calcFSRS(null, 'S', '2026-07-26', EXAM)
     expect(r.due_date).toBeTruthy()
     expect(r.repetitions).toBe(1)
+  })
+})
+
+describe('安定度の信頼上限（review-schedule-realism.md §3-1）', () => {
+  // 実データの形: 8/13 に A、46日後の 9/28 にもう一度 A。上限が無いと安定度が過大になり、
+  // 次回が数百日後（試験の1年以上あと）に飛んでいた。
+  const long = [h('2026-08-13', 'A'), h('2026-09-28', 'A')]
+
+  it('A→A（46日後）でも安定度が上限を超えない', () => {
+    const d = deriveFromHistory(long, EXAM)
+    expect(d.stability).toBeLessThanOrEqual(CREDIBLE_STABILITY_DAYS)
+    expect(d.stability).toBe(CREDIBLE_STABILITY_DAYS)
+  })
+
+  it('次回予定は頭打ち後の安定度から出る（試験の翌年へ飛ばない）', () => {
+    const d = deriveFromHistory(long, EXAM)
+    expect(d.due_date).not.toBeNull()
+    const days = (new Date(d.due_date as string).getTime() - new Date('2026-09-28').getTime()) / 86400000
+    expect(days).toBeGreaterThan(0)
+    expect(days).toBeLessThanOrEqual(CREDIBLE_STABILITY_DAYS * 3)
+  })
+
+  it('復習を重ねても上限に張り付いたまま（積み上がらない）', () => {
+    const d = deriveFromHistory([...long, h('2026-11-10', 'A'), h('2026-12-20', 'A')], EXAM)
+    expect(d.stability).toBeLessThanOrEqual(CREDIBLE_STABILITY_DAYS)
+  })
+
+  it('上限に届かない安定度は変えない（初回のAは従来どおり）', () => {
+    const d = deriveFromHistory([h('2026-08-13', 'A')], EXAM)
+    expect(d.stability).toBeLessThan(CREDIBLE_STABILITY_DAYS)
+  })
+
+  it('決定的再生を壊さない（同じ履歴は何度でも同じ結果）', () => {
+    expect(deriveFromHistory(long, EXAM)).toEqual(deriveFromHistory(long, EXAM))
+  })
+
+  it('試験日を越える予定日は、頭打ち後の安定度で試験前へ引き直される', () => {
+    const d = deriveFromHistory(long, EXAM)
+    expect((d.due_date as string) < EXAM).toBe(true)
   })
 })
 

@@ -85,6 +85,26 @@ function schedulerFor(retention: number, version?: number): FSRS {
   return s
 }
 
+// 安定度の信頼上限（review-schedule-realism.md §3-1）。
+// 安定度 S は「想起確率が 0.90 まで下がるのにかかる日数」なので、S を主張できるのは、
+// 実際に成功が確認できた最長のギャップまで。この学習者の実測では最長51日で、それを超える
+// 範囲（たとえば A→A で S=236日・次回515日後）は外挿でしかなく、31日超の演習の約3割は
+// 忘れていた。上限は定数にして、実施日・試験日以外のデータに依存させない（決定的再生）。
+// 実測が貯まって、より長い間隔で成功が確認できたら引き上げる（下げる側の判断は要らない）。
+export const CREDIBLE_STABILITY_DAYS = 50
+
+// カードの安定度を上限で頭打ちにし、次回までの間隔も頭打ち後の S から引き直す。
+function capCard(card: Card, scheduler: FSRS, now: Date): Card {
+  if (card.stability <= CREDIBLE_STABILITY_DAYS) return card
+  const days = scheduler.next_interval(CREDIBLE_STABILITY_DAYS, 0)
+  return {
+    ...card,
+    stability: CREDIBLE_STABILITY_DAYS,
+    scheduled_days: days,
+    due: new Date(now.getTime() + days * 86400000),
+  }
+}
+
 const RATING_MAP: Record<Status, Grade> = {
   A: Rating.Easy,
   B: Rating.Good,
@@ -198,7 +218,8 @@ function applyExamHorizon(params: {
   if (rawDue < examDate) return { due: clipDueToExam(rawDue, eventDate, examDate), card: null }
 
   // 試験日を越えた → 直前期の基準（0.90）で引き直す。
-  const endgame = schedulerFor(RETENTION_ENDGAME, wVersion).repeat(card, now)[rating].card
+  const endgameScheduler = schedulerFor(RETENTION_ENDGAME, wVersion)
+  const endgame = capCard(endgameScheduler.repeat(card, now)[rating].card, endgameScheduler, now)
   const endgameDue = endgame.due.toISOString().split('T')[0]
   // 直前期テーパーの範囲内では、モデルが安全と言っても必ず1回は入れる。
   // ここを「触れない」にすると、テーパーが防ごうとした
@@ -235,8 +256,8 @@ export function calcFSRS(
   const card = current && (current.repetitions ?? 0) > 0
     ? toFSRSCard(current, now)
     : createEmptyCard(now)
-  const newCard = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
-    .repeat(card, now)[rating].card
+  const scheduler = schedulerFor(retention ?? retentionFor(eDate, examDate), wVersion)
+  const newCard = capCard(scheduler.repeat(card, now)[rating].card, scheduler, now)
   const rawDue = newCard.due.toISOString().split('T')[0]
   const horizon = applyExamHorizon({
     card, rating, now, eventDate: eDate, examDate, wVersion, rawDue,
