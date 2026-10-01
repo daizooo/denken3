@@ -90,11 +90,27 @@ export function scorePaper(
   return { total, maxTotal, sectionScores, perQuestion }
 }
 
-// ---- 移行判定（§7.4(3)「60点×2回連続」）----
+// ---- 移行判定（review-schedule-realism.md §3-6）----
+//
+// 旧: 「合格点（60点）を2回連続」。合格点ちょうどは基準にならない ―― 真の実力が合格点ちょうどでも
+// 2回連続を満たす確率は約36%（運で通る）。最優先の基本方針は「合格まで導く」なので、
+// 次の基準に置き換えた:
+//
+//   直近 TRANSITION_WINDOW 回（CBT・確定済み）の平均 ≥ 目標点
+//
+// 目標点は合格点＋マージン（`policy.targetScore`。実測で較正できるまで 15点＝75点）。
+// 回数は固定しない。基準を満たすまで年度別を続ける（収録が尽きたら範囲を広げる）。
+export const TRANSITION_WINDOW = 3
+export const DEFAULT_TARGET_MARGIN = 15
+
 export interface TransitionJudgment {
-  met: boolean            // 直近2回のCBTがともに合格点以上
+  met: boolean            // 直近 TRANSITION_WINDOW 回の平均が目標点以上
   recentScores: number[]  // 直近から並べた確定スコア（最大5件）
-  streak: number          // 直近から連続で合格点以上の回数
+  windowN: number         // 平均に使った回数（TRANSITION_WINDOW まで）
+  recentAvg: number | null // 直近 windowN 回の平均（受験なしは null）
+  shortfall: number       // 目標点までの不足（点・0以上。回数が足りないときも現在の平均で出す）
+  needMore: number        // 判定に必要な残りの受験回数（0なら判定可能）
+  targetScore: number
   passingScore: number
 }
 
@@ -102,20 +118,23 @@ export interface TransitionJudgment {
 export function transitionJudgment(
   sessions: MockSession[],
   passingScore = 60,
+  targetScore = passingScore + DEFAULT_TARGET_MARGIN,
 ): TransitionJudgment {
   const finished = sessions
     .filter(s => s.status === 'finished' && s.mode === 'cbt' && s.score != null && s.finished_at)
     .sort((a, b) => (b.finished_at! < a.finished_at! ? -1 : 1))
   const recentScores = finished.map(s => s.score as number)
-  let streak = 0
-  for (const sc of recentScores) {
-    if (sc >= passingScore) streak++
-    else break
-  }
+  const window = recentScores.slice(0, TRANSITION_WINDOW)
+  const recentAvg = window.length ? window.reduce((a, b) => a + b, 0) / window.length : null
+  const needMore = Math.max(0, TRANSITION_WINDOW - window.length)
   return {
-    met: recentScores.length >= 2 && recentScores[0] >= passingScore && recentScores[1] >= passingScore,
+    met: needMore === 0 && recentAvg !== null && recentAvg >= targetScore,
     recentScores: recentScores.slice(0, 5),
-    streak,
+    windowN: window.length,
+    recentAvg,
+    shortfall: recentAvg === null ? targetScore : Math.max(0, targetScore - recentAvg),
+    needMore,
+    targetScore,
     passingScore,
   }
 }

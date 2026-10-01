@@ -2,21 +2,22 @@ import { useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Award, RotateCcw } from 'lucide-react'
 import type { MockSession, PaperDefinition } from '../../domain/types'
-import { scorePaper, transitionJudgment, type ScoreResult } from '../../lib/mock'
+import { TRANSITION_WINDOW, scorePaper, transitionJudgment, type ScoreResult } from '../../lib/mock'
 import { sourceQuestionIdOf } from '../../data/registry'
 import PaperImage from './PaperImage'
 
 // 採点・結果画面（§7.4(3)）。
 // 総得点・A/B別・60点ラインとの差・所要時間、問題別○×、解説（採点後のみ）、
-// 分野別集計、移行判定（60点×2回連続）、誤答→分野別復習前倒しを提供する。
+// 分野別集計、移行判定（直近3回の平均が目標点以上）、誤答→分野別復習前倒しを提供する。
 export default function ResultView({
-  userId, paper, session, sessions, passingScore = 60, onClose, onBoostReview,
+  userId, paper, session, sessions, passingScore = 60, targetScore, onClose, onBoostReview,
 }: {
   userId: string
   paper: PaperDefinition
   session: MockSession        // finished 済みセッション（score 確定）
   sessions: MockSession[]     // 同一ペーパーの履歴（移行判定・推移用）
   passingScore?: number
+  targetScore?: number
   onClose: () => void
   onBoostReview?: (sourceQuestionId: string) => void
 }) {
@@ -48,7 +49,7 @@ export default function ResultView({
   }, [result])
 
   // 移行判定＋スコア推移（cbt・finished を古い順に）。
-  const judgment = useMemo(() => transitionJudgment(sessions, passingScore), [sessions, passingScore])
+  const judgment = useMemo(() => transitionJudgment(sessions, passingScore, targetScore), [sessions, passingScore, targetScore])
   const trend = useMemo(() => {
     return sessions
       .filter(s => s.status === 'finished' && s.mode === 'cbt' && s.score != null && s.finished_at)
@@ -86,13 +87,15 @@ export default function ResultView({
         {/* 移行判定カード */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-2">
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-            <Award size={14} className="text-blue-500" />移行判定（{passingScore}点×2回連続）
+            <Award size={14} className="text-blue-500" />移行判定（直近{TRANSITION_WINDOW}回の平均{judgment.targetScore}点以上）
           </h3>
           {judgment.met ? (
             <p className="text-sm font-bold text-emerald-600">達成：機械科目へ移行OK 🎉</p>
           ) : (
             <p className="text-xs text-gray-500">
-              直近の連続合格 {judgment.streak} 回。あと {Math.max(0, 2 - judgment.streak)} 回の{passingScore}点以上で達成。
+              {judgment.needMore > 0
+                ? `あと ${judgment.needMore} 回の受験で判定できます${judgment.recentAvg !== null ? `（現在の平均 ${Math.round(judgment.recentAvg)}点）` : ''}`
+                : `直近${TRANSITION_WINDOW}回の平均 ${Math.round(judgment.recentAvg ?? 0)}点。目標まであと ${Math.ceil(judgment.shortfall)}点。`}
             </p>
           )}
           {trend.length >= 1 && (

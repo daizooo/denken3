@@ -1129,6 +1129,7 @@ export default function App() {
             subjectId={subjectIdOf(examId, subject)}
             papers={currentPapers}
             passingScore={passingScore}
+            targetScore={policy.targetScore}
             onBoostReview={boostReview}
           />
         ) : (
