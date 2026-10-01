@@ -49,7 +49,7 @@ export const MAG_ASSETS: AssetMap = {
   'newIMG_0262.png': [{ questionId: 'mag_36', region: null, sort: 0 }],
   'newIMG_0263.png': [{ questionId: 'mag_37', region: null, sort: 0 }],
   // 2問同居: 問38(上)＋問39(下)
-  'newIMG_0264.png': [{ questionId: 'mag_38', region: 'top', sort: 0 }, { questionId: 'mag_39', region: 'bottom', sort: 0 }],
+  'newIMG_0264.png': [{ questionId: 'mag_38', region: 'top', sort: 0, regionYPct: 42.5, answerRegionYPct: 52 }, { questionId: 'mag_39', region: 'bottom', sort: 0, regionYPct: 42.5, answerRegionYPct: 52 }],
   'newIMG_0265.png': [{ questionId: 'mag_40', region: null, sort: 0 }],
   'newIMG_0266.png': [{ questionId: 'mag_41', region: null, sort: 0 }],
   'newIMG_0267.png': [{ questionId: 'mag_42', region: null, sort: 0 }],
@@ -62,7 +62,7 @@ export const MAG_ASSETS: AssetMap = {
   'newIMG_0274.png': [{ questionId: 'mag_49', region: null, sort: 0 }],
   'newIMG_0275.png': [{ questionId: 'mag_50', region: null, sort: 0 }],
   // 解答またがり: 問51の問題文
-  'newIMG_0276.png': [{ questionId: 'mag_51', region: null, sort: 0 }],
+  'newIMG_0276.png': [{ questionId: 'mag_51', region: null, sort: 0, answerXPct: 100 }],
   // 解答またがり: 問51の解答の続き
   'newIMG_0277.png': [{ questionId: 'mag_51', region: null, sort: 1 }],
   'newIMG_0278.png': [{ questionId: 'mag_52', region: null, sort: 0 }],

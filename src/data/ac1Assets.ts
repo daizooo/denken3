@@ -37,7 +37,7 @@ export const AC1_ASSETS: AssetMap = {
   'newIMG_0380.png': [{ questionId: 'ac1_27', region: null, sort: 0 }],
   'newIMG_0381.png': [{ questionId: 'ac1_28', region: null, sort: 0 }],
   // 解答またがり: 問29の問題文
-  'newIMG_0382.png': [{ questionId: 'ac1_29', region: null, sort: 0 }],
+  'newIMG_0382.png': [{ questionId: 'ac1_29', region: null, sort: 0, answerXPct: 100 }],
   // 解答またがり: 問29の解答の続き
   'newIMG_0383.png': [{ questionId: 'ac1_29', region: null, sort: 1 }],
   'newIMG_0384.png': [{ questionId: 'ac1_30', region: null, sort: 0 }],
@@ -56,7 +56,7 @@ export const AC1_ASSETS: AssetMap = {
   'newIMG_0397.png': [{ questionId: 'ac1_43', region: null, sort: 0 }],
   'newIMG_0398.png': [{ questionId: 'ac1_44', region: null, sort: 0 }],
   'newIMG_0399.png': [{ questionId: 'ac1_45', region: null, sort: 0 }],
-  'newIMG_0400.png': [{ questionId: 'ac1_46', region: null, sort: 0 }],
+  'newIMG_0400.png': [{ questionId: 'ac1_46', region: null, sort: 0, answerRightYPct: 32 }],
   'newIMG_0401.png': [{ questionId: 'ac1_47', region: null, sort: 0 }],
   'newIMG_0402.png': [{ questionId: 'ac1_48', region: null, sort: 0 }],
   // 0403.png = 問49 捨て問（対象外）

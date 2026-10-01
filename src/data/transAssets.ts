@@ -13,17 +13,17 @@ export const TRANS_ASSETS: AssetMap = {
   'newIMG_0459.png': [{ questionId: 'trans_2', region: null, sort: 0 }],
   'newIMG_0460.png': [{ questionId: 'trans_3', region: null, sort: 0 }],
   // 2問同居: 問4(上)＋問5(下)
-  'newIMG_0461.png': [{ questionId: 'trans_4', region: 'top', sort: 0 }, { questionId: 'trans_5', region: 'bottom', sort: 0 }],
+  'newIMG_0461.png': [{ questionId: 'trans_4', region: 'top', sort: 0, regionYPct: 62 }, { questionId: 'trans_5', region: 'bottom', sort: 0, regionYPct: 62 }],
   'newIMG_0462.png': [{ questionId: 'trans_6', region: null, sort: 0 }],
   'newIMG_0463.png': [{ questionId: 'trans_7', region: null, sort: 0 }],
   'newIMG_0464.png': [{ questionId: 'trans_8', region: null, sort: 0 }],
   'newIMG_0465.png': [{ questionId: 'trans_9', region: null, sort: 0 }],
   // 解答またがり: 問10の問題文
-  'newIMG_0466.png': [{ questionId: 'trans_10', region: null, sort: 0 }],
+  'newIMG_0466.png': [{ questionId: 'trans_10', region: null, sort: 0, answerXPct: 100 }],
   // 解答またがり: 問10の解答の続き
   'newIMG_0467.png': [{ questionId: 'trans_10', region: null, sort: 1 }],
   // 解答またがり: 問11の問題文
-  'newIMG_0468.png': [{ questionId: 'trans_11', region: null, sort: 0 }],
+  'newIMG_0468.png': [{ questionId: 'trans_11', region: null, sort: 0, answerXPct: 100 }],
   // 解答またがり: 問11の解答の続き
   'newIMG_0469.png': [{ questionId: 'trans_11', region: null, sort: 1 }],
   // 0470.png = 問12 捨て問（H25-A12・対象外）
