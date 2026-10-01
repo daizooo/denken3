@@ -14,7 +14,7 @@ import { buildPlanAlert } from './lib/planAlert'
 import { optimizePolicy, passMarginFor } from './lib/policy'
 import { chapterWeaknessRanking, weeklyLearningCurve, quadrantMatrix, estimateScore } from './lib/analytics'
 import { planToday, orderByDensity } from './lib/planToday'
-import { forecastLoad, requiredPace } from './lib/reviewForecast'
+import { forecastLoad, requiredPace, weeklyForecast } from './lib/reviewForecast'
 import { buildTodaySummary } from './lib/todaySummary'
 import { loadAdoptedParams, type FsrsParamsRow } from './lib/fsrsParams'
 import {
@@ -780,18 +780,22 @@ export default function App() {
       else if (!r || r.status === '未着手') unstarted++
     }
     const newPerDay = Math.max(0, Math.ceil(policy.requiredPaceQ))
+    // 分野別の目標日以降は未着手を増やさない（policy.requiredPaceQ の日数と同じ地平）。
+    const forecastInput = {
+      cards: started, unstarted, newPerDay, attemptsPerMastery: policy.attemptsPerMastery,
+      today: todayStr, examDate: examDateStr, newUntil: paceResult.bunyaTargetDate,
+    }
     return {
       pace: requiredPace({
         cards: started, unstarted, attemptsPerMastery: policy.attemptsPerMastery,
         today: todayStr, examDate: examDateStr,
       }),
-      forecast: forecastLoad({
-        cards: started, unstarted, newPerDay, attemptsPerMastery: policy.attemptsPerMastery,
-        today: todayStr, examDate: examDateStr,
-      }),
+      forecast: forecastLoad(forecastInput),
+      // 分析タブの週次負荷。復習タブの先の予定と同じ入力から作るので数字が食い違わない。
+      weekly: weeklyForecast(forecastInput),
       newPerDay,
     }
-  }, [currentChapters, reviews, policy, todayStr, examDateStr])
+  }, [currentChapters, reviews, policy, todayStr, examDateStr, paceResult])
 
   const todayPlan = useMemo(() => {
     const candidates = allQuestions
@@ -889,7 +893,11 @@ export default function App() {
   // 畳み、後者は復習タブの「先の予定」とペース分析の週次負荷予測が担う。
   const dashData = useMemo(() => {
     const counts: Record<Status, number> = { S: 0, A: 0, B: 0, C: 0, '未着手': 0 }
-    allQuestions.forEach(q => { counts[reviews[q.id]?.status ?? '未着手']++ })
+    allQuestions.forEach(q => {
+      // 廃止した S は A として数える（deriveFromHistory と同じ扱い）。
+      const st = reviews[q.id]?.status ?? '未着手'
+      counts[st === 'S' ? 'A' : st]++
+    })
     return { counts }
   }, [allQuestions, reviews])
 
@@ -1108,6 +1116,8 @@ export default function App() {
             scoreEstimate={scoreEstimate}
             passTarget={passTarget}
             planAlert={planAlert}
+            requiredPace={requiredLine.pace}
+            weeklyLoad={requiredLine.weekly}
           />
         ) : activeTab === 'mock' ? (
           <MockExamView

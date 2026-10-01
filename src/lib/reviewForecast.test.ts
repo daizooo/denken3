@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { deriveFromHistory } from './fsrs'
-import { FOLLOW_UP_OFFSETS, forecastLoad, requiredPace } from './reviewForecast'
+import { FOLLOW_UP_OFFSETS, forecastLoad, requiredPace, weeklyForecast } from './reviewForecast'
 import type { Review, ReviewHistoryEntry } from '../domain/types'
 import { addDaysStr } from './date'
 
@@ -89,5 +89,41 @@ describe('requiredPace', () => {
     const early = requiredPace({ ...args, today: '2026-10-01' })
     const late = requiredPace({ ...args, today: '2027-01-01' })
     expect(late.perDay).toBeGreaterThan(early.perDay)
+  })
+})
+
+describe('forecastLoad の newUntil（分野別の目標日）', () => {
+  it('目標日以降は未着手を着手しない（維持の復習だけになる）', () => {
+    const until = addDaysStr(TODAY, 3)
+    const f = forecastLoad({ cards: [], unstarted: 10, newPerDay: 2, attemptsPerMastery: 2, today: TODAY, examDate: EXAM, newUntil: until })
+    expect(f.map(d => d.newStarts).slice(0, 5)).toEqual([2, 2, 2, 0, 0])
+  })
+})
+
+describe('weeklyForecast', () => {
+  const input = { cards: [...overdue, far], unstarted: 20, newPerDay: 2, attemptsPerMastery: 2, today: TODAY, examDate: EXAM }
+
+  it('復習タブの forecastLoad と同じ値を週ごとに束ねる（二重実装にしない）', () => {
+    const weeks = weeklyForecast(input)
+    const daily = forecastLoad({ ...input, days: weeks.length * 7 })
+    expect(weeks[0].weekStart).toBe(TODAY)
+    expect(weeks[0].reviews).toBe(daily.slice(0, 7).reduce((s, d) => s + d.reviews, 0))
+    expect(weeks[0].newWork).toBe(daily.slice(0, 7).reduce((s, d) => s + d.newStarts + d.followUps, 0))
+    expect(weeks[0].total).toBe(weeks[0].reviews + weeks[0].newWork)
+  })
+
+  it('今週には溜まり（期限超過3枚）がすべて入る', () => {
+    expect(weeklyForecast(input)[0].reviews).toBeGreaterThanOrEqual(3)
+  })
+
+  it('試験前日までで打ち切る（最大16週）', () => {
+    const near = weeklyForecast({ ...input, examDate: addDaysStr(TODAY, 10) })
+    // 今日〜試験前日 = 10日 → 2週（7日＋3日）。
+    expect(near).toHaveLength(2)
+    expect(weeklyForecast(input).length).toBeLessThanOrEqual(16)
+  })
+
+  it('試験日を過ぎている・当日なら空', () => {
+    expect(weeklyForecast({ ...input, examDate: TODAY })).toEqual([])
   })
 })
