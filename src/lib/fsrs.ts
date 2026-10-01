@@ -135,15 +135,14 @@ function toFSRSCard(review: Partial<Review>, now: Date): Card {
 // 復習できる最後の日は試験前日。試験当日は受験するので復習日にならない。
 export const LAST_REVIEW_LEAD_DAYS = 1
 
-// 直前期テーパーが効き始める残日数（§7.3）。ここから内側は「間隔が開きすぎて忘れる」を
-// 防ぐために間隔へ上限をかける。この範囲では、モデルが安全と言っても必ず1回は入れる。
-export const TAPER_FROM_DAYS = 28
-
 // 試験日クリップ（§7.3）。
 // FSRS が出した次回復習日(due)を、試験前日を越えない範囲に丸める。
 // - interval = min(interval, 試験前日までの残日数)
-// - 直前期テーパー：残28日以内→間隔上限14日 / 残14日以内→間隔上限7日
-//   （直前に間隔が開きすぎて忘れるのを防ぐ）
+//
+// 【2026-10-01 撤廃】直前期テーパー（残28日以内→間隔上限14日 / 残14日以内→間隔上限7日）。
+// 目標は「試験当日の想起確率 R ≥ 0.90」で、テーパーはそれを超えて全カードを毎週復習させ、
+// 試験直前の5日に約52問/日を積んでいた（実データ試算）。分野別が主軸でない時期に分野別の山を
+// 作る設計と矛盾する。R が目標を割るカードにだけ復習を入れる規則は applyExamHorizon が持つ。
 // examDate 未指定・試験日を過ぎている場合は素通し（現行挙動を維持）。
 //
 // 【2026-09-04 修正】上限を「残日数」から「残日数 − 1」へ変えた。
@@ -156,9 +155,7 @@ function clipDueToExam(due: string, eventDate: string, examDate?: string | null)
   if (daysToExam <= 0) return due // 試験日当日/経過後はクリップしない
   const interval = diffDays(eventDate, due)
   if (interval <= 0) return due
-  let maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
-  if (daysToExam <= 14) maxInterval = Math.min(maxInterval, 7)
-  else if (daysToExam <= TAPER_FROM_DAYS) maxInterval = Math.min(maxInterval, 14)
+  const maxInterval = daysToExam - LAST_REVIEW_LEAD_DAYS
   if (maxInterval <= 0) return due // 試験前日以降は丸めない（次の復習は無い）
   const clipped = Math.min(interval, maxInterval)
   return clipped >= interval ? due : addDaysStr(eventDate, clipped)
@@ -221,14 +218,14 @@ function applyExamHorizon(params: {
   const endgameScheduler = schedulerFor(RETENTION_ENDGAME, wVersion)
   const endgame = capCard(endgameScheduler.repeat(card, now)[rating].card, endgameScheduler, now)
   const endgameDue = endgame.due.toISOString().split('T')[0]
-  // 直前期テーパーの範囲内では、モデルが安全と言っても必ず1回は入れる。
-  // ここを「触れない」にすると、テーパーが防ごうとした
-  // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
-  if (endgameDue < examDate || daysToExam <= TAPER_FROM_DAYS) {
+  // 0.90 を割る日が試験前に来る ＝ 試験当日に基準を割る。割る前に1回入れる。
+  if (endgameDue < examDate) {
     return { due: clipDueToExam(endgameDue, eventDate, examDate), card: endgame }
   }
-  // 0.90 でも越える ＝ 試験日時点で基準を満たす。触れない。
-  return { due: rawDue, card: null }
+  // 0.90 でも越える ＝ 試験日時点で R ≥ 0.90 を満たす。復習は要らないので触れない
+  // （直前期でも一律には入れない。試験当日の想起確率を守ることだけが目的）。
+  // ただし試験当日そのものには置かない（当日は受験するので予定として成立しない）。
+  return { due: rawDue === examDate ? addDaysStr(examDate, 1) : rawDue, card: null }
 }
 
 // eventDate = 実施日（過去日でもよい）。未指定なら今日。

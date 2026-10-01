@@ -264,16 +264,21 @@ describe('試験日クリップ（§7.3）', () => {
     resetParams()
   })
 
-  it('直前期テーパーの範囲内では、モデルが安全と言っても必ず1回入れる', () => {
-    // ここを「触れない」にすると、テーパーが防ごうとした
-    // 「直前に間隔が開きすぎて忘れる」をそのまま招く（§7.3）。
+  it('直前期でも、試験当日の想起確率が0.90を割るカードにだけ復習を入れる（一律には入れない）', () => {
     resetParams()
     registerParams({ version: 4, w: PROD_W })
-    for (const days of [28, 20, 14, 7, 3, 2]) {
+    for (const days of [60, 45, 28, 20, 14, 7, 3, 2]) {
       const eventDate = addDaysStr(EXAM, -days)
       const d = calcFSRS(null, 'A', eventDate, EXAM, undefined, 4)
       expect(d.due_date, `残${days}日`).not.toBeNull()
-      expect(d.due_date! < EXAM, `残${days}日`).toBe(true)
+      // 復習が入る（試験前）か、入らなくても試験当日の R が 0.90 以上。
+      const rAtExam = retrievability(
+        { stability: d.stability, difficulty_fsrs: d.difficulty_fsrs, repetitions: d.repetitions,
+          due_date: d.due_date, last_reviewed: eventDate, fsrs_state: d.fsrs_state,
+          review_history: [{ date: eventDate, status: 'A', policy: { retention: 0.9, w_version: 4 } }] },
+        EXAM,
+      )
+      expect(d.due_date! < EXAM || (rAtExam ?? 0) >= 0.9, `残${days}日`).toBe(true)
     }
     resetParams()
   })
@@ -302,24 +307,24 @@ describe('試験日クリップ（§7.3）', () => {
     }
   })
 
-  it('直前期に間隔が飽和したら、外さずに試験前日までへ入れる', () => {
-    // 最終確認日（試験21日前）を過ぎてから飽和した場合。ここで due を消すと
-    // 「間隔が開いたから直前期に復習しない」が起きる ―― テーパーが防ぐはずのもの。
+  it('直前期に安定度が飽和しても、試験当日の想起確率は0.90以上で、予定は試験当日に置かない', () => {
     const eventDate = addDaysStr(EXAM, -5) // 残5日
     const d = calcFSRS(
       { stability: 200, difficulty_fsrs: 2, repetitions: 5, lapses: 0,
         due_date: eventDate, last_reviewed: eventDate, fsrs_state: 2 },
       'A', eventDate, EXAM,
     )
-    expect(d.due_date).not.toBeNull()
-    expect(d.due_date!).toBe(addDaysStr(EXAM, -1)) // 試験前日
+    expect(d.stability).toBeLessThanOrEqual(CREDIBLE_STABILITY_DAYS)
+    expect(d.due_date).not.toBe(EXAM)
+    // 5日後に試験。安定度50日なら R は 0.90 を十分に上回る＝試験前に復習を足さない。
+    expect(d.due_date! > EXAM).toBe(true)
   })
 
-  it('直前期はテーパーがかかる（残14日以内→間隔上限7日）', () => {
+  it('直前期テーパーは撤廃した（残14日以内でも間隔を7日に抑えない）', () => {
     const near = deriveFromHistory(
       [h('2026-07-18', 'A'), h('2026-08-11', 'A'), h('2027-01-28', 'A')], EXAM,
     )
-    expect(near.due_date! <= '2027-02-04').toBe(true) // 1/28 + 7日
+    expect(near.due_date! > '2027-02-04').toBe(true) // 旧: 1/28 + 7日 = 2/4 以内
   })
 
   it('試験日が未設定ならクリップしない', () => {
