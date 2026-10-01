@@ -254,7 +254,12 @@ function CurrentStandingCard({
           </p>
 
           <p className="text-[11px] text-gray-400">
-            直近理解度からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・残りは当て推量0.2で計算）
+            直近理解度と想起確率からの推定（学習済み {Math.round(est.studiedRatio * 100)}%・未着手は0点で計算）
+            {est.forgettingPenalty > 0 && (
+              <span className="text-gray-500" title="復習が遅れて想起確率が0.90を下回ったカードの分。復習すると戻ります">
+                ／忘却で <b>−{est.forgettingPenalty}点</b>
+              </span>
+            )}
             {est.actual != null && (
               <span className="text-gray-500">
                 ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）

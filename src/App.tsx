@@ -567,8 +567,8 @@ export default function App() {
     [mockSessions, examId, subject]
   )
   const scoreEstimate = useMemo(
-    () => estimateScore(currentChapters, reviews, subjectSessions, passingScore),
-    [currentChapters, reviews, subjectSessions, passingScore]
+    () => estimateScore(currentChapters, reviews, subjectSessions, passingScore, todayStr),
+    [currentChapters, reviews, subjectSessions, passingScore, todayStr]
   )
 
   // 安全マージン（adaptive-fsrs-policy.md §3.3 層1・Phase C-4）。
@@ -589,8 +589,8 @@ export default function App() {
 
   // 合格ライン目標（課題2）。想定得点から「合格に必要な最小の問題集合」を逆算する。
   const passTarget = useMemo(
-    () => planPassTarget(currentChapters, reviews, scoreEstimate, passMargin),
-    [currentChapters, reviews, scoreEstimate, passMargin]
+    () => planPassTarget(currentChapters, reviews, scoreEstimate, passMargin, todayStr),
+    [currentChapters, reviews, scoreEstimate, passMargin, todayStr]
   )
 
   // 適応型ポリシー（adaptive-fsrs-policy.md Phase A）。
