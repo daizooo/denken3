@@ -98,6 +98,8 @@ export default function App() {
   // 分野別の解答時間計測（§7.6）。「問題を解く」で開始、A/B/C で終了。
   // 問題IDごとの計測状態。UIの再描画とは無関係なので ref で保持する。
   const timersRef = useRef<Record<string, TimerState>>({})
+  // ビューアで直前に記録したエントリ（誤タップの修正で取り消す対象）。
+  const lastRecordRef = useRef<{ id: string; date: string; status: Status } | null>(null)
   // 問題IDごとの記録上限秒（課題13）。難易度帯の中央値から算出するが、その中央値は
   // updateStatus より後で組み立てられるため、依存配列ではなく ref 経由で読む。
   const durationCapsRef = useRef<Record<string, number>>({})
@@ -1300,8 +1302,24 @@ export default function App() {
           getElapsedMs={elapsedMsOf}
           onPauseChange={setTimerPaused}
           onClose={() => setViewerQ(null)}
-          // 解いた直後にこの画面から記録して閉じる（課題8）。カードを探し直す視線移動をなくす。
-          onRecord={s => { void updateStatus(viewerQ.id, s); setViewerQ(null) }}
+          // 解いた直後にこの画面から記録する（課題8）。閉じない＝記録後も解説を読み続けられる。
+          onRecord={s => {
+            lastRecordRef.current = { id: viewerQ.id, date: dateFor(viewerQ.id), status: s }
+            void updateStatus(viewerQ.id, s)
+          }}
+          // 誤タップの修正: 直前にこの画面で記録したエントリだけを取り消す。
+          onUndoRecord={() => {
+            const last = lastRecordRef.current
+            const hist = reviews[viewerQ.id]?.review_history ?? []
+            if (!last || last.id !== viewerQ.id) return
+            for (let i = hist.length - 1; i >= 0; i--) {
+              if (hist[i].date === last.date && hist[i].status === last.status) {
+                void deleteEntry(viewerQ.id, i)
+                break
+              }
+            }
+            setReviewedNowIds(prev => { const n = new Set(prev); n.delete(viewerQ.id); return n })
+          }}
           // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
           onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
         />

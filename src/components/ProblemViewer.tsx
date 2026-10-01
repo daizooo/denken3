@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PauseCircle } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
 import { type QuestionAsset } from '../lib/assets'
 import { panesOf, type Rect } from '../lib/viewerPages'
 import { loadProblemAssets, resolveImageSrc } from '../lib/problemImageCache'
-import { STATUS_LABEL } from '../features/shared/status'
 import { useViewerZoom } from '../lib/viewerZoom'
 import { usePagerSwipe } from '../lib/usePagerSwipe'
 import SolveTimerBar from '../features/questions/SolveTimerBar'
+import RecordBar from '../features/questions/RecordBar'
 import NoteLauncher from '../features/note/NoteLauncher'
 import ViewSwitch, { type ViewMode } from '../features/note/ViewSwitch'
 import { playAlarm } from '../lib/alarm'
@@ -53,14 +53,16 @@ function CropImage({ url, rect }: { url: string; rect: Rect }) {
 }
 
 export default function ProblemViewer({
-  questionId, title, onClose, onRecord, onAbort, solving = false,
+  questionId, title, onClose, onRecord, onUndoRecord, onAbort, solving = false,
   cutoffSec, getElapsedMs, onPauseChange,
 }: {
   questionId: string
   title: string
   onClose: () => void
-  // 理解度をこの画面から直接記録する（課題8）。押したらそのまま閉じる。
+  // 理解度をこの画面から直接記録する（課題8）。記録しても閉じない（RecordBar 冒頭の理由）。
   onRecord?: (status: Status) => void
+  // 直前の記録を取り消す（誤タップの修正）。
+  onUndoRecord?: () => void
   // 「問題を解く」で開いた計測を破棄して閉じる（課題13）。育児中の中断は常態で、
   // 中断時間が解答時間に混ざると時間予算の見積もりが狂う。
   onAbort?: () => void
@@ -90,15 +92,42 @@ export default function ProblemViewer({
   const [paused, setPaused] = useState(false)
   // 切り上げアラームは1問につき1回だけ鳴らす。
   const alarmedRef = useRef(false)
+  // このセッションで記録した理解度と時刻。記録すると解答時間の計測は確定して終わるので、
+  // timerEnded 以降は時間バー・アラームを出さない（修正で取り消しても計測は戻らない）。
+  const [recorded, setRecorded] = useState<Status | null>(null)
+  const [recordedAt, setRecordedAt] = useState<number | null>(null)
+  const [timerEnded, setTimerEnded] = useState(false)
 
   // 経過時間と切り上げアラームを出すのは「問題を解く」で開いたときだけ。
   const cutoff = cutoffSec ?? 0
-  const timed = solving && cutoff > 0 && getElapsedMs != null
+  const timed = solving && cutoff > 0 && getElapsedMs != null && !timerEnded
   const overdue = timed && elapsedSec >= cutoff
 
   // 問題が変わったら計測表示と停止状態をやり直す。
   // 下の毎秒タイマーより先に置く（後ろに置くと、切り替え直後に読み直した値を 0 で潰す）。
-  useEffect(() => { setElapsedSec(0); setPaused(false); alarmedRef.current = false }, [questionId])
+  useEffect(() => {
+    setElapsedSec(0); setPaused(false); alarmedRef.current = false
+    setRecorded(null); setRecordedAt(null); setTimerEnded(false)
+  }, [questionId])
+
+  const record = (s: Status) => {
+    onRecord?.(s)
+    setRecorded(s)
+    setRecordedAt(Date.now())
+    setTimerEnded(true)
+  }
+  const undoRecord = () => {
+    onUndoRecord?.()
+    setRecorded(null)
+    setRecordedAt(null)
+  }
+  // 解答時間を計測中に、理解度を記録しないまま閉じようとしたら一度だけ確かめる。
+  // 自動で C は付けない（押してもいない評価を書き込まない）。「問題を見る」は対象外。
+  const requestClose = () => {
+    if (solving && onRecord && recorded == null
+        && !window.confirm('理解度を記録せずに閉じますか？')) return
+    onClose()
+  }
 
   // 1秒ごとに経過を読み直す。一時停止・タブ非表示のときは値が進まないので、
   // ここで分岐する必要はない（止めるのは計測側の責務）。
@@ -244,7 +273,7 @@ export default function ProblemViewer({
           onShowingChange={setNoteShowing}
           switcher={viewSwitch}
         />
-        <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
+        <button onClick={requestClose} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100" title="閉じる">
           <X size={18} />
         </button>
       </div>
@@ -339,29 +368,16 @@ export default function ProblemViewer({
         />
       )}
 
-      {/* 記録バー（課題8）。解いた直後にこの画面から理解度を記録して閉じる。
+      {/* 記録バー（課題8）。解いた直後にこの画面から理解度を記録する。記録しても閉じない。
           片手操作のため画面下部に置く。 */}
       {onRecord && (
-        <div className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-white/95 border-t border-gray-100">
-          <span className="text-[11px] text-gray-500 shrink-0">理解度</span>
-          {(['A', 'B', 'C'] as Status[]).map(s => (
-            <button
-              key={s}
-              onClick={() => onRecord(s)}
-              title={STATUS_LABEL[s]}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700 transition-colors"
-            >{s}</button>
-          ))}
-          {solving && onAbort && (
-            <button
-              onClick={onAbort}
-              title="計測を破棄して閉じます（記録は残りません）"
-              className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
-            >
-              <PauseCircle size={13} /> 中断
-            </button>
-          )}
-        </div>
+        <RecordBar
+          recorded={recorded}
+          recordedAt={recordedAt}
+          onRecord={record}
+          onUndo={undoRecord}
+          onAbort={solving && onAbort && !timerEnded ? onAbort : undefined}
+        />
       )}
     </div>
   )
