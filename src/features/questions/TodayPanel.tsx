@@ -1,7 +1,8 @@
 import { CalendarDays, CheckCircle2, ChevronDown } from 'lucide-react'
-import { formatMinutes } from '../../lib/estimateMinutes'
 import type { TodaySummary } from '../../lib/todaySummary'
 import type { TodayPlan } from '../../lib/planToday'
+import type { ForecastDay, RequiredPace } from '../../lib/reviewForecast'
+import RequiredLine from './RequiredLine'
 
 // 今日パネル（learning-metrics-ui-redesign / 課題14）。復習タブの最上部の1枚。
 //
@@ -22,13 +23,6 @@ import type { TodayPlan } from '../../lib/planToday'
 // 出ていないと、利用者には量を削られたようにしか見えない ―― 逆に、順番待ちが見えないまま
 // 減った数字だけを出すのは、目標を下げることと体感上は同じになる（原則 §0）。
 // だから「翌日以降に必ず戻る」ことを件数つきで明示する。
-const BUDGET_OPTIONS: { minutes: number | null; label: string }[] = [
-  { minutes: 5, label: '5分' },
-  { minutes: 15, label: '15分' },
-  { minutes: 30, label: '30分' },
-  { minutes: null, label: 'すべて' },
-]
-
 export interface DateSlot {
   date: string
   label: string
@@ -37,8 +31,8 @@ export interface DateSlot {
 
 export default function TodayPanel({
   summary, plan, isToday, dateLabel,
-  queueCount, queueMinutes,
-  budget, onBudgetChange,
+  queueCount,
+  pace, forecast, newPerDay, daysToExam,
   dates, selectedDate, onSelectDate, datesOpen, onToggleDates,
 }: {
   summary: TodaySummary
@@ -48,18 +42,20 @@ export default function TodayPanel({
   isToday: boolean
   /** 今日以外のときの見出し（例: 9/5）。 */
   dateLabel: string
-  /** いま一覧に出ている問題数と、その推定所要分。 */
+  /** いま一覧に出ている問題数。 */
   queueCount: number
-  queueMinutes: number
-  budget: number | null
-  onBudgetChange: (minutes: number | null) => void
+  /** 合格に必要なライン（reviewForecast）。時間・実績ペースは使わない。 */
+  pace: RequiredPace | null
+  forecast: ForecastDay[]
+  newPerDay: number
+  daysToExam: number | null
   dates: DateSlot[]
   selectedDate: string
   onSelectDate: (date: string) => void
   datesOpen: boolean
   onToggleDates: () => void
 }) {
-  const { done, remainingCount, remainingMinutes, doneCount, hasData, estimate, pointGap, achieved } = summary
+  const { done, remainingCount, doneCount, hasData, estimate, pointGap, achieved } = summary
   const totalToday = doneCount + remainingCount
   const percent = totalToday === 0 ? 100 : Math.round((doneCount / totalToday) * 100)
 
@@ -71,7 +67,6 @@ export default function TodayPanel({
           <span className="text-sm text-gray-700">
             <span className="font-bold">{dateLabel}</span> の復習予定
             <span className="ml-2 font-bold text-gray-800">{queueCount}問</span>
-            <span className="ml-1 text-xs text-gray-400">約{formatMinutes(queueMinutes)}</span>
           </span>
         ) : done ? (
           <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
@@ -83,8 +78,6 @@ export default function TodayPanel({
             今日やること
             <span className="ml-2 text-lg font-bold text-gray-800 tabular-nums">{remainingCount}</span>
             <span className="ml-0.5 text-gray-500">問</span>
-            <span className="ml-2 text-gray-300">·</span>
-            <span className="ml-2 font-bold text-gray-700">約{formatMinutes(remainingMinutes)}</span>
           </span>
         )}
 
@@ -132,7 +125,7 @@ export default function TodayPanel({
             <span className="text-gray-400">
               <span className="mx-1 text-gray-200">/</span>
               順番待ち <span className="font-bold text-gray-600 tabular-nums">{plan.waitingCount}</span>問
-              （約{formatMinutes(plan.waitingMinutes)}）· 翌日以降に戻ります
+              · 翌日以降に戻ります
             </span>
           )}
           {plan.urgentCount > 0 && (
@@ -144,45 +137,9 @@ export default function TodayPanel({
         </div>
       )}
 
-      {/* 4行目: 時間で選ぶ。予算を選ぶと一覧が「点数影響÷所要分」の降順になり、線が引かれる。 */}
-      {queueCount > 0 && (
-        <div className="px-4 py-2 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500 whitespace-nowrap">時間で選ぶ</span>
-          <div className="flex gap-1">
-            {BUDGET_OPTIONS.map(o => {
-              const on = budget === o.minutes
-              return (
-                <button
-                  key={o.label}
-                  onClick={() => onBudgetChange(o.minutes)}
-                  className={`px-2.5 py-0.5 rounded-full text-xs border transition-colors ${
-                    on
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              )
-            })}
-          </div>
-          {/* 予算を選んだときだけ結果を出す。未選択時に一覧の総数（109問・461分）を併記すると、
-              主数値（今日39問・221分）と競合して「今日はどっち」が読めなくなるため出さない。
-              一覧の総数は章セレクトが、今日ぶんとの境界は一覧内の区切り線が担う。 */}
-          {isToday && budget !== null && (
-            <span className="text-[11px] text-gray-400">
-              {plan.waitingCount > 0
-                ? <>この{budget}分で <span className="font-bold text-gray-600">{plan.recommendedCount}問</span>（約{formatMinutes(plan.recommendedMinutes)}）</>
-                : <>{budget}分で全{plan.totalCount}問（約{formatMinutes(plan.totalMinutes)}）</>}
-              {/* 切れない分（忘却が進んだコア＝🔴優先と、最低ラインの1問）は予算を超えても
-                  線の上に残す（設計書 §3.5 ①③）。黙って超過させると「選んだ予算と違う」に
-                  なるので、超えていることを出す。 */}
-              {plan.overBudget && (
-                <span className="ml-1 text-red-500">切れない分で予算を超えています</span>
-              )}
-            </span>
-          )}
-        </div>
+      {/* 4行目: 合格に必要なライン（時間・実績ペースは使わない）。 */}
+      {isToday && (
+        <RequiredLine pace={pace} forecast={forecast} newPerDay={newPerDay} daysToExam={daysToExam} />
       )}
 
       {/* 5行目: 先の予定。既定は畳む（今日を見ている限り不要な行のため）。 */}
