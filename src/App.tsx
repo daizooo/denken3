@@ -42,6 +42,8 @@ import { hasQuestionText } from './lib/questionText'
 import { studyPlaceOf } from './features/shared/status'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
+import ItemSolver from './features/license/ItemSolver'
+import { usePrefetchItemBodies } from './features/license/useItemBodies'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -135,6 +137,8 @@ export default function App() {
   const subjects = useMemo(() => subjectNamesOf(examId), [examId])
   const chapters = useMemo(() => chaptersOf(examId), [examId])
   const passingScore = exam.passingScore
+  // 社労士（allText）の肢の本文を起動時に先取りする（licensehub-expansion.md §5）。電験では何もしない。
+  usePrefetchItemBodies(user?.id ?? null, exam, subject, reviews, todayStr)
 
   // ---- Auth ----
   useEffect(() => {
@@ -1294,7 +1298,7 @@ export default function App() {
 
       </div>
 
-      {viewerQ && (
+      {viewerQ && !exam.features.allText && (
         <ProblemViewer
           questionId={viewerQ.id}
           title={viewerQ.title}
@@ -1323,6 +1327,27 @@ export default function App() {
           }}
           // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
           onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
+        />
+      )}
+      {/* 社労士（allText）は肢モード（licensehub-expansion.md §6.1）。記録は電験と同じ updateStatus の経路。 */}
+      {viewerQ && exam.features.allText && (
+        <ItemSolver
+          itemId={viewerQ.id}
+          title={viewerQ.title}
+          userId={user.id}
+          onClose={() => setViewerQ(null)}
+          onRecord={(s, attempt) => {
+            lastRecordRef.current = { id: viewerQ.id, date: dateFor(viewerQ.id), status: s }
+            void updateStatus(viewerQ.id, s, attempt)
+          }}
+          onUndoRecord={() => {
+            const last = lastRecordRef.current
+            const hist = reviews[viewerQ.id]?.review_history ?? []
+            if (!last || last.id !== viewerQ.id) return
+            const i = hist.findLastIndex(e => e.date === last.date && e.status === last.status)
+            if (i >= 0) void deleteEntry(viewerQ.id, i)
+            setReviewedNowIds(prev => { const n = new Set(prev); n.delete(viewerQ.id); return n })
+          }}
         />
       )}
       {showImport && (
