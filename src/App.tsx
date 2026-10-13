@@ -1307,6 +1307,7 @@ export default function App() {
                         setDateOpenId(null)
                       }}
                       onDeleteEntry={i => deleteEntry(q.id, i)}
+                      allText={exam.features.allText}
                     />
                     </Fragment>
                   )
