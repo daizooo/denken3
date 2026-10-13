@@ -1,6 +1,6 @@
 // 一括記録 — licensehub-expansion.md §6.3。
 //
-// 一括コピーした組（batchSession.ts）を復元し、番号だけの一覧で ○/× と 確信/迷い を入力する。
+// 一括コピーした組（batchSession.ts）を復元し、番号だけの一覧で「正しい／正しい？／誤り？／誤り／分からない」を1タップで入力する。
 //   - 送信前は、どの肢の正答・解説も描画しない（問題文は折りたたみで見られる）
 //   - 送信できるのは、未記録の行がすべて入力済みのときだけ（batchGrade.ts canSubmitBatch）
 //   - 送信すると行ごとに採点し、ItemSolver と同じ経路（onRecord = App の updateStatus）で記録する。
@@ -11,13 +11,14 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { ReviewHistoryEntry, Status } from '../../domain/types'
-import type { Attempt, Confidence } from '../../lib/attempt'
+import type { Attempt } from '../../lib/attempt'
 import { isAskableItem, type ItemBody } from '../../lib/license/itemBody'
 import { truthLabel } from '../../lib/license/itemText'
 import {
   EMPTY_ROW, canSubmitBatch, findRecordIndex, gradeBatchRow, isRowFilled, type BatchRowInput,
 } from '../../lib/license/batchGrade'
 import { formatBatchCreatedAt } from '../../lib/license/batchText'
+import { ITEM_CHOICES, type ItemChoice } from '../../lib/license/choices'
 import {
   browserStorage, loadBatchSession, markBatchGraded, type BatchSession,
 } from '../../lib/license/batchSession'
@@ -141,8 +142,7 @@ export default function BatchGrade({
                     input={inputs[id] ?? EMPTY_ROW}
                     // 送信前は正答・解説を描画しない。描画するのは記録済みの行と、開いた時点で記録済みの組だけ。
                     reveal={rec ? { rec } : gradedBefore ? { rec: null } : null}
-                    onAnswer={v => setRow(id, { answer: v })}
-                    onConfidence={c => setRow(id, { confidence: c })}
+                    onChoose={c => setRow(id, { answer: c.answer, confidence: c.confidence, gaveUp: c.gaveUp })}
                     onUndo={() => undo(id)}
                   />
                 )
@@ -160,7 +160,7 @@ export default function BatchGrade({
                 </button>
                 {!submittable && (
                   <p className="text-xs text-gray-500 text-center">
-                    すべての行で ○/× と 確信/迷い を選ぶと送信できます（未入力 {pending.filter(id => !isRowFilled(inputs[id])).length} 肢）。
+                    すべての行で答えを選ぶと送信できます（未入力 {pending.filter(id => !isRowFilled(inputs[id])).length} 肢）。
                   </p>
                 )}
               </div>
@@ -173,7 +173,7 @@ export default function BatchGrade({
 }
 
 function BatchRow({
-  no, title, body, input, reveal, onAnswer, onConfidence, onUndo,
+  no, title, body, input, reveal, onChoose, onUndo,
 }: {
   no: number
   title: string
@@ -181,29 +181,25 @@ function BatchRow({
   input: BatchRowInput
   /** null の間は正答・解説を描画しない。rec が null なら記録済みの組の閲覧（修正なし）。 */
   reveal: { rec: Recorded | null } | null
-  onAnswer: (v: boolean) => void
-  onConfidence: (c: Confidence) => void
+  onChoose: (c: ItemChoice) => void
   onUndo: () => void
 }) {
   const locked = reveal !== null
-  const btn = (on: boolean) =>
-    `px-3 py-1.5 rounded-lg border text-sm font-bold transition ${
-      on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-800 border-gray-300'
-    } disabled:opacity-50`
-  const conf = (on: boolean) =>
-    `px-2 py-1.5 rounded-lg border text-xs transition ${
-      on ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300'
+  const chosen = (c: ItemChoice) => c.gaveUp
+    ? input.gaveUp === true
+    : input.gaveUp !== true && input.answer === c.answer && input.confidence === c.confidence
+  const btn = (c: ItemChoice) =>
+    `px-2 py-1.5 rounded-lg border text-xs font-bold transition ${
+      chosen(c) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-800 border-gray-300'
     } disabled:opacity-50`
 
   return (
     <li className="border rounded-lg px-3 py-2 space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <span className="w-8 text-lg font-bold text-gray-800">{no}.</span>
-        <button disabled={locked} onClick={() => onAnswer(true)} className={btn(input.answer === true)}>○</button>
-        <button disabled={locked} onClick={() => onAnswer(false)} className={btn(input.answer === false)}>×</button>
-        <span className="w-2" />
-        <button disabled={locked} onClick={() => onConfidence('sure')} className={conf(input.confidence === 'sure')}>確信</button>
-        <button disabled={locked} onClick={() => onConfidence('unsure')} className={conf(input.confidence === 'unsure')}>迷い</button>
+        {ITEM_CHOICES.map(c => (
+          <button key={c.key} disabled={locked} onClick={() => onChoose(c)} className={btn(c)}>{c.label}</button>
+        ))}
       </div>
       <details className="text-sm text-gray-700">
         <summary className="cursor-pointer text-xs text-gray-500">問題文{title ? `（${title}）` : ''}</summary>

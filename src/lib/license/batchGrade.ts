@@ -23,16 +23,17 @@ export function pickBatch(queueIds: string[], bodies: Record<string, ItemBody>, 
   return out
 }
 
-/** 1行の入力（○/× と 確信/迷い）。 */
+/** 1行の入力（○/× と 確信/迷い。「分からない」は gaveUp）。 */
 export interface BatchRowInput {
   answer: boolean | null
   confidence: Confidence | null
+  gaveUp?: boolean
 }
 
 export const EMPTY_ROW: BatchRowInput = { answer: null, confidence: null }
 
 export function isRowFilled(row: BatchRowInput | undefined): boolean {
-  return !!row && row.answer !== null && row.confidence !== null
+  return !!row && (row.gaveUp === true || (row.answer !== null && row.confidence !== null))
 }
 
 /**
@@ -53,9 +54,10 @@ export interface BatchRowResult {
 /** 1行を採点する（ItemSolver と同じ写像）。入力が欠けていれば null。 */
 export function gradeBatchRow(row: BatchRowInput | undefined, truth: boolean): BatchRowResult | null {
   if (!row || !isRowFilled(row)) return null
-  const attempt = itemAttempt(row.answer, row.confidence ?? undefined, false, truth)
+  const gaveUp = row.gaveUp === true
+  const attempt = itemAttempt(gaveUp ? null : row.answer, row.confidence ?? undefined, gaveUp, truth)
   const correct = attempt.correct === true
-  return { status: statusFromAttempt(correct, attempt.confidence, false), attempt, correct }
+  return { status: statusFromAttempt(correct, attempt.confidence, gaveUp), attempt, correct }
 }
 
 /** 取り消し対象の履歴の位置（記録した日付・理解度に一致する最後のもの）。無ければ -1。 */
