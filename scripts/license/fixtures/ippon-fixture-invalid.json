@@ -1,0 +1,87 @@
+[
+  {
+    "source_ref": "R98-RK-01-A",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-01-B",
+    "statement": "   ",
+    "truth": false,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-01-C",
+    "statement": "【架空】truth が文字列",
+    "truth": "true",
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98_RK_1_D",
+    "statement": "【架空】座標の形式が違う",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-ZZ-01-A",
+    "statement": "【架空】未知の科目コード",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RI-01-A",
+    "statement": "【架空】選択式のみの科目コード",
+    "truth": true,
+    "study_subject": "rouippan"
+  },
+  {
+    "source_ref": "R98-RK-11-A",
+    "statement": "【架空】問番号が範囲外",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-02-カ",
+    "statement": "【架空】肢ラベルが不正",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-03-A",
+    "statement": "【架空】重複（1件目）",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-03-ア",
+    "statement": "【架空】重複（2件目。ア＝A）",
+    "truth": false,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-04-A",
+    "statement": "【架空】採点科目に含まれない学習科目",
+    "truth": true,
+    "study_subject": "kenpo"
+  },
+  {
+    "source_ref": "R07-RK-05-A",
+    "statement": "【架空】フィクスチャ以外の年度",
+    "truth": true,
+    "study_subject": "rouki"
+  },
+  {
+    "source_ref": "R98-RK-06-A",
+    "statement": "【架空】不明な項目と重要度",
+    "truth": true,
+    "study_subject": "rouki",
+    "importance": "S",
+    "explaination": "綴り誤り"
+  },
+  {
+    "source_ref": "R98-RK-07-A",
+    "statement": "【架空】正常な肢（これだけ通る）",
+    "truth": true,
+    "study_subject": "anei"
+  }
+]
