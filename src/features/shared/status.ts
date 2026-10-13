@@ -5,8 +5,9 @@ import { hasQuestionText } from '../../lib/questionText'
 // 学習場所（会社/自宅）。テキストコピー（転記）ができる問題だけを「会社」、それ以外は
 // すべて「自宅」とする。studyMode（計算/暗記）とは別軸（studyMode は所要時間の推定用に残す）。
 export type StudyPlace = 'home' | 'company'
-export function studyPlaceOf(questionId: string): StudyPlace {
-  return hasQuestionText(questionId) ? 'company' : 'home'
+// allText（exam.features.allText）の資格は全問がテキストを持つため常に「会社」。
+export function studyPlaceOf(questionId: string, allText = false): StudyPlace {
+  return allText || hasQuestionText(questionId) ? 'company' : 'home'
 }
 
 // 学習場所の見出し用バッジ。絞り込みを開かなくてもカード上部で「自宅／会社」が分かるようにする

@@ -733,8 +733,8 @@ export default function App() {
 
   // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
   const matchMode = useCallback(
-    (id: string) => filterModes.size === 0 || filterModes.has(studyPlaceOf(id)),
-    [filterModes]
+    (id: string) => filterModes.size === 0 || filterModes.has(studyPlaceOf(id, exam.features.allText)),
+    [filterModes, exam]
   )
   const matchStatus = useCallback(
     (id: string) => filterStatuses.size === 0 || filterStatuses.has(reviews[id]?.status ?? '未着手'),
@@ -751,14 +751,14 @@ export default function App() {
     const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
     let textOnlyCount = 0
     for (const q of baseQuestions) {
-      const mk: ModeKey = studyPlaceOf(q.id)
+      const mk: ModeKey = studyPlaceOf(q.id, exam.features.allText)
       const st: Status = reviews[q.id]?.status ?? '未着手'
       if (matchStatus(q.id) && matchText(q.id)) modeCounts[mk]++
       if (matchMode(q.id) && matchText(q.id)) statusCounts[st]++
       if (matchMode(q.id) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
     }
     return { modeCounts, statusCounts, textOnlyCount }
-  }, [baseQuestions, reviews, matchMode, matchStatus, matchText])
+  }, [baseQuestions, reviews, matchMode, matchStatus, matchText, exam])
 
   // 今日のライン（planToday.ts・Phase B-1）。
   //

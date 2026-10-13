@@ -1,4 +1,5 @@
 import type { Attempt } from '../lib/attempt.js'
+import type { ScoringModel } from './scoring.js'
 
 // ==============================
 // ドメイン型定義
@@ -9,7 +10,9 @@ import type { Attempt } from '../lib/attempt.js'
 // 学習資格。既知のIDは補完のために列挙しつつ、`(string & {})` で将来のIDも許容する。
 export type ExamId = 'denken3' | 'denken2' | 'enekan' | (string & {})
 
-export type Subject = '理論' | '電力' | '機械' | '法規'
+// 科目の表示名。電験の4値は補完のために列挙しつつ、`(string & {})` で他資格の科目名も許容する
+// （ExamId と同じ形。licensehub-expansion.md §3.2）。
+export type Subject = '理論' | '電力' | '機械' | '法規' | (string & {})
 
 // S = 完璧に理解した（復習不要）。復習キューから外すが、いつでも復習に戻せる（due_date を再設定するだけ）。
 export type Status = 'S' | 'A' | 'B' | 'C' | '未着手'
@@ -51,6 +54,10 @@ export interface SubjectDefinition {
 export interface ExamFeatures {
   subjectPass: boolean  // 科目合格制度（電験3種・2種一次: true）
   twoStage: boolean     // 一次/二次の二段階（電験2種: true）
+  // 科目別の配点・足切り（licensehub-expansion.md §4.3）。未指定（電験）は passingScore の従来経路。
+  scoring?: ScoringModel
+  // 全問がテキストを持つ資格（社労士）。学習場所を常に「会社」とする（studyPlaceOf）。
+  allText?: boolean
 }
 
 export interface ExamDefinition {
