@@ -41,6 +41,7 @@ import FilterBar, { type ModeKey } from './features/questions/FilterBar'
 import { hasQuestionText } from './lib/questionText'
 import { studyPlaceOf } from './features/shared/status'
 import TodayPanel from './features/questions/TodayPanel'
+import { APP_NAME } from './config/app'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -970,7 +971,7 @@ export default function App() {
                 </select>
               ) : (
                 <span className="flex items-baseline gap-1.5">
-                  <span className="font-bold text-gray-800 text-base whitespace-nowrap">ElectricPro</span>
+                  <span className="font-bold text-gray-800 text-base whitespace-nowrap">{APP_NAME}</span>
                   {/* 資格名は狭い画面では出さない（科目セレクトが文脈を持つため）。 */}
                   <span className="hidden sm:inline text-xs font-medium text-gray-500 whitespace-nowrap">{exam.name}</span>
                 </span>

@@ -1,32 +1,18 @@
-# React + TypeScript + Vite
+# LicenseHub
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+資格試験（電験三種・社労士）の演習・記録用の個人向け PWA。
 
-Currently, two official plugins are available:
+- 表示名は `src/config/app.ts` の `APP_NAME` に集約している。変更時は `index.html`
+  と `public/manifest.webmanifest` も合わせて更新する（`src/config/app.test.ts` が不一致を検出する）。
+- 内部識別子（`exam_id='denken3'`、`denken_*` テーブル、IndexedDB `electricpro-offline` など）は
+  互換のため旧名のまま据え置く。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 開発
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run dev     # 開発サーバー
+npm test        # vitest
+npm run build   # 型検査＋ビルド
+npm run lint    # oxlint
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
