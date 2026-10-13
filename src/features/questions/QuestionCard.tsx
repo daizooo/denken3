@@ -19,7 +19,7 @@ export default function QuestionCard({
   isEditing, editMemo, onEditMemoChange, onToggleEdit, onSaveMemo,
   onRecordStatus, onReactivate, onViewProblem, onSolveProblem,
   dateValue, dateOpen, onOpenDate, onDateChange, onResetDate,
-  onDeleteEntry,
+  onDeleteEntry, allText = false,
 }: {
   q: QuestionWithChapter
   review: Review
@@ -45,6 +45,9 @@ export default function QuestionCard({
   onDateChange: (v: string) => void
   onResetDate: () => void
   onDeleteEntry: (index: number) => void
+  // 全問がテキストを持つ資格（社労士。exam.features.allText）。学習場所は常に「会社」、
+  // 「問題を見る／解く」は画像の有無に依らず出し、App 側で肢モード（ItemSolver）を開く。
+  allText?: boolean
 }) {
   // コピー直後だけアイコンを切り替えて「コピーした」ことを示す（会社では音も出せないため視覚のみ）。
   const [copied, setCopied] = useState(false)
@@ -69,10 +72,10 @@ export default function QuestionCard({
         <div className="flex items-center gap-2 mb-1">
           {/* 学習場所（会社=テキストコピー可／自宅=それ以外）を見出しの先頭に表示。絞り込みを開かなくても一目で分かる。 */}
           <span
-            className={`text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${STUDYMODE_BADGE[studyPlaceOf(q.id)].cls}`}
-            title={STUDYMODE_BADGE[studyPlaceOf(q.id)].title}
+            className={`text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].cls}`}
+            title={STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].title}
           >
-            {STUDYMODE_BADGE[studyPlaceOf(q.id)].label}
+            {STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].label}
           </span>
           <span className="text-xs text-gray-400">{q.chapterName} 問{q.number}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
@@ -161,7 +164,7 @@ export default function QuestionCard({
               className="px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all"
             >復習に戻す</button>
           )}
-          {hasKnownAsset(q.id) && (
+          {(hasKnownAsset(q.id) || allText) && (
             <>
               {/* 確認のみ。タイマーは動かさない（解答時間に混ぜない）。 */}
               <button
