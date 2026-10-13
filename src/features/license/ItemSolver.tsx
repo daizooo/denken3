@@ -1,7 +1,7 @@
 // 肢モード（一問一答）— licensehub-expansion.md §6.1。
 //
-//   1. 肢の本文を表示。○/× と 確信/迷い を選ぶ
-//   2. 「解答する」で確定（解答前コミット）。確定後は変更不可、誤タップは「修正」で取り消しのみ
+//   1. 肢の本文を表示。「正しい／正しい？／誤り？／誤り／分からない」の1タップで答える（？付きが迷い）
+//   2. タップした時点で確定（解答前コミット）。確定後は変更不可、誤タップは「修正」で取り消しのみ
 //   3. truth と照合して正誤を出し、解説を表示
 //   4. 理解度を自動記録（§6.2: 正解×確信=A、正解×迷い=B、不正解・分からない=C）
 //   5. 「テキストをコピー」（§6.3 の単体コピー）
@@ -11,10 +11,11 @@
 import { useState } from 'react'
 import { X, Copy, Check } from 'lucide-react'
 import type { Status } from '../../domain/types'
-import type { Attempt, Confidence } from '../../lib/attempt'
+import type { Attempt } from '../../lib/attempt'
 import { isAskableItem } from '../../lib/license/itemBody'
 import { itemAttempt, statusFromAttempt } from '../../lib/license/attempt'
 import { formatItemForClipboard, truthLabel } from '../../lib/license/itemText'
+import { ITEM_CHOICES, type ItemChoice } from '../../lib/license/choices'
 import { STATUS_BG } from '../shared/status'
 import { useItemBodies } from './useItemBodies'
 
@@ -22,6 +23,7 @@ interface Committed {
   status: 'A' | 'B' | 'C'
   correct: boolean
   gaveUp: boolean
+  label: string   // 選んだボタン
 }
 
 export default function ItemSolver({
@@ -39,19 +41,16 @@ export default function ItemSolver({
   // 出題してよい肢だけを item にする（以降は item の有無で分岐する）。
   const item = isAskableItem(body) ? body : null
 
-  const [answer, setAnswer] = useState<boolean | null>(null)
-  const [confidence, setConfidence] = useState<Confidence | null>(null)
   const [committed, setCommitted] = useState<Committed | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const commit = (gaveUp: boolean) => {
+  const commit = (choice: ItemChoice) => {
     if (!item || item.truth === null || committed) return
-    if (!gaveUp && (answer === null || confidence === null)) return
-    const truth = item.truth
-    const attempt = itemAttempt(gaveUp ? null : answer, confidence ?? undefined, gaveUp, truth)
+    const { answer, confidence, gaveUp } = choice
+    const attempt = itemAttempt(answer, confidence ?? undefined, gaveUp, item.truth)
     const correct = attempt.correct === true
     const status = statusFromAttempt(correct, attempt.confidence, gaveUp)
-    setCommitted({ status, correct, gaveUp })
+    setCommitted({ status, correct, gaveUp, label: choice.label })
     onRecord(status, attempt)
   }
 
@@ -59,8 +58,6 @@ export default function ItemSolver({
     if (!committed) return
     onUndoRecord()
     setCommitted(null)
-    setAnswer(null)
-    setConfidence(null)
   }
 
   const copy = async () => {
@@ -74,13 +71,9 @@ export default function ItemSolver({
     }
   }
 
-  const choiceCls = (on: boolean) =>
-    `flex-1 py-3 rounded-lg border text-lg font-bold transition ${
-      on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-800 border-gray-300'
-    } disabled:opacity-50`
-  const confCls = (on: boolean) =>
-    `flex-1 py-2 rounded-lg border text-sm transition ${
-      on ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300'
+  const choiceCls = (c: ItemChoice) =>
+    `${c.gaveUp ? 'w-full py-2 text-sm' : 'py-3 text-base font-bold'} rounded-lg border transition ${
+      committed?.label === c.label ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-800 border-gray-300'
     } disabled:opacity-50`
 
   return (
@@ -108,29 +101,16 @@ export default function ItemSolver({
           <>
             <p className="whitespace-pre-wrap leading-relaxed text-gray-900">{item.statement}</p>
 
-            <div className="flex gap-2">
-              <button disabled={!!committed} onClick={() => setAnswer(true)} className={choiceCls(answer === true)}>○</button>
-              <button disabled={!!committed} onClick={() => setAnswer(false)} className={choiceCls(answer === false)}>×</button>
+            <div className="grid grid-cols-4 gap-2">
+              {ITEM_CHOICES.filter(c => !c.gaveUp).map(c => (
+                <button key={c.key} disabled={!!committed} onClick={() => commit(c)} className={choiceCls(c)}>{c.label}</button>
+              ))}
             </div>
-            <div className="flex gap-2">
-              <button disabled={!!committed} onClick={() => setConfidence('sure')} className={confCls(confidence === 'sure')}>確信</button>
-              <button disabled={!!committed} onClick={() => setConfidence('unsure')} className={confCls(confidence === 'unsure')}>迷い</button>
-            </div>
+            {ITEM_CHOICES.filter(c => c.gaveUp).map(c => (
+              <button key={c.key} disabled={!!committed} onClick={() => commit(c)} className={choiceCls(c)}>{c.label}</button>
+            ))}
 
-            {!committed ? (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => commit(false)}
-                  disabled={answer === null || confidence === null}
-                  className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-bold disabled:opacity-40"
-                >
-                  解答する
-                </button>
-                <button onClick={() => commit(true)} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700">
-                  分からない
-                </button>
-              </div>
-            ) : (
+            {committed && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className={`text-lg font-bold ${committed.correct ? 'text-green-700' : 'text-red-700'}`}>
