@@ -44,6 +44,7 @@ import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
 import ItemSolver from './features/license/ItemSolver'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
+import BatchButtons from './features/license/BatchButtons'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -1158,6 +1159,25 @@ export default function App() {
                 // 今日以外を見ている間は畳めない（今日へ戻る導線がこの列しかないため）。
                 datesOpen={datesOpen || !isTodayView}
                 onToggleDates={() => setDatesOpen(o => !o)}
+              />
+            )}
+            {/* 社労士（allText）の一括コピー・一括記録（licensehub-expansion.md §6.3）。記録は updateStatus の経路。 */}
+            {activeTab === 'review' && exam.features.allText && (
+              <BatchButtons
+                userId={user.id}
+                examId={examId}
+                queueIds={todayPlan.items.map(i => i.id)}
+                questions={allQuestions}
+                historyOf={id => reviews[id]?.review_history ?? []}
+                onRecord={(id, s, attempt) => {
+                  const date = dateFor(id)
+                  void updateStatus(id, s, attempt)
+                  return date
+                }}
+                onDeleteEntry={(id, i) => {
+                  void deleteEntry(id, i)
+                  setReviewedNowIds(prev => { const n = new Set(prev); n.delete(id); return n })
+                }}
               />
             )}
 
