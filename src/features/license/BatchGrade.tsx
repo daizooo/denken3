@@ -1,6 +1,6 @@
 // 一括記録 — licensehub-expansion.md §6.3。
 //
-// 一括コピーした組（batchSession.ts）を復元し、番号だけの一覧で「正しい／正しい？／誤り？／誤り／分からない」を1タップで入力する。
+// 一括コピーした組（batchSession.ts）を復元し、番号だけの一覧で「○／○？／×？／×／分からない」を1タップで入力する。
 //   - 送信前は、どの肢の正答・解説も描画しない（問題文は折りたたみで見られる）
 //   - 送信できるのは、未記録の行がすべて入力済みのときだけ（batchGrade.ts canSubmitBatch）
 //   - 送信すると行ごとに採点し、ItemSolver と同じ経路（onRecord = App の updateStatus）で記録する。

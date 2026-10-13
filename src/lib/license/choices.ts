@@ -1,5 +1,5 @@
 // 肢の解答ボタン（ItemSolver・BatchGrade 共通）。1タップで ○/× と確信/迷い（または降参）が決まる。
-// 「？」付きが迷い、付かないものが確信（licensehub-expansion.md §6.1・§6.2 の写像は attempt.ts のまま）。
+// ○＝肢が正しい、×＝誤り。「？」付きが迷い、付かないものが確信（licensehub-expansion.md §6.1・§6.2 の写像は attempt.ts のまま）。
 import type { Confidence } from '../attempt'
 
 export interface ItemChoice {
@@ -11,10 +11,10 @@ export interface ItemChoice {
 }
 
 export const ITEM_CHOICES: readonly ItemChoice[] = [
-  { key: 'right',        label: '正しい',    answer: true,  confidence: 'sure',   gaveUp: false },
-  { key: 'right-unsure', label: '正しい？',  answer: true,  confidence: 'unsure', gaveUp: false },
-  { key: 'wrong-unsure', label: '誤り？',    answer: false, confidence: 'unsure', gaveUp: false },
-  { key: 'wrong',        label: '誤り',      answer: false, confidence: 'sure',   gaveUp: false },
+  { key: 'right',        label: '○',   answer: true,  confidence: 'sure',   gaveUp: false },
+  { key: 'right-unsure', label: '○？',  answer: true,  confidence: 'unsure', gaveUp: false },
+  { key: 'wrong-unsure', label: '×？',  answer: false, confidence: 'unsure', gaveUp: false },
+  { key: 'wrong',        label: '×',   answer: false, confidence: 'sure',   gaveUp: false },
   { key: 'giveup',       label: '分からない', answer: null,  confidence: null,     gaveUp: true },
 ]
 
