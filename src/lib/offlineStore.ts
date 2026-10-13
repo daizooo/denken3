@@ -13,9 +13,11 @@
 import type { ExamPlan, Review } from '../domain/types'
 
 const DB_NAME = 'electricpro-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const SNAPSHOT_STORE = 'snapshot'
 const OUTBOX_STORE = 'outbox'
+// ③ bodies: 社労士の肢の本文キャッシュ（licensehub-expansion.md §5・v2 で追加）。読み書きは src/lib/license/bodyCache.ts。
+export const BODIES_STORE = 'bodies'
 
 export interface OfflineSnapshot {
   key: string // `${userId}:${examId}`
@@ -30,7 +32,14 @@ export interface PendingWrite {
   queuedAt: string // ISO8601。送信順（古い順）に使う
 }
 
-function openDb(): Promise<IDBDatabase | null> {
+// 版上げは「無ければ作る」だけ（既存ストアは消さない・作り直さない）。v1 → v2 でも snapshot / outbox はそのまま残る。
+export function upgradeOfflineDb(db: Pick<IDBDatabase, 'objectStoreNames' | 'createObjectStore'>): void {
+  for (const name of [SNAPSHOT_STORE, OUTBOX_STORE, BODIES_STORE]) {
+    if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'key' })
+  }
+}
+
+export function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null)
   return new Promise(resolve => {
     let req: IDBOpenDBRequest
@@ -40,11 +49,7 @@ function openDb(): Promise<IDBDatabase | null> {
       resolve(null)
       return
     }
-    req.onupgradeneeded = () => {
-      const db = req.result
-      if (!db.objectStoreNames.contains(SNAPSHOT_STORE)) db.createObjectStore(SNAPSHOT_STORE, { keyPath: 'key' })
-      if (!db.objectStoreNames.contains(OUTBOX_STORE)) db.createObjectStore(OUTBOX_STORE, { keyPath: 'key' })
-    }
+    req.onupgradeneeded = () => upgradeOfflineDb(req.result)
     req.onsuccess = () => resolve(req.result)
     // 開けない場合はオフライン機能だけを諦める（アプリ本体は今までどおり動く）。
     req.onerror = () => resolve(null)

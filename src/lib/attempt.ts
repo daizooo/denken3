@@ -18,7 +18,13 @@ export interface Attempt {
   selected?: number[]
   /** 「わからない」で解答を開いたか。true のとき理解度は C を自動記録する。 */
   gaveUp?: boolean
+  /** 肢モード（社労士）の確信／迷い。肢の selected は [1]=○、[2]=×（licensehub-expansion.md §6.2）。 */
+  confidence?: Confidence
+  /** 肢モードの記録時点の正誤。後で truth が変わっても履歴は動かさない。 */
+  correct?: boolean
 }
+
+export type Confidence = 'sure' | 'unsure'
 
 /** 小問数ぶんの未選択配列。 */
 export function emptySelection(partCount: number): number[] {
