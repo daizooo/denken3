@@ -1,12 +1,13 @@
 import { BookOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { APP_NAME } from '../../config/app'
 
 export default function LoginScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center space-y-4 w-72">
         <BookOpen size={36} className="mx-auto text-blue-600" />
-        <h1 className="text-lg font-bold text-gray-800">ElectricPro</h1>
+        <h1 className="text-lg font-bold text-gray-800">{APP_NAME}</h1>
         <p className="text-xs text-gray-500">2027/2 理論CBT 合格まで</p>
         <button
           onClick={() => supabase.auth.signInWithOAuth({
