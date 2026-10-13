@@ -3,9 +3,13 @@
 // UI はこの registry を起点に描画する（資格・科目のハードコードをしない・§7.8）。
 import type { Chapter, ExamDefinition, ExamId, PaperDefinition, PaperQuestion, Subject, SubjectDefinition } from '../domain/types'
 import { DENKEN3_EXAM } from './denken3'
+import { SHAROUSHI_EXAM } from './sharoushi'
 
 // 全資格。将来 電験2種・エネ管等を配列に追加するだけで UI に現れる。
-export const EXAMS: ExamDefinition[] = [DENKEN3_EXAM]
+export const EXAMS: ExamDefinition[] = [
+  DENKEN3_EXAM,
+  SHAROUSHI_EXAM,
+]
 
 // 既定の資格。アプリ起動時に選択される資格（登録が1つの間はこれで固定）。
 export const DEFAULT_EXAM_ID: ExamId = EXAMS[0].id
