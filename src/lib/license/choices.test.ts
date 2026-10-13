@@ -9,12 +9,12 @@ const row = (key: Parameters<typeof choiceOf>[0]) => {
 }
 
 describe('ITEM_CHOICES', () => {
-  it('正しい／正しい？／誤り？／誤り／分からない の5つ。？付きが迷い', () => {
-    expect(ITEM_CHOICES.map(c => c.label)).toEqual(['正しい', '正しい？', '誤り？', '誤り', '分からない'])
+  it('○／○？／×？／×／分からない の5つ。？付きが迷い', () => {
+    expect(ITEM_CHOICES.map(c => c.label)).toEqual(['○', '○？', '×？', '×', '分からない'])
     expect(ITEM_CHOICES.filter(c => c.label.endsWith('？')).every(c => c.confidence === 'unsure')).toBe(true)
   })
 
-  it('正答が○の肢: 正しい=A、正しい？=B、誤り？・誤り・分からない=C', () => {
+  it('正答が○の肢: ○=A、○？=B、×？・×・分からない=C', () => {
     expect(gradeBatchRow(row('right'), true)?.status).toBe('A')
     expect(gradeBatchRow(row('right-unsure'), true)?.status).toBe('B')
     expect(gradeBatchRow(row('wrong-unsure'), true)?.status).toBe('C')
@@ -22,7 +22,7 @@ describe('ITEM_CHOICES', () => {
     expect(gradeBatchRow(row('giveup'), true)?.status).toBe('C')
   })
 
-  it('正答が×の肢: 誤り=A、誤り？=B、正しい系・分からない=C', () => {
+  it('正答が×の肢: ×=A、×？=B、○系・分からない=C', () => {
     expect(gradeBatchRow(row('wrong'), false)?.status).toBe('A')
     expect(gradeBatchRow(row('wrong-unsure'), false)?.status).toBe('B')
     expect(gradeBatchRow(row('right'), false)?.status).toBe('C')
