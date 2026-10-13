@@ -4,6 +4,7 @@
 // 試験日程（denken_exam_plans）の初期行は migration 021 で学習10科目ぶん作る。
 import type { ExamDefinition, SubjectDefinition } from '../../domain/types'
 import type { ScoringModel, ScoringSection } from '../../domain/scoring'
+import { SHAROUSHI_SUBJECT_CHAPTERS } from './subjects/index.ts'
 
 // 学習10科目（タブの並び = 学習順の既定。§10.1 の仮の順序）。
 export const SHAROUSHI_SUBJECTS: SubjectDefinition[] = [
@@ -79,5 +80,5 @@ export const SHAROUSHI_EXAM: ExamDefinition = {
   // 社労士の合否は features.scoring で判定する。
   passingScore: 60,
   features: { subjectPass: false, twoStage: false, scoring: SHAROUSHI_SCORING, allText: true },
-  subjects: SHAROUSHI_SUBJECTS,
+  subjects: SHAROUSHI_SUBJECTS.map(s => ({ ...s, chapters: SHAROUSHI_SUBJECT_CHAPTERS[s.id] ?? s.chapters })),
 }
