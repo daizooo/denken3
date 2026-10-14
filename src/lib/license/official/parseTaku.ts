@@ -75,13 +75,14 @@ const CHOICE_START_RE = /^[AＡ](?:[\s\u3000（(]|[一二三四五]つ|なし)/
 
 interface Split { lead: string[]; items: { labelRaw: string; lines: string[] }[]; choices: string[] }
 
-function splitItems(lines: string[], kana: boolean, loose: boolean): Split {
+// minItems: 選択肢（Ａ…）の始まりと見る肢の数。○×の組合せは肢が5つより少ない（R6 はア〜ウ）
+function splitItems(lines: string[], kana: boolean, loose: boolean, minItems = 5): Split {
   const labels = kana ? KANA : (ITEM_LABELS as readonly string[])
   const out: Split = { lead: [], items: [], choices: [] }
   let inChoices = false
   for (const line of lines) {
     if (inChoices) { out.choices.push(line); continue }
-    if (kana && out.items.length === labels.length && CHOICE_START_RE.test(line)) {
+    if (kana && out.items.length >= minItems && CHOICE_START_RE.test(line)) {
       inChoices = true
       out.choices.push(line)
       continue
@@ -99,7 +100,11 @@ function splitItems(lines: string[], kana: boolean, loose: boolean): Split {
   return out
 }
 
+// 「正しいものには○、誤っているものには×を付した場合の組合せ」
+const MARKS_RE = /[○〇][^。]*[×✕][^。]*(?:組合せ|組み合わせ)/
+
 function detectKind(lead: string): TakuKind {
+  if (MARKS_RE.test(lead)) return 'marks'
   if (/組合せ|組み合わせ/.test(lead)) return 'combo'
   if (/いくつ|幾つ|個数|の数は/.test(lead)) return 'count'
   return 'one'
@@ -122,8 +127,21 @@ const COUNT_WORDS: Record<string, number> = {
   '1つ': 1, '2つ': 2, '3つ': 3, '4つ': 4, '5つ': 5,
 }
 
-function parseChoices(text: string, kind: TakuKind): { choices: string[]; comboPairs: ItemLabel[][] | null; countOptions: number[] | null } {
+function parseChoices(text: string, kind: TakuKind): { choices: string[]; comboPairs: ItemLabel[][] | null; countOptions: number[] | null; markPatterns?: boolean[][] } {
   const t = toHalfWidth(text)
+  if (kind === 'marks') {
+    // Ａ（ア○ イ○ ウ×）: 肢の印の順（ア→オ）に ○× を読む。印の並びが ア から連続しない選択肢は読まない（ゲートで失敗）
+    const found = [...t.matchAll(/([A-E])\s*[（(]\s*((?:[ア-オ]\s*[○〇×✕]\s*)+)[）)]/g)]
+    const patterns: boolean[][] = []
+    for (const m of found) {
+      const marks = [...m[2].matchAll(/([ア-オ])\s*([○〇×✕])/g)]
+      if (marks.every((x, i) => x[1] === KANA[i])) patterns.push(marks.map(x => x[2] === '○' || x[2] === '〇'))
+    }
+    return {
+      choices: found.map(m => m[2].replace(/\s+/g, ' ').trim()),
+      comboPairs: null, countOptions: null, markPatterns: patterns,
+    }
+  }
   if (kind === 'combo') {
     const re = /([A-E])\s*[（(]?\s*([ア-オ])\s*(?:と|及び|・|、|,)\s*([ア-オ])\s*[）)]?/g
     const found = [...t.matchAll(re)]
@@ -150,8 +168,13 @@ function toQuestion(b: Block): OfficialTakuQuestion {
     const loose = splitItems(b.lines, kana, true)
     if (loose.items.length > s.items.length) s = loose
   }
-  const lead = joinLines(s.lead)
+  let lead = joinLines(s.lead)
   let kind: TakuKind | null = detectKind(lead)
+  if (kind === 'marks' && kana) {
+    // ○×の組合せは肢が5つより少ない。3肢目以降に Ａ（…）が来たら選択肢として切る
+    s = splitItems(b.lines, kana, false, 2)
+    lead = joinLines(s.lead)
+  }
   if (kana !== (kind !== 'one')) kind = null   // 肢の印と問型が食い違う
   const items: OfficialTakuItem[] = s.items.map(it => ({
     labelRaw: it.labelRaw,
@@ -163,7 +186,8 @@ function toQuestion(b: Block): OfficialTakuQuestion {
     scoredSubject: b.code,
     qNo: b.qNo,
     kind,
-    direction: detectDirection(lead),
+    // ○×の組合せは「正しいものには○」で truth を直接決める（問いの文の「誤っている」に引きずられない）
+    direction: kind === 'marks' ? 'right' : detectDirection(lead),
     lead,
     items,
     ...c,
