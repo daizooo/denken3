@@ -48,6 +48,7 @@ import BatchButtons from './features/license/BatchButtons'
 import LawReviewButton from './features/license/LawReviewButton'
 import TextMockButton from './features/license/TextMockButton'
 import ProgressionButton from './features/license/ProgressionButton'
+import CutoffDashboardButton from './features/license/CutoffDashboardButton'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -1201,6 +1202,7 @@ export default function App() {
                 onDeleteEntry={(id, i) => { void deleteEntry(id, i) }}
               />
             )}
+            {activeTab === 'review' && exam.features.allText && <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />}
 
             {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar

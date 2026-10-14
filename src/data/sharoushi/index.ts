@@ -90,3 +90,20 @@ export const SHAROUSHI_MOCK_DEADLINE = '2027-05-31'
 // 進級判定（§8.2。学習科目ごと・厳しめ）の閾値。ここ1か所で持つ。
 //   minSureRate: 直近の結果が A（正解×確信）の肢の割合の下限 / gapDays: 2回の合格の間隔（日）
 export const SHAROUSHI_PROGRESSION = { minSureRate: 0.85, gapDays: 7 }
+
+// 足切りダッシュボード・5月末ゲート（§10.2・PR-I）の閾値。**推定値**（5〜6月の模試得点と合否の関係を示す公開データは未確認）。
+// ここ1か所で持ち、模試で較正したら書き換える。
+//   blue:   択一 taku 以上 かつ 選択式 sentaku 以上 かつ 足切り科目が maxFloorFailures 以下 → 計画どおり
+//   yellow: 択一 redTakuBelow〜blue.taku-1、または足切り科目が yellowFloorFailures → 6月に再判定
+//   red:    択一 redTakuBelow 未満、または1周目未完了、または一般常識（generalStudySubjects）が未着手、
+//           または足切り科目が yellowFloorFailures を超える → 2028年本命を検討
+//   minAttempted: 採点科目ごとに、直近の結果がある肢がこれ未満なら「データ不足」
+//   estimateExponent: 想定得点の暫定換算（択一の問の正答率 ≒ 肢の正答率 ^ この値）。模試で較正するまで参考表示
+export const SHAROUSHI_GATE_THRESHOLDS = {
+  blue: { taku: 42, sentaku: 23, maxFloorFailures: 1 },
+  yellowFloorFailures: 2,
+  redTakuBelow: 35,
+  generalStudySubjects: ['rouippan', 'shaippan'],
+  minAttempted: 20,
+  estimateExponent: 3,
+}
