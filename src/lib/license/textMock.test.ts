@@ -4,7 +4,7 @@ import type { AnswerSpec } from '../../domain/license'
 import type { MockAnswer } from '../../domain/types'
 import { SHAROUSHI_SCORING, SHAROUSHI_THRESHOLDS } from '../../data/sharoushi/index.ts'
 import {
-  blankChoices, isTakuCorrect, isTextAnswered, judgeText, scoreQuestion, scoreTextPaper, takuCorrectLabel,
+  blankChoices, isPaperReady, isTakuCorrect, isTextAnswered, judgeText, mockProgress, scoreQuestion, scoreTextPaper, takuCorrectLabel,
   type TextMockQuestion,
 } from './textMock'
 
@@ -173,5 +173,29 @@ describe('表示用', () => {
     expect(takuCorrectLabel({ kind: 'one', direction: 'wrong', correct: 3, accepted: [3, 4] })).toBe('C・D')
     expect(takuCorrectLabel({ kind: 'marks', correct: 5 })).toBe('E')
     expect(takuCorrectLabel(null)).toBe('全員正解')
+  })
+})
+
+describe('模試の年度と最終期限', () => {
+  it('問が揃っていれば年度を問わず解ける（択一70問・選択式8問）', () => {
+    expect(isPaperReady(TAKU, 70)).toBe(true)
+    expect(isPaperReady(TAKU, 69)).toBe(false)
+    expect(isPaperReady(SENTAKU, 8)).toBe(true)
+    expect(isPaperReady(SENTAKU, 7)).toBe(false)
+  })
+
+  const papers = ['R06', 'R07', 'R08', 'R99'].flatMap(year => (['taku', 'sentaku'] as const).map(format => ({ year, format })))
+  it('未受験の年度×式と期限までの日数。フィクスチャは数えない', () => {
+    const p = mockProgress(papers, [{ paper_id: 'R07', subject_id: 'taku' }, { paper_id: 'R99', subject_id: 'sentaku' }], '2027-05-31', '2027-05-01')
+    expect(p.daysLeft).toBe(30)
+    expect(p.done).toEqual([{ year: 'R07', format: 'taku' }])
+    expect(p.remaining).toHaveLength(5)
+    expect(p.overdue).toBe(false)
+  })
+  it('期限を過ぎて未受験が残れば overdue。すべて済めば過ぎても overdue でない', () => {
+    expect(mockProgress(papers, [], '2027-05-31', '2027-06-01').overdue).toBe(true)
+    const all = papers.map(p => ({ paper_id: p.year, subject_id: p.format }))
+    expect(mockProgress(papers, all, '2027-05-31', '2027-06-01').overdue).toBe(false)
+    expect(mockProgress(papers, [], '2027-05-31', '2027-05-31').daysLeft).toBe(0)
   })
 })

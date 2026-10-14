@@ -82,3 +82,7 @@ export const SHAROUSHI_EXAM: ExamDefinition = {
   features: { subjectPass: false, twoStage: false, scoring: SHAROUSHI_SCORING, allText: true },
   subjects: SHAROUSHI_SUBJECTS.map(s => ({ ...s, chapters: SHAROUSHI_SUBJECT_CHAPTERS[s.id] ?? s.chapters })),
 }
+
+// 本番形式模試（R6〜R8）を一通り終える最終期限の既定値（§7・§8）。模試ゲート（§10.1）に合わせる。
+// どの年度をいつ解くかは決めず、進捗を見て選ぶ。利用者は模試画面で変えられる（denken_settings.mock_deadline）。
+export const SHAROUSHI_MOCK_DEADLINE = '2027-05-31'
