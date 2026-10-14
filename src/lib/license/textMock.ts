@@ -17,6 +17,8 @@ import type { AnswerSpec, LicFormat } from '../../domain/license'
 import { ITEM_LABELS } from '../../domain/license'
 import type { MockAnswer } from '../../domain/types'
 import { judgeSection, type ScoringSection, type SectionJudgement, type SubjectScores } from '../../domain/scoring'
+import { diffDays } from '../date'
+import { FIXTURE_YEARS } from './ingest/schema.ts'
 
 export interface TextMockQuestion {
   id: string
@@ -116,4 +118,36 @@ export function takuCorrectLabel(spec: AnswerSpec | null): string {
   if (!spec || spec.kind === 'sentaku') return '全員正解'
   const list = spec.kind === 'one' ? (spec.accepted ?? [spec.correct]) : [spec.correct]
   return list.map(n => ITEM_LABELS[n - 1] ?? '?').join('・')
+}
+
+// ---------------------------------------------------------------------------
+// 最終期限までの進捗（§7・§8）。R6〜R8 はいつでも模試として解け、どれをいつ解くかは決めない。期限だけを持つ。
+// 「済み」は年度×式を1回以上採点確定したもの。フィクスチャの年度（R98・R99）は数えない。
+
+export interface MockPaperRef { year: string; format: LicFormat }
+
+export interface MockProgress {
+  deadline: string
+  daysLeft: number          // 期限まで（当日 0、過ぎたら負）
+  overdue: boolean          // 期限を過ぎて未受験が残っている
+  done: MockPaperRef[]
+  remaining: MockPaperRef[]
+}
+
+export function mockProgress(
+  papers: readonly MockPaperRef[],
+  finished: readonly { paper_id: string; subject_id: string }[],
+  deadline: string, today: string,
+): MockProgress {
+  const doneKeys = new Set(finished.map(s => `${s.paper_id}-${s.subject_id}`))
+  const real = papers.filter(p => !FIXTURE_YEARS.includes(p.year))
+  const done = real.filter(p => doneKeys.has(`${p.year}-${p.format}`))
+  const remaining = real.filter(p => !doneKeys.has(`${p.year}-${p.format}`))
+  const daysLeft = diffDays(today, deadline)
+  return { deadline, daysLeft, overdue: daysLeft < 0 && remaining.length > 0, done, remaining }
+}
+
+/** 1回分の問が揃っているか（択一: 科目×問数＝70問、選択式: 1科目1問＝8問）。揃っていれば年度を問わず模試として解ける。 */
+export function isPaperReady(section: ScoringSection, questionCount: number): boolean {
+  return questionCount === (section.id === 'taku' ? section.totalMax : section.subjects.length)
 }

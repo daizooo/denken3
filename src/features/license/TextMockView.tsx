@@ -1,19 +1,16 @@
 // 本番形式模試の一覧（licensehub-expansion.md §7・§8・PR-H）。年度×式の選択・受験・再開・結果と、温存の解放日の設定を束ねる。
-// - 年度は lic_questions に揃っている（択一70問／選択式8科目）もので、温存の解放日を過ぎたものだけ選べる（isPaperAvailable）
+// - 年度は lic_questions に揃っている（択一70問／選択式8科目）ものなら、いつでも選べる（電験の年度別と同じ）
+// - どれをいつ解くかは決めず、最終期限（denken_settings.mock_deadline。migration 025）と未受験の年度×式だけを出す
 // - セッションは denken_mock_sessions（exam_id='sharoushi'、subject_id=式、paper_id=年度、mode='cbt'）
-// - 解放日は denken_settings.holdout_release_dates（migration 024）。未設定のグループは解放しない
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Lock, Play, RefreshCw, X } from 'lucide-react'
+import { Play, RefreshCw, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { todayJST } from '../../lib/date'
 import type { AnswerSpec, ItemLabel, LicFormat } from '../../domain/license'
 import type { MockAnswer, TextMockSession } from '../../domain/types'
 import type { ScoringSection } from '../../domain/scoring'
-import { SHAROUSHI_SCORING } from '../../data/sharoushi/index.ts'
-import {
-  holdoutGroupLabel, isPaperAvailable, paperHoldoutGroups, parseReleaseDates,
-} from '../../lib/license/holdout'
-import { scoreTextPaper } from '../../lib/license/textMock'
+import { SHAROUSHI_MOCK_DEADLINE, SHAROUSHI_SCORING } from '../../data/sharoushi/index.ts'
+import { isPaperReady, mockProgress, scoreTextPaper } from '../../lib/license/textMock'
 import TextPaperRunner, { type RunnerQuestion } from './TextPaperRunner'
 import TextMockResult from './TextMockResult'
 
@@ -22,10 +19,8 @@ const EXAM_ID = 'sharoushi'
 const FORMATS: LicFormat[] = ['taku', 'sentaku']
 
 const sectionOf = (f: LicFormat): ScoringSection => SHAROUSHI_SCORING.sections.find(s => s.id === f)!
-// 1回分に揃っているべき問の数（択一: 科目×問数＝70、選択式: 1科目1問＝8）。
-const expectedCount = (f: LicFormat) => (f === 'taku' ? sectionOf(f).totalMax : sectionOf(f).subjects.length)
 
-interface Paper { year: string; format: LicFormat; count: number; groups: (string | null)[] }
+interface Paper { year: string; format: LicFormat; count: number }
 
 function toSession(r: Record<string, unknown>): TextMockSession {
   return {
@@ -82,8 +77,7 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
   const today = todayJST()
   const [papers, setPapers] = useState<Paper[] | null>(null)
   const [sessions, setSessions] = useState<TextMockSession[]>([])
-  const [releaseDates, setReleaseDates] = useState<Record<string, string>>({})
-  const [draftDates, setDraftDates] = useState<Record<string, string>>({})
+  const [deadline, setDeadline] = useState(SHAROUSHI_MOCK_DEADLINE)
   const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -99,44 +93,39 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
 
   useEffect(() => {
     let alive = true
-    supabase.from('lic_questions').select('year, format, holdout_group').eq('user_id', userId)
+    supabase.from('lic_questions').select('year, format').eq('user_id', userId)
       .then(({ data, error: e }) => {
         if (!alive) return
         if (e) { setError(`年度を読めません: ${e.message}`); return }
         const map = new Map<string, Paper>()
         for (const r of data ?? []) {
           const key = `${r.year}-${r.format}`
-          const p = map.get(key) ?? { year: r.year as string, format: r.format as LicFormat, count: 0, groups: [] }
+          const p = map.get(key) ?? { year: r.year as string, format: r.format as LicFormat, count: 0 }
           p.count++
-          p.groups.push((r.holdout_group as string) ?? null)
           map.set(key, p)
         }
         setPapers([...map.values()].sort((a, b) => b.year.localeCompare(a.year) || FORMATS.indexOf(a.format) - FORMATS.indexOf(b.format)))
       })
-    supabase.from('denken_settings').select('holdout_release_dates').eq('user_id', userId).maybeSingle()
+    supabase.from('denken_settings').select('mock_deadline').eq('user_id', userId).maybeSingle()
       .then(({ data, error: e }) => {
         if (!alive) return
-        if (e) { setMsg('解放日の設定を読めません（migration 024 が未適用の可能性）。本物の年度は選べません'); return }
-        const d = parseReleaseDates(data?.holdout_release_dates)
-        setReleaseDates(d); setDraftDates(d)
+        if (e) setMsg('最終期限の設定を読めません（migration 025 が未適用の可能性）。既定値で表示します')
+        else if (data?.mock_deadline) setDeadline(data.mock_deadline as string)
       })
     void reloadSessions()
     return () => { alive = false }
   }, [userId, reloadSessions])
 
-  const settings = useMemo(() => ({ releaseDates }), [releaseDates])
-  const groups = useMemo(() => {
-    const all = new Set<string>(['pilot-r7-rk'])
-    for (const p of papers ?? []) for (const g of paperHoldoutGroups(p.year, p.groups)) all.add(g)
-    return [...all].sort()
-  }, [papers])
+  const progress = useMemo(() => mockProgress(
+    (papers ?? []).filter(p => isPaperReady(sectionOf(p.format), p.count)),
+    sessions.filter(s => s.status === 'finished'), deadline, today,
+  ), [papers, sessions, deadline, today])
 
-  const saveDates = async () => {
-    const clean = parseReleaseDates(Object.fromEntries(Object.entries(draftDates).filter(([, v]) => v)))
+  const saveDeadline = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) { setMsg('日付を YYYY-MM-DD で入れてください'); return }
     const { error: e } = await supabase.from('denken_settings')
-      .upsert({ user_id: userId, holdout_release_dates: clean }, { onConflict: 'user_id' })
-    if (e) { setMsg(`保存できません: ${e.message}`); return }
-    setReleaseDates(clean); setDraftDates(clean); setMsg('解放日を保存しました')
+      .upsert({ user_id: userId, mock_deadline: deadline }, { onConflict: 'user_id' })
+    setMsg(e ? `保存できません: ${e.message}` : '最終期限を保存しました')
   }
 
   const run = async (session: TextMockSession) => {
@@ -220,12 +209,25 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
 
         {papers !== null && (
           <div className="space-y-2">
-            <p className="text-xs text-gray-500">択一式 {sectionOf('taku').timeLimitMin}分・選択式 {sectionOf('sentaku').timeLimitMin}分。温存の年度は解放日を過ぎると選べます。</p>
+            <div className={`rounded-xl border p-2 text-sm space-y-1 ${progress.overdue ? 'bg-red-50 border-red-300 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                最終期限
+                <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="border rounded px-2 py-1 bg-white" />
+                <button onClick={() => void saveDeadline()} className="px-2 py-1 rounded border border-indigo-600 text-indigo-700 text-xs">保存</button>
+                <span className="text-xs">{progress.daysLeft >= 0 ? `残り ${progress.daysLeft} 日` : `${-progress.daysLeft} 日超過`}</span>
+              </div>
+              <p className="text-xs">
+                {progress.remaining.length === 0
+                  ? (progress.done.length > 0 ? 'すべて1回以上受験済み' : '本試験の年度がまだありません')
+                  : `未受験 ${progress.remaining.length}: ${progress.remaining.map(p => `${p.year} ${sectionOf(p.format).name}`).join('・')}`}
+              </p>
+              {msg && <p className="text-xs text-gray-500">{msg}</p>}
+            </div>
+            <p className="text-xs text-gray-500">択一式 {sectionOf('taku').timeLimitMin}分・選択式 {sectionOf('sentaku').timeLimitMin}分。どの年度をいつ解くかは進捗を見て選んでください。</p>
             {papers.length === 0 && <p className="text-sm text-gray-600">取り込み済みの年度がありません。</p>}
             {papers.map(p => {
               const sec = sectionOf(p.format)
-              const complete = p.count === expectedCount(p.format)
-              const open = isPaperAvailable(p.year, p.groups, today, settings)
+              const complete = isPaperReady(sec, p.count)
               const inProgress = sessions.find(s => s.status === 'in_progress' && s.paper_id === p.year && s.subject_id === p.format)
               const finished = sessions.filter(s => s.status === 'finished' && s.paper_id === p.year && s.subject_id === p.format)
               const best = finished.reduce<number | null>((m, s) => (s.score != null ? Math.max(m ?? 0, s.score) : m), null)
@@ -233,15 +235,11 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
                 <div key={`${p.year}-${p.format}`} className="flex flex-wrap items-center gap-2 border rounded-xl p-2 text-sm">
                   <span className="font-bold text-gray-700">{p.year} {sec.name}</span>
                   <span className="text-xs text-gray-500">
-                    {p.count}/{expectedCount(p.format)}{finished.length > 0 ? `・受験${finished.length}回・最高${best ?? '-'}/${sec.totalMax}` : ''}
+                    {p.count}問{finished.length > 0 ? `・受験${finished.length}回・最高${best ?? '-'}/${sec.totalMax}` : ''}
                   </span>
                   <span className="flex-1" />
                   {!complete ? <span className="text-xs text-gray-400">問が揃っていません</span>
-                    : !open ? (
-                      <span className="flex items-center gap-1 text-xs text-gray-400">
-                        <Lock size={14} /> 温存中（{paperHoldoutGroups(p.year, p.groups).map(g => releaseDates[g] ?? '解放日未設定').join('・')}）
-                      </span>
-                    ) : inProgress ? (
+                    : inProgress ? (
                       <>
                         <button disabled={busy} onClick={() => void run(inProgress)} className="flex items-center gap-1 px-3 py-1 rounded bg-indigo-600 text-white text-xs">
                           <RefreshCw size={14} /> 再開
@@ -273,22 +271,6 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
             ))}
           </div>
         )}
-
-        <div className="space-y-2 border-t pt-3">
-          <p className="text-xs text-gray-500">温存の解放日（未設定のグループは解放しません。§8）</p>
-          {groups.map(g => (
-            <label key={g} className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
-              <span className="flex-1 min-w-48">{holdoutGroupLabel(g)}</span>
-              <input
-                type="date" value={draftDates[g] ?? ''}
-                onChange={e => setDraftDates(prev => ({ ...prev, [g]: e.target.value }))}
-                className="border rounded px-2 py-1"
-              />
-            </label>
-          ))}
-          <button onClick={() => void saveDates()} className="px-3 py-1 rounded border border-indigo-600 text-indigo-700 text-sm">解放日を保存</button>
-          {msg && <p className="text-xs text-gray-500">{msg}</p>}
-        </div>
       </div>
     </div>
   )
