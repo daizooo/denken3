@@ -1,12 +1,14 @@
 // 本番形式模試の結果画面（licensehub-expansion.md §7・PR-H）。
 // 科目別の得点・総得点・足切り科目の警告・判定（合格圏／ボーダー／不足）と、目標・合格基準までの差を出す。
 // 得点は保存済みの section_scores（採点確定時の値）を正とし、判定は SHAROUSHI_THRESHOLDS 由来の ScoringSection で行う。
+// 誤答した問は MockMissReview で肢ごとに ○×・解説を確認できる（§8.1）。
 import { AlertTriangle, X } from 'lucide-react'
 import { ITEM_LABELS } from '../../domain/license'
 import type { ScoringSection } from '../../domain/scoring'
 import type { TextMockSession } from '../../domain/types'
-import { judgeText, scoreQuestion, takuCorrectLabel, VERDICT_LABELS, type TextVerdict } from '../../lib/license/textMock'
+import { judgeText, MOCK_SCORE_NOTE, scoreQuestion, takuCorrectLabel, VERDICT_LABELS, type TextVerdict } from '../../lib/license/textMock'
 import type { RunnerQuestion } from './TextPaperRunner'
+import MockMissReview from './MockMissReview'
 
 const VERDICT_STYLE: Record<TextVerdict, string> = {
   safe: 'bg-green-100 text-green-800 border-green-400',
@@ -15,12 +17,14 @@ const VERDICT_STYLE: Record<TextVerdict, string> = {
 }
 
 export default function TextMockResult({
-  section, session, questions, onClose,
+  section, session, questions, recorded, onClose,
 }: {
   section: ScoringSection
   session: TextMockSession
   /** 問ごとの正誤を出すときに渡す（無ければ科目別だけ）。 */
   questions?: RunnerQuestion[]
+  /** 採点確定時に復習キューへ入れた肢の数（採点直後だけ）。 */
+  recorded?: number
   onClose: () => void
 }) {
   const scores = session.section_scores ?? {}
@@ -47,6 +51,7 @@ export default function TextMockResult({
               <AlertTriangle size={16} /> 足切り {failures.size} 科目（{[...failures].join('・')}）。足切りがあると総得点に関わらず不足です
             </p>
           )}
+          <p className="text-xs opacity-80">{MOCK_SCORE_NOTE}</p>
           <p className="text-xs opacity-80">足切りは原則（各科目 {section.subjects[0]?.floor ?? '-'} 点）で判定し、救済は見込みません。</p>
         </div>
 
@@ -91,6 +96,16 @@ export default function TextMockResult({
               })}
             </div>
           </div>
+        )}
+
+        {recorded != null && recorded > 0 && (
+          <p className="text-xs text-indigo-700">誤答した問の {recorded} 肢を理解度 C で記録し、日々の復習キューに入れました（出題は法改正の確認と索引の反映後）。</p>
+        )}
+        {questions && questions.length > 0 && (
+          <MockMissReview
+            questions={questions} answers={session.answers}
+            subjectName={Object.fromEntries(section.subjects.map(s => [s.code, s.name]))}
+          />
         )}
       </div>
     </div>

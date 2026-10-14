@@ -4,7 +4,8 @@ import type { AnswerSpec } from '../../domain/license'
 import type { MockAnswer } from '../../domain/types'
 import { SHAROUSHI_SCORING, SHAROUSHI_THRESHOLDS } from '../../data/sharoushi/index.ts'
 import {
-  blankChoices, isPaperReady, isTakuCorrect, isTextAnswered, judgeText, mockProgress, scoreQuestion, scoreTextPaper, takuCorrectLabel,
+  blankChoices, isPaperReady, isTakuCorrect, isTextAnswered, judgeText, missedItemIds, mockProgress, scoreQuestion, scoreTextPaper,
+  takuCorrectLabel,
   type TextMockQuestion,
 } from './textMock'
 
@@ -197,5 +198,27 @@ describe('模試の年度と最終期限', () => {
     const all = papers.map(p => ({ paper_id: p.year, subject_id: p.format }))
     expect(mockProgress(papers, all, '2027-05-31', '2027-06-01').overdue).toBe(false)
     expect(mockProgress(papers, [], '2027-05-31', '2027-05-31').daysLeft).toBe(0)
+  })
+})
+
+describe('missedItemIds（誤答の復習）', () => {
+  const wq: TextMockQuestion & { items?: { label: string }[] } = {
+    id: 'R99_T_RK_02', format: 'taku', scored_subject: 'RK', answer_spec: { kind: 'marks', correct: 2 },
+    items: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
+  }
+  const sq: TextMockQuestion = {
+    id: 'R99_S_RK', format: 'sentaku', scored_subject: 'RK',
+    answer_spec: { kind: 'sentaku', blanks: { A: 1, B: 5, C: 9, D: 13 }, wordbank: WORDBANK },
+  }
+  it('択一は誤答した問の肢すべて（肢が3つの問は3つ）、正解した問は出さない', () => {
+    expect(missedItemIds([wq], { [wq.id]: ans(1) })).toEqual(['R99_T_RK_02_A', 'R99_T_RK_02_B', 'R99_T_RK_02_C'])
+    expect(missedItemIds([wq], { [wq.id]: ans(2) })).toEqual([])
+    expect(missedItemIds([{ ...wq, items: undefined }], {})).toHaveLength(5)
+  })
+  it('選択式は誤答した空欄だけ。正答の無い空欄（全員正解）は出さない', () => {
+    expect(missedItemIds([sq], { [sq.id]: ans(1, 2, 9, 0, 7) })).toEqual(['R99_S_RK_B', 'R99_S_RK_D'])
+  })
+  it('正答の無い問（全員正解）は出さない', () => {
+    expect(missedItemIds([{ ...wq, answer_spec: null }], {})).toEqual([])
   })
 })

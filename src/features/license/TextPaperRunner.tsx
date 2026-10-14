@@ -11,7 +11,10 @@ import type { MockAnswer, TextMockSession } from '../../domain/types'
 import type { ScoringSection } from '../../domain/scoring'
 import { blankChoices, isTextAnswered } from '../../lib/license/textMock'
 
-export interface RunnerItem { label: ItemLabel; label_raw: string | null; statement: string }
+export interface RunnerItem {
+  label: ItemLabel; label_raw: string | null; statement: string
+  truth?: boolean | null; explanation?: string | null   // 結果画面の誤答の復習用（§8.1）。解答中は表示しない
+}
 
 export interface RunnerQuestion {
   id: string

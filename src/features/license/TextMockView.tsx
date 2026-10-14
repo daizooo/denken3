@@ -2,15 +2,17 @@
 // - 年度は lic_questions に揃っている（択一70問／選択式8科目）ものなら、いつでも選べる（電験の年度別と同じ）
 // - どれをいつ解くかは決めず、最終期限（denken_settings.mock_deadline。migration 025）と未受験の年度×式だけを出す
 // - セッションは denken_mock_sessions（exam_id='sharoushi'、subject_id=式、paper_id=年度、mode='cbt'）
+// - 採点確定時に、誤答した問の肢を理解度 C で記録し、日々の復習キューに入れる（§8.1。記録は App の updateStatus の経路）
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Play, RefreshCw, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { todayJST } from '../../lib/date'
 import type { AnswerSpec, ItemLabel, LicFormat } from '../../domain/license'
-import type { MockAnswer, TextMockSession } from '../../domain/types'
+import type { MockAnswer, Status, TextMockSession } from '../../domain/types'
+import type { Attempt } from '../../lib/attempt'
 import type { ScoringSection } from '../../domain/scoring'
 import { SHAROUSHI_MOCK_DEADLINE, SHAROUSHI_SCORING } from '../../data/sharoushi/index.ts'
-import { isPaperReady, mockProgress, scoreTextPaper } from '../../lib/license/textMock'
+import { isPaperReady, missedItemIds, mockProgress, scoreTextPaper } from '../../lib/license/textMock'
 import TextPaperRunner, { type RunnerQuestion } from './TextPaperRunner'
 import TextMockResult from './TextMockResult'
 
@@ -50,12 +52,13 @@ async function loadQuestions(userId: string, year: string, format: LicFormat): P
   const items: Record<string, RunnerQuestion['items']> = {}
   for (let i = 0; i < ids.length; i += 100) {
     const { data, error: e } = await supabase.from('lic_items')
-      .select('question_id, label, label_raw, statement')
+      .select('question_id, label, label_raw, statement, truth, explanation')
       .eq('user_id', userId).in('question_id', ids.slice(i, i + 100))
     if (e) throw e
     for (const it of data ?? []) {
       (items[it.question_id as string] ??= []).push({
         label: it.label as ItemLabel, label_raw: (it.label_raw as string) ?? null, statement: (it.statement as string) ?? '',
+        truth: (it.truth as boolean | null) ?? null, explanation: (it.explanation as string | null) ?? null,
       })
     }
   }
@@ -71,9 +74,14 @@ async function loadQuestions(userId: string, year: string, format: LicFormat): P
 
 type Active =
   | { phase: 'running'; session: TextMockSession; questions: RunnerQuestion[] }
-  | { phase: 'result'; session: TextMockSession; questions?: RunnerQuestion[] }
+  | { phase: 'result'; session: TextMockSession; questions?: RunnerQuestion[]; recorded?: number }
 
-export default function TextMockView({ userId, onClose }: { userId: string; onClose: () => void }) {
+export default function TextMockView({ userId, onRecord, onClose }: {
+  userId: string
+  /** 誤答した肢を復習キューに入れる（App の updateStatus）。無ければ記録しない。 */
+  onRecord?: (itemId: string, status: Status, attempt: Attempt) => void
+  onClose: () => void
+}) {
   const today = todayJST()
   const [papers, setPapers] = useState<Paper[] | null>(null)
   const [sessions, setSessions] = useState<TextMockSession[]>([])
@@ -167,8 +175,21 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
     }
     const { data, error: e } = await supabase.from(TABLE).update(row).eq('id', session.id).select().single()
     if (e) setError(`採点結果を保存できません（画面の結果は表示します）: ${e.message}`)
-    setActive({ phase: 'result', session: data ? toSession(data) : { ...session, ...row }, questions })
+    // 誤答した問の肢を C で記録する（§8.1）。採点確定は1回だけなので、記録も1回だけ
+    const missed = onRecord ? missedItemIds(questions, answers) : []
+    for (const id of missed) onRecord?.(id, 'C', { correct: false })
+    setActive({ phase: 'result', session: data ? toSession(data) : { ...session, ...row }, questions, recorded: missed.length })
     void reloadSessions()
+  }
+
+  // 過去の結果も、問を読み込んで誤答の復習を出す（読めなければ科目別だけ）
+  const openResult = async (s: TextMockSession) => {
+    setBusy(true)
+    try {
+      setActive({ phase: 'result', session: s, questions: await loadQuestions(userId, s.paper_id, s.subject_id) })
+    } catch {
+      setActive({ phase: 'result', session: s })
+    } finally { setBusy(false) }
   }
 
   const abandon = async (session: TextMockSession) => {
@@ -192,6 +213,7 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
     return (
       <TextMockResult
         section={sectionOf(active.session.subject_id)} session={active.session} questions={active.questions}
+        recorded={active.recorded}
         onClose={() => setActive(null)}
       />
     )
@@ -263,7 +285,7 @@ export default function TextMockView({ userId, onClose }: { userId: string; onCl
             {sessions.filter(s => s.status === 'finished').map(s => (
               <button
                 key={s.id}
-                onClick={() => setActive({ phase: 'result', session: s })}
+                onClick={() => void openResult(s)}
                 className="w-full text-left text-sm border rounded px-2 py-1 text-gray-700"
               >
                 {(s.finished_at ?? s.started_at).slice(0, 10)}　{s.paper_id} {sectionOf(s.subject_id).name}　{s.score ?? '-'} / {sectionOf(s.subject_id).totalMax} 点

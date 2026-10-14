@@ -45,7 +45,7 @@ export const TAKU_TOTAL_ITEMS = TAKU_TOTAL_QUESTIONS * ITEM_LABELS.length       
 export const SENTAKU_TOTAL_QUESTIONS = SENTAKU_ORDER.length                           // 8
 export const SENTAKU_TOTAL_BLANKS = SENTAKU_TOTAL_QUESTIONS * SENTAKU_BLANKS_PER_SUBJECT  // 40
 
-// 温存グループ（§8）。pilot-r7-rk は R7 の択一 労基・安衛だけ（選択式の RK は含まない）。R8 は全部 gate-r8。
+// 温存グループ（§8）。温存は廃止したため常に null（holdoutGroupOf）。
 export function officialHoldoutGroup(year: string, format: LicFormat, scoredSubject: string): string | null {
   return holdoutGroupOf(year, format === 'taku' ? scoredSubject : '')
 }

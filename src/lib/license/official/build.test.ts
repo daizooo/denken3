@@ -46,12 +46,11 @@ describe('deriveTruths（§13）', () => {
 })
 
 describe('officialHoldoutGroup（§8）', () => {
-  it('R7 は択一の労基・安衛だけ pilot-r7-rk、R8 は全部 gate-r8', () => {
-    expect(officialHoldoutGroup('R07', 'taku', 'RK')).toBe('pilot-r7-rk')
+  it('温存は廃止したので、どの年度・式にも温存グループを付けない', () => {
+    expect(officialHoldoutGroup('R07', 'taku', 'RK')).toBeNull()
     expect(officialHoldoutGroup('R07', 'sentaku', 'RK')).toBeNull()
-    expect(officialHoldoutGroup('R07', 'taku', 'RS')).toBeNull()
-    expect(officialHoldoutGroup('R08', 'sentaku', 'KN')).toBe('gate-r8')
-    expect(officialHoldoutGroup('R08', 'taku', 'RK')).toBe('gate-r8')
+    expect(officialHoldoutGroup('R08', 'sentaku', 'KN')).toBeNull()
+    expect(officialHoldoutGroup('R08', 'taku', 'RK')).toBeNull()
     expect(officialHoldoutGroup('R06', 'taku', 'RK')).toBeNull()
   })
 })
@@ -118,12 +117,11 @@ describe('buildOfficialYear（フィクスチャ R99: 全件がゲートを通�
     expect(formatGate(units)[1]).toContain('R99 択一: ✓ 合格')
   })
 
-  it('温存対象の年度は件数に温存グループが出る', () => {
+  it('R07 でも温存グループは付かない（温存は廃止）', () => {
     const asR07 = buildOfficialYear({ ...data, year: 'R07' }, {})
     expect(asR07.every(u => u.passed)).toBe(true)
-    expect(asR07[0].questions.filter(q => q.holdout_group === 'pilot-r7-rk')).toHaveLength(10)
-    expect(asR07[1].questions.every(q => q.holdout_group === null)).toBe(true)
-    expect(formatCounts(asR07).join('\n')).toContain('温存対象:     50 件（pilot-r7-rk 50）')
+    expect(asR07.every(u => u.questions.every(q => q.holdout_group === null))).toBe(true)
+    expect(formatCounts(asR07).join('\n')).toContain('温存対象:     0 件')
   })
 })
 
