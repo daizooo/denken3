@@ -29,7 +29,7 @@ function valuesRows<T>(rows: T[], columns: (keyof T)[]): string {
 }
 
 // 書き込み先の利用者: --user の UUID か、Auth の利用者が1人ならその人（resolveUserId と同じ規則）
-function userGuard(userId: string | undefined): { guard: string; expr: string } {
+export function userGuard(userId: string | undefined): { guard: string; expr: string } {
   if (userId) {
     if (!UUID_RE.test(userId)) throw new Error(`user_id が UUID の形式ではありません: ${userId}`)
     return { guard: '', expr: `'${userId}'::uuid` }

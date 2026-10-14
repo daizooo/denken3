@@ -45,6 +45,7 @@ import { APP_NAME } from './config/app'
 import ItemSolver from './features/license/ItemSolver'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
+import LawReviewButton from './features/license/LawReviewButton'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -1180,6 +1181,8 @@ export default function App() {
                 }}
               />
             )}
+            {/* 社労士（allText）の要確認一覧（法改正。licensehub-expansion.md §9）。 */}
+            {activeTab === 'review' && exam.features.allText && <LawReviewButton userId={user.id} />}
 
             {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar
