@@ -127,7 +127,7 @@ describe('toRows', () => {
     const { questions, items } = toRows(valid, 'u1')
     expect(questions).toEqual([{
       user_id: 'u1', id: 'R07_T_RK_01', year: 'R07', format: 'taku', scored_subject: 'RK', study_subject: 'rouki',
-      q_no: 1, stem: null, answer_spec: null, source: 'ippon', holdout_group: 'pilot-r7-rk',
+      q_no: 1, stem: null, answer_spec: null, source: 'ippon', holdout_group: null,
     }])
     expect(items[0]).toEqual({
       user_id: 'u1', id: 'R07_T_RK_01_A', question_id: 'R07_T_RK_01', label: 'A', label_raw: 'A',
@@ -141,7 +141,7 @@ describe('toRows', () => {
 })
 
 describe('summarize / formatSummary', () => {
-  it('科目別・年度別・温存対象の件数を出す', () => {
+  it('科目別・年度別の件数を出す（温存は廃止したので温存対象は0件）', () => {
     const { valid } = validateTranscription([
       item({ source_ref: 'R07-RK-01-A' }), item({ source_ref: 'R08-RK-01-A', topic: null }),
       item({ source_ref: 'R03-RK-07-A', study_subject: 'anei', importance: undefined }),
@@ -151,10 +151,10 @@ describe('summarize / formatSummary', () => {
       items: 3, questions: 3,
       byStudySubject: { anei: 1, rouki: 2 },
       byYear: { R03: 1, R07: 1, R08: 1 },
-      byHoldout: { 'gate-r8': 1, 'pilot-r7-rk': 1 },
+      byHoldout: {},
       withoutExplanation: 0, withoutTopic: 1, withoutImportance: 1,
     })
-    expect(formatSummary(s).join('\n')).toContain('温存対象:   2 件（gate-r8 1 / pilot-r7-rk 1）')
+    expect(formatSummary(s).join('\n')).toContain('温存対象:   0 件')
   })
 })
 
