@@ -196,6 +196,7 @@ export interface MockAnswer {
 }
 
 export interface MockSession {
+  kind?: 'paper'                     // 判別子（電験の画像CBT。省略可）。テキストの模試は TextMockSession
   id: string
   exam_id: string
   subject_id: string
@@ -210,6 +211,17 @@ export interface MockSession {
   section_scores: { A: number; B: number } | null
   memo: string
 }
+
+// テキストの本番形式模試（社労士。licensehub-expansion.md §7）。同じ denken_mock_sessions の行で、
+// subject_id は式（'taku'｜'sentaku'）、paper_id は年度（'R99'）、section_scores は採点科目コード → 得点（{"RK":7,...}）。
+// score はその式の総得点（素点。100点換算ではない）。
+export interface TextMockSession extends Omit<MockSession, 'kind' | 'subject_id' | 'section_scores'> {
+  kind: 'text'
+  subject_id: 'taku' | 'sentaku'
+  section_scores: Record<string, number> | null
+}
+
+export type AnyMockSession = MockSession | TextMockSession
 
 // ==============================
 // 試験日程（denken_exam_plans / §6.2）
