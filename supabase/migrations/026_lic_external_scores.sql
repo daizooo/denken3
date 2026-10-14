@@ -30,15 +30,22 @@ CREATE INDEX IF NOT EXISTS lic_external_scores_user_exam
 -- RLS（lic_questions・lic_items と同形：本人のみ操作可）
 ALTER TABLE lic_external_scores ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "users_manage_own_lic_external_scores" ON lic_external_scores;
-CREATE POLICY "users_manage_own_lic_external_scores"
-  ON lic_external_scores
-  FOR ALL
-  USING  (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+-- 再実行に備え、削除（DROP）を使わずに冪等にする（ポリシーは無いときだけ作り、トリガーは置き換える）。
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy
+    WHERE polrelid = 'lic_external_scores'::regclass AND polname = 'users_manage_own_lic_external_scores'
+  ) THEN
+    CREATE POLICY "users_manage_own_lic_external_scores"
+      ON lic_external_scores
+      FOR ALL
+      USING  (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- updated_at 自動更新（001 で定義した関数を再利用）
-DROP TRIGGER IF EXISTS lic_external_scores_updated_at ON lic_external_scores;
-CREATE TRIGGER lic_external_scores_updated_at
+CREATE OR REPLACE TRIGGER lic_external_scores_updated_at
   BEFORE UPDATE ON lic_external_scores
   FOR EACH ROW EXECUTE FUNCTION update_denken_updated_at();
