@@ -19,7 +19,9 @@
 - 択一 70問 / 350肢（7科目 × 問1〜10 × 肢A〜E）、選択式 8科目 / 40空欄（空欄A〜Eが各1つ、語群あり）
 - 正答の充足率 100%（問題誤りで `excluded` にした問・空欄を除く）、ID重複なし
 - 問型（1つ選ぶ・組合せ・個数）と「誤っている／正しい」の方向が読めること。組合せ・個数は選択肢 A〜E が5つ読めること
-- 文字化けの検出（§13）: 添字・上付きの数字（₁₂₃）、私用領域の文字・置換文字（�）・`(cid:N)`（÷× などの崩れ）、ラテン文字の記号、制御文字
+- 文字化けの検出（§13）: 添字・上付きの数字（₁₂₃）、私用領域の文字・置換文字（�）・`(cid:N)`（÷× などの崩れ）、ラテン文字の記号、制御文字、
+  ASCII に化けた算式の記号（R6/R8 で × → `#`、÷ → `'`、≒ → `]` を確認）
+  - R7/R8 は数字の書体が下付き数字（`第 ₁₂ 条`）として抽出される。通常の数字と混ざらない下付き数字の並びは半角数字に戻す（`１₂５` は崩れとして残す）
 - 労一・社一（IP）の分割位置（§4.3・§16）: 既定は問1〜5＝労一・問6〜10＝社一。本文に片方の科目の法令名だけが現れる問が既定と食い違えば失敗（`studySplit.IP` で上書きする）。労基/安衛（問8〜）・労災/雇用の徴収法（問8〜）の食い違いは警告
 
 警告（保存はする）: 個数の問で truth を導出できない、語群が20語でない、正答の補正・除外、分割位置の食い違い（IP 以外）。
@@ -31,6 +33,8 @@
 | `lic_questions` | `source='honshiken'`。`stem`（組合せ・個数は選択肢の行を付ける。選択式は空欄を ［A］ にした本文）・`answer_spec`（`AnswerSpec`）は**公式を正本**として上書き |
 | `lic_items` | `truth_source='derived'`、`law_status='unchecked'`（§9。確認は PR-K）、`explanation_source='none'`、`origin_statement`＝公式の原文 |
 | truth（§13） | 1つ選べ・組合せは全肢を導出。個数は 0個・5個のときだけ導出し、他は null（書籍から補う）。選択式の空欄は null（正答は `answer_spec.blanks`） |
+| 複数正答 | 問題誤りの公表で2つを正解とした問（R6 労災 問6・R8 一般常識 問9）は `answer_spec.accepted`（正答の全部）を持ち、正解とされた肢がすべて方向どおりの truth になる。`law_note` に公表の内容 |
+| 空欄ごとの語群 | R8 の一部科目は空欄ごとに4語。`wordbank` は通し番号（A の①〜④ → 1〜4 …）にそろえ、`answer_spec.groups`（空欄 → 番号）を持つ。正答表の ①〜④ は通し番号に直して `blanks` に入れる |
 | 温存（§8） | R7 択一 労基・安衛＝`pilot-r7-rk`、R8 全部＝`gate-r8`（`holdoutGroupOf`） |
 
 書籍の肢（`truth_source='book'`）が同じ座標に既にあれば、statement・truth・解説・論点・重要度・law_status は**上書きせず**、公式の原文を `origin_statement` に入れる。truth・学習科目の食い違い、個数の問で書籍の ○ の数が正答と合わないもの、座標が公式に無い書籍の肢は一覧にする（書籍の値を残す）。
@@ -40,9 +44,9 @@
 
 ```sh
 W=/tmp/official   # リポジトリの外
-pdftotext -enc UTF-8 令和8年度択一式.pdf $W/r08-taku.txt
-pdftotext -enc UTF-8 令和8年度選択式.pdf $W/r08-sentaku.txt
-pdftotext -enc UTF-8 -layout 社会保険労務士試験の合格基準及び正答について_2026.pdf $W/r08-answers.txt
+pdftotext -enc UTF-8 -raw 令和8年度択一式.pdf $W/r08-taku.txt      # -raw（PDF の描画順）。既定の並びだと改ページで問番号と選択肢の順が崩れる
+pdftotext -enc UTF-8 -raw 令和8年度選択式.pdf $W/r08-sentaku.txt
+pdftotext -enc UTF-8 -layout 社会保険労務士試験の合格基準及び正答について_2026.pdf $W/r08-answers.txt   # 正答表は列の位置で読む
 
 # 1) 検証ゲートと件数（Supabase に触れない）。--dump-json で構造化結果を確認できる
 node scripts/license/ingest-official.mjs --year R08 \
@@ -56,6 +60,9 @@ node scripts/license/ingest-official.mjs --year R08 ... --sql $W/r08
 #   $W/r08.sql        保存（BEGIN〜COMMIT。最後に expected / stored の件数を確認）
 ```
 
+- R6 の問題PDFは ToUnicode の無い Adobe-Japan1 のフォントで、poppler に `poppler-data`（`/usr/share/poppler/cidToUnicode/Adobe-Japan1`）が無いと1字も抽出できない。
+  入れられない環境では pdfminer.six 同梱の対応表から作れる（対応の無い CID は U+FFFD にして、文字化けの検出で止める。空白にすると字が黙って消える）。
+- 正答表（R6〜R8）は選択式と択一式が1つの表で、見出し「Ａ Ｂ Ｃ Ｄ Ｅ 1 2 … 10」の列の位置で読む。上下に積まれた複数の正答（R6 労災 問6 の C／D など）は null と警告になるので、公表どおり `multi` で補正する。
 - 正答が表から読めないとき（表の向き・セル結合）は、正答JSON `{"taku":{"RK":"ACEBDABCDE",…},"sentaku":{"RK":[3,12,5,18,9],…}}` を `--answers x.json` で渡せる。
 - service key がある環境では `--sql` を付けずに実行すると、DB の既存行と突き合わせて直接 upsert する（`.env` の `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`、利用者は `--user` → `LICENSE_USER_ID` → 1人ならその人）。
 - 生成した SQL は、022 を適用した PostgreSQL で EXPLAIN（と、使い捨ての DB での実行）により型・構文を確かめてから渡す。
@@ -68,10 +75,13 @@ node scripts/license/ingest-official.mjs --year R08 ... --sql $W/r08
   "questions": {
     "R06_T_XX_NN": { "action": "excluded", "note": "公表: 全員正解" },
     "R06_T_YY_MM": { "action": "correct", "correct": "B", "note": "公表: 正答をBに訂正" },
-    "R06_S_ZZ_C":  { "action": "correct", "correct": "12", "note": "公表: 空欄Cの正答を⑫に訂正" }
+    "R06_S_ZZ_C":  { "action": "correct", "correct": "12", "note": "公表: 空欄Cの正答を⑫に訂正" },
+    "R06_T_RS_06": { "action": "multi", "correct": ["C", "D"], "note": "公表: C及びDを正答（先頭が本来の正答）" }
   }
 }
 ```
+
+労一・社一（IP）の分割位置: R6〜R8 は問5が社会保険労務士法令（社一）のため、いずれも `"studySplit": { "IP": 4 }` で取り込んだ。
 
 `excluded` の肢は `law_status='excluded'`（既存の書籍の肢も excluded にする）。後から補正を外しても excluded は自動では戻らない（戻すときは SQL で `law_status` を更新する）。
 

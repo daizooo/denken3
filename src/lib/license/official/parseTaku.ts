@@ -32,7 +32,8 @@ function splitBlocks(lines: string[], year: string, issues: OfficialIssue[]): Bl
 
   for (const line of lines) {
     const h = headingSubject(line, 'taku')
-    if (h) { current = h; continue }
+    // 見出しの後ろ（次の問まで）は見出しの括弧書きの折り返し（「（労働保険の…を含む。」「）」）。前の問に入れない
+    if (h) { current = h; block = null; continue }
     const m = toHalfWidth(line).match(Q_HEAD_RE)
     if (m) {
       const n = Number(m[1])
@@ -110,6 +111,9 @@ export function detectDirection(lead: string): Direction | null {
   const ask = [...sentences].reverse().find(s => /か$|か[）)]?$/.test(s.trim())) ?? lead
   if (/誤っている|誤りである|誤りの|正しくない|妥当でない|適切でない|不適切/.test(ask)) return 'wrong'
   if (/正しい|妥当な|適切な/.test(ask)) return 'right'
+  // 「業務災害として保険給付の対象となるものはいくつあるか」「…に含まれない行為はどれか」: 条件に当たる肢を ○ とする
+  if (/(?:となら|に該当し|に当たら|と認められ|に含まれ|ことができ)ない(?:もの|行為)/.test(ask)) return 'wrong'
+  if (/(?:となる|に該当する|に当たる|と認められる|に含まれる|ことができる)(?:もの|行為)/.test(ask)) return 'right'
   return null
 }
 
