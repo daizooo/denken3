@@ -78,6 +78,9 @@
   - 経路: Supabase MCP（DDL は `apply_migration`、それ以外は `execute_sql`）。migration はリポジトリのファイルと同じ内容を、同じ番号の名前で適用する。
   - 手順: ①ローカルの PostgreSQL で EXPLAIN と実行（2回流して冪等）を確かめる ②本番で読み出しのみの確認SQL（件数・一覧）→ 本体 → 結果を確かめる SELECT の順に流す ③実行したSQLの全文と件数を PR本文とチャットに報告する。
   - **削除系（DELETE・DROP・TRUNCATE、データが消えるロールバック）は利用者が実行する。** PR本文とチャットの報告に必ず全文を出力し（ファイル名や要約だけで済ませない）、ロールバック用のSQLも全文を併記する。
+    - 対象は文の種類で決める。`DROP POLICY IF EXISTS`・`DROP TRIGGER IF EXISTS`・`DROP INDEX` など、**データが消えない DROP も含め、DELETE・DROP・TRUNCATE を1文でも含む SQL は Claude Code が実行しない**（migration の冪等化のための DROP も同じ。Supabase MCP では確認待ちになり通らない）。
+    - その SQL は、Claude Code が別の書き方に書き換えて自分で流すのではなく、PR本文とチャットに全文を出力して利用者に実行を依頼する。削除系を含まない形で書けることもあるが、書き換えるかどうかは利用者が決める。
+    - 削除系を含む migration は、削除系を含まない部分と分けて出力しない。1つの migration として全文を渡し、適用後に Claude Code が結果を確かめる SELECT を流す。
   - Supabase MCP に接続できないときは、理由を明記したうえで SQL をファイルで渡し、利用者に実行を依頼する。
 - 問題本文は**リポジトリに置かない**（DBのみ）。リポジトリに置くのは、本文を含まない「マスター索引」（ID・論点名・重要度・年度など）だけ。理由: データ追加のたびにPR・デプロイが要らない、修正が単純なUPDATEで済む、バンドルが肥大しない。作業用ファイル（PDF・JSON・スクリーンショット）は `docs/question-text-ocr.md` と同様、**リポジトリ配下に保存せずコミットしない**。
 
