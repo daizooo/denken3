@@ -55,11 +55,13 @@ export function officialHoldoutGroup(year: string, format: LicFormat, scoredSubj
 //
 // 1つ選べ: 選んだ肢だけが「誤り（または正しい）」、他は逆。組合せ: 選んだ2肢が方向どおり、他は逆。
 // 個数: 0個・5個のときだけ全肢が決まる。それ以外は null（書籍から補う）。
+// ○×の組合せ: 選んだ選択肢の ○× がそのまま全肢の truth。
 // accepted（問題誤りの公表で複数を正解とした「1つ選ぶ」問）: 正解とされた肢がすべて方向どおり、他は逆。
 
 export function deriveTruths(
-  q: Pick<OfficialTakuQuestion, 'kind' | 'direction' | 'comboPairs' | 'countOptions'>, correct: number, accepted?: number[],
+  q: Pick<OfficialTakuQuestion, 'kind' | 'direction' | 'comboPairs' | 'countOptions' | 'markPatterns'>, correct: number, accepted?: number[],
 ): (boolean | null)[] {
+  if (q.kind === 'marks') return q.markPatterns?.[correct - 1] ?? []   // ○×の組合せ: 選んだ選択肢の ○× がそのまま truth（肢の数だけ）
   const dirTrue = q.direction === 'right'
   if (q.kind === 'one') {
     const hit = accepted ?? [correct]
@@ -78,10 +80,11 @@ export function deriveTruths(
 function choiceLine(q: OfficialTakuQuestion): string {
   if (q.kind === 'combo') return q.choices.map((c, i) => `${ITEM_LABELS[i]}（${c}）`).join('\u3000')
   if (q.kind === 'count') return q.choices.map((c, i) => `${ITEM_LABELS[i]} ${c}`).join('\u3000')
+  if (q.kind === 'marks') return q.choices.map((c, i) => `${ITEM_LABELS[i]}（${c}）`).join('\u3000')
   return ''
 }
 
-const KIND_NAMES: Record<TakuKind, string> = { one: '1つ選ぶ', combo: '組合せ', count: '個数' }
+const KIND_NAMES: Record<TakuKind, string> = { one: '1つ選ぶ', combo: '組合せ', count: '個数', marks: '○×の組合せ' }
 
 function yearIssues(year: string, fixture: boolean): string[] {
   if (!/^[HR]\d{2}$/.test(year)) return [`年度の表記が不正（H29〜R08 の形）: ${year}`]
@@ -113,7 +116,9 @@ function ranges(ns: number[]): [number, number][] {
   return out
 }
 
-function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: OfficialAnswers | null, opts: BuildOptions): Omit<OfficialUnit, 'year' | 'format' | 'provided' | 'passed'> {
+type UnitBody = Omit<OfficialUnit, 'year' | 'format' | 'provided' | 'passed'> & { expectedItems?: number }
+
+function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: OfficialAnswers | null, opts: BuildOptions): UnitBody {
   const issues: OfficialIssue[] = []
   const err = (where: string, reason: string) => issues.push({ level: 'error', where, reason })
   const warn = (where: string, reason: string) => issues.push({ level: 'warning', where, reason })
@@ -121,6 +126,7 @@ function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: Official
   const items: OfficialItemRow[] = []
   const counts: CountCheck[] = []
   const split = opts.corrections?.studySplit ?? {}
+  let expectedItems = TAKU_TOTAL_ITEMS   // ○×の組合せの問は肢が5つより少ないぶん減らす
 
   const byKey = new Map<string, OfficialTakuQuestion[]>()
   for (const q of taku) {
@@ -151,7 +157,14 @@ function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: Official
       if (!q.kind) err(where, '問型を判定できない（肢の印 A〜E / ア〜オ と「組合せ」「いくつ」の語が食い違う）')
       if (!q.direction) err(where, '「誤っている／正しい」のどちらを選ぶ問か読めない')
       const labels = q.items.map(i => i.label).join('')
-      if (labels !== ITEM_LABELS.join('')) err(where, `肢が A〜E（ア〜オ）の5つでない: ${q.items.map(i => i.labelRaw).join('') || '(なし)'}`)
+      const nItems = q.kind === 'marks' ? q.items.length : ITEM_LABELS.length
+      if (q.kind === 'marks' && (nItems < 2 || labels !== ITEM_LABELS.slice(0, nItems).join(''))) {
+        err(where, `○×の組合せの肢がア から連続する2〜5個でない: ${q.items.map(i => i.labelRaw).join('') || '(なし)'}`)
+      } else if (q.kind !== 'marks' && labels !== ITEM_LABELS.join('')) err(where, `肢が A〜E（ア〜オ）の5つでない: ${q.items.map(i => i.labelRaw).join('') || '(なし)'}`)
+      if (q.kind === 'marks') expectedItems -= ITEM_LABELS.length - nItems
+      if (q.kind === 'marks' && (q.markPatterns?.length !== 5 || q.markPatterns.some(p => p.length !== nItems))) {
+        err(where, `○×の組合せの選択肢が5つ（各 ${nItems} 肢）読めない: ${q.choices.join(' / ') || '(なし)'}`)
+      }
       q.items.forEach(it => { if (!it.text) err(where, `肢 ${it.labelRaw} の本文が空`) })
       if (q.kind === 'combo' && (q.comboPairs?.length !== 5 || q.comboPairs.some(p => p.length !== 2 || p[0] === p[1]))) {
         err(where, `組合せの選択肢が5つ読めない: ${q.choices.join(' / ') || '(なし)'}`)
@@ -234,7 +247,7 @@ function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: Official
       }
     }
   }
-  return { issues, questions, items, counts }
+  return { issues, questions, items, counts, expectedItems }
 }
 
 // ---------------------------------------------------------------------------
@@ -334,10 +347,10 @@ function buildSentaku(year: string, sentaku: OfficialSentakuQuestion[], answers:
 // ---------------------------------------------------------------------------
 // ゲート
 
-function finish(year: string, format: LicFormat, provided: boolean, body: Omit<OfficialUnit, 'year' | 'format' | 'provided' | 'passed'>, extra: OfficialIssue[]): OfficialUnit {
+function finish(year: string, format: LicFormat, provided: boolean, body: UnitBody, extra: OfficialIssue[]): OfficialUnit {
   const issues = [...extra, ...body.issues]
   const err = (reason: string) => issues.push({ level: 'error', where: `${year} ${format === 'taku' ? '択一' : '選択式'}`, reason })
-  const [wantQ, wantI] = format === 'taku' ? [TAKU_TOTAL_QUESTIONS, TAKU_TOTAL_ITEMS] : [SENTAKU_TOTAL_QUESTIONS, SENTAKU_TOTAL_BLANKS]
+  const [wantQ, wantI] = format === 'taku' ? [TAKU_TOTAL_QUESTIONS, body.expectedItems ?? TAKU_TOTAL_ITEMS] : [SENTAKU_TOTAL_QUESTIONS, SENTAKU_TOTAL_BLANKS]
   if (provided) {
     if (body.questions.length !== wantQ || body.items.length !== wantI) {
       err(`件数が足りない: ${format === 'taku' ? '問' : '科目'} ${body.questions.length}/${wantQ}、${format === 'taku' ? '肢' : '空欄'} ${body.items.length}/${wantI}（上の失敗の問を除いた数）`)

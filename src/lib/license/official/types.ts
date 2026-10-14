@@ -2,7 +2,7 @@
 // 抽出テキスト → この形（中間JSON。--dump-json で書き出し、手で直して --json で読み戻せる）→ 検証ゲート → DB 行。
 import type { ItemLabel } from '../../../domain/license.ts'
 
-export type TakuKind = 'one' | 'combo' | 'count'
+export type TakuKind = 'one' | 'combo' | 'count' | 'marks'
 export type Direction = 'wrong' | 'right'
 
 export interface OfficialTakuItem {
@@ -22,6 +22,7 @@ export interface OfficialTakuQuestion {
   choices: string[]       // 組合せ・個数の選択肢 A〜E の表記（'アとイ' / '三つ'）。1つ選ぶ問は []
   comboPairs: ItemLabel[][] | null   // 組合せ: 選択肢 → 肢（A〜E に正規化）
   countOptions: number[] | null      // 個数: 選択肢 → 個数
+  markPatterns?: boolean[][]         // ○×の組合せ: 選択肢 → 肢ごとの ○（true）×（false）。肢は2〜5（ア〜ウなど）
 }
 
 // 選択式の1問（1科目）

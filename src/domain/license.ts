@@ -24,6 +24,7 @@ export type AnswerSpec =
                                                                      // accepted: 問題誤りの公表で複数を正解とした問の正答の全部（correct を含む）
   | { kind: 'combo'; correct: number }                               // 組合せ
   | { kind: 'count'; correct: number }                               // 個数
+  | { kind: 'marks'; correct: number }                               // 各肢に ○× を付けた組合せ（肢は2〜5。R6 労基 問2 はア〜ウの3肢）
   | {
       kind: 'sentaku'
       blanks: Partial<Record<ItemLabel, number>>                     // 空欄 → 語群の番号
