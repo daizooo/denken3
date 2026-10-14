@@ -42,7 +42,7 @@
 書籍の肢（`truth_source='book'`）が同じ座標に既にあれば、statement・truth・解説・論点・重要度・law_status は**上書きせず**、公式の原文を `origin_statement` に入れる。truth・学習科目の食い違い、個数の問で書籍の ○ の数が正答と合わないもの、座標が公式に無い書籍の肢は一覧にする（書籍の値を残す）。
 公式由来の既存行（再実行）は本文・truth を公式で更新し、`law_status`・`law_note`（PR-K の確認結果）は据え置く。冪等。
 
-## 3. 手順（利用者はローカル環境を持たないので、SQL を生成して SQL エディタで実行する）
+## 3. 手順（SQL を生成し、Claude Code が Supabase MCP で本番に実行する。licensehub-expansion.md §4.1）
 
 ```sh
 W=/tmp/official   # リポジトリの外
@@ -56,7 +56,7 @@ node scripts/license/ingest-official.mjs --year R08 \
   --dump-json $W/r08.json --dry-run
 # 抽出の崩れでゲートを通らない問は、$W/r08.json を直して --json $W/r08.json で読み戻す（無理に通さない）
 
-# 2) SQL を生成（DB に触れない）→ 利用者が SQL エディタで check → 本体 の順に実行
+# 2) SQL を生成（DB に触れない）→ Claude Code が check → 本体 の順に実行（Supabase MCP の execute_sql）
 node scripts/license/ingest-official.mjs --year R08 ... --sql $W/r08
 #   $W/r08.check.sql  読み出しのみ（書籍の肢との食い違いの一覧）
 #   $W/r08.sql        保存（BEGIN〜COMMIT。最後に expected / stored の件数を確認）
