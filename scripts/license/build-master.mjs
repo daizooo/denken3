@@ -11,6 +11,8 @@
 //   --include-fixture   フィクスチャ（年度 R98・R99）の肢も含める（通し確認用。生成物はコミットしない）
 //   --data <path>       DB の代わりに書き起こしJSONを検証して使う（DB 保存前の dry-run 確認用）
 //   --fixture           --data をフィクスチャとして検証する
+//   --items <path>      DB の代わりに肢の行の配列（id, study_subject, topic_id, importance, law_status）を使う
+//                       （service key の無い環境で、execute_sql の結果を書き出したもの）
 //   --out <dir>         出力先（既定: src/data/sharoushi/subjects）
 //   --user <uuid>       読み出す user_id（既定: LICENSE_USER_ID → 利用者が1人ならその人）
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -33,13 +35,15 @@ const HELP = `usage: node --env-file-if-exists=.env scripts/license/build-master
   --include-fixture   フィクスチャ（年度 ${FIXTURE_YEARS.join('・')}）の肢も含める（生成物はコミットしない）
   --data <path>       DB の代わりに書き起こしJSONを検証して使う
   --fixture           --data をフィクスチャとして検証する
+  --items <path>      DB の代わりに肢の行の配列（execute_sql の結果の書き出し）を使う
   --out <dir>         出力先（既定: src/data/sharoushi/subjects）
   --user <uuid>       読み出す user_id`
 
 const opts = parseArgs(process.argv.slice(2), {
   '--subject': 'subject', '--dry-run': 'dryRun?', '--include-fixture': 'includeFixture?',
-  '--data': 'data', '--fixture': 'fixture?', '--out': 'out', '--user': 'user',
+  '--data': 'data', '--fixture': 'fixture?', '--out': 'out', '--user': 'user', '--items': 'items',
 }, HELP)
+if (opts.data && opts.items) fail('--data と --items は同時に指定できません')
 if (opts.subject && !SHAROUSHI_SUBJECTS.some(s => s.id === opts.subject)) {
   fail(`未知の学習科目: ${opts.subject}（対象: ${SHAROUSHI_SUBJECTS.map(s => s.id).join(', ')}）`)
 }
@@ -50,6 +54,14 @@ async function loadItems() {
     if (errors.length > 0) console.log(`⚠ 検証に失敗した ${errors.length} 肢は索引に含めない（ingest.mjs --dry-run で理由を確認）`)
     console.log(`入力: ${opts.data}（DB の代わり。検証を通った ${valid.length} 肢）`)
     return toRows(valid, '').items
+  }
+  if (opts.items) {
+    const rows = readJson(opts.items)
+    if (!Array.isArray(rows)) fail(`${opts.items} は肢の行の配列ではありません`)
+    const taku = rows.filter(r => parseItemId(r.id)?.format === 'taku')
+      .filter(r => !opts.subject || r.study_subject === opts.subject)
+    console.log(`入力: ${opts.items} の択一式 ${taku.length} 肢（DB の代わり）`)
+    return taku
   }
   const supabase = await createSupabase()
   const userId = await resolveUserId(supabase, opts.user)
