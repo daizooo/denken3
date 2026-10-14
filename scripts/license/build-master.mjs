@@ -21,6 +21,7 @@ import { FIXTURE_YEARS, isFixtureId, toRows, validateTranscription } from '../..
 import { addToRegistry, buildSubjectChapters, renderSubjectFile } from '../../src/lib/license/ingest/master.ts'
 import { SHAROUSHI_SUBJECTS } from '../../src/data/sharoushi/index.ts'
 import { parseItemId } from '../../src/domain/license.ts'
+import { filterLawCleared } from '../../src/lib/license/lawStatus.ts'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEFAULT_OUT = join(REPO_ROOT, 'src/data/sharoushi/subjects')
@@ -53,7 +54,7 @@ async function loadItems() {
   const supabase = await createSupabase()
   const userId = await resolveUserId(supabase, opts.user)
   const rows = await selectAll(() => {
-    let q = supabase.from('lic_items').select('id, study_subject, topic_id, importance')
+    let q = supabase.from('lic_items').select('id, study_subject, topic_id, importance, law_status')
       .eq('user_id', userId).order('id')
     if (opts.subject) q = q.eq('study_subject', opts.subject)
     return q
@@ -63,7 +64,9 @@ async function loadItems() {
   return taku
 }
 
-const all = await loadItems()
+// 法改正の確認待ち（unchecked / review）・除外の肢は索引に載せない＝復習キュー・集計に入らない（§9・PR-K）
+const { kept: all, dropped: lawPending } = filterLawCleared(await loadItems())
+if (lawPending.length > 0) console.log(`  law_status が ok 以外の ${lawPending.length} 肢は除外（要確認一覧で ok にした後、索引を再生成すると載る）`)
 const fixtureCount = all.filter(r => isFixtureId(r.id)).length
 const items = all.filter(r => (opts.includeFixture || opts.data ? true : !isFixtureId(r.id)))
   .filter(r => !opts.subject || r.study_subject === opts.subject)
