@@ -47,6 +47,7 @@ import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
 import LawReviewButton from './features/license/LawReviewButton'
 import TextMockButton from './features/license/TextMockButton'
+import ProgressionButton from './features/license/ProgressionButton'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -1184,7 +1185,22 @@ export default function App() {
             )}
             {/* 社労士（allText）の要確認一覧（法改正。licensehub-expansion.md §9）。 */}
             {activeTab === 'review' && exam.features.allText && <LawReviewButton userId={user.id} />}
-            {activeTab === 'review' && exam.features.allText && <TextMockButton userId={user.id} />}
+            {activeTab === 'review' && exam.features.allText && (
+              <TextMockButton userId={user.id} onRecord={(id, s, attempt) => { void updateStatus(id, s, attempt) }} />
+            )}
+            {activeTab === 'review' && exam.features.allText && (
+              <ProgressionButton
+                userId={user.id}
+                exam={exam}
+                historyOf={id => reviews[id]?.review_history ?? []}
+                onRecord={(id, s, attempt) => {
+                  const date = dateFor(id)
+                  void updateStatus(id, s, attempt)
+                  return date
+                }}
+                onDeleteEntry={(id, i) => { void deleteEntry(id, i) }}
+              />
+            )}
 
             {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar

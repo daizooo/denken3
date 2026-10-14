@@ -151,3 +151,35 @@ export function mockProgress(
 export function isPaperReady(section: ScoringSection, questionCount: number): boolean {
   return questionCount === (section.id === 'taku' ? section.totalMax : section.subjects.length)
 }
+
+// ---------------------------------------------------------------------------
+// 誤答の復習（§8.1）。採点確定時に、誤答した問の肢を理解度 C で記録し、日々の復習キューに入れる。
+//   択一式: 誤答した問の肢すべて（どの肢の理解が欠けていたかは問の正誤からは分からないため、厳しめに全部）
+//   選択式: 誤答した空欄だけ（空欄が肢＝カード）
+// 正答の無い問・空欄（全員正解）は対象にしない。肢IDは {問ID}_{A〜E}（§4.2）。
+
+export function missedItemIds(
+  questions: readonly (TextMockQuestion & { items?: readonly { label: string }[] })[],
+  answers: Record<string, MockAnswer>,
+): string[] {
+  const out: string[] = []
+  for (const q of questions) {
+    const spec = q.answer_spec
+    if (!spec) continue
+    const selected = answers[q.id]?.selected ?? []
+    if (q.format === 'taku') {
+      if (isTakuCorrect(spec, selected[0] ?? 0)) continue
+      const labels = q.items && q.items.length > 0 ? q.items.map(i => i.label) : [...ITEM_LABELS]
+      out.push(...labels.map(l => `${q.id}_${l}`))
+    } else if (spec.kind === 'sentaku') {
+      ITEM_LABELS.forEach((label, i) => {
+        const correct = spec.blanks[label]
+        if (correct != null && selected[i] !== correct) out.push(`${q.id}_${label}`)
+      })
+    }
+  }
+  return out
+}
+
+/** 結果画面の得点に添える注記（§8）。 */
+export const MOCK_SCORE_NOTE = '出る順で既習の肢を含む得点です。初見の実力の予測には公開模試の得点を使ってください。'

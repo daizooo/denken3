@@ -86,3 +86,7 @@ export const SHAROUSHI_EXAM: ExamDefinition = {
 // 本番形式模試（R6〜R8）を一通り終える最終期限の既定値（§7・§8）。模試ゲート（§10.1）に合わせる。
 // どの年度をいつ解くかは決めず、進捗を見て選ぶ。利用者は模試画面で変えられる（denken_settings.mock_deadline）。
 export const SHAROUSHI_MOCK_DEADLINE = '2027-05-31'
+
+// 進級判定（§8.2。学習科目ごと・厳しめ）の閾値。ここ1か所で持つ。
+//   minSureRate: 直近の結果が A（正解×確信）の肢の割合の下限 / gapDays: 2回の合格の間隔（日）
+export const SHAROUSHI_PROGRESSION = { minSureRate: 0.85, gapDays: 7 }

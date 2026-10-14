@@ -7,7 +7,7 @@
 |---|---|
 | 抽出 | `pdftotext -enc UTF-8`（poppler）。PDF・抽出テキスト・中間JSONは**リポジトリの外**に置き、コミットしない（§4.1） |
 | 構造化 | `src/lib/license/official/parseTaku.ts`・`parseSentaku.ts`・`parseAnswers.ts`（純関数・vitest） |
-| 検証ゲート・DB行 | `src/lib/license/official/build.ts`（truth の導出・温存グループ・分割位置の検証） |
+| 検証ゲート・DB行 | `src/lib/license/official/build.ts`（truth の導出・分割位置の検証） |
 | 書籍との突き合わせ | `src/lib/license/official/merge.ts`（列ごとの規則。JS の upsert と SQL の両方に使う） |
 | SQL の生成 | `src/lib/license/official/sql.ts` |
 | 実行 | `scripts/license/ingest-official.mjs` |
@@ -37,7 +37,7 @@
 | ○×の組合せ | `answer_spec` は `{ kind: 'marks', correct }`。選んだ選択肢の ○× がそのまま全肢の truth。肢は数だけ（A〜C など）作る |
 | 複数正答 | 問題誤りの公表で2つを正解とした問（R6 労災 問6・R8 一般常識 問9）は `answer_spec.accepted`（正答の全部）を持ち、正解とされた肢がすべて方向どおりの truth になる。`law_note` に公表の内容 |
 | 空欄ごとの語群 | R8 の一部科目は空欄ごとに4語。`wordbank` は通し番号（A の①〜④ → 1〜4 …）にそろえ、`answer_spec.groups`（空欄 → 番号）を持つ。正答表の ①〜④ は通し番号に直して `blanks` に入れる |
-| 温存（§8） | R7 択一 労基・安衛＝`pilot-r7-rk`、R8 全部＝`gate-r8`（`holdoutGroupOf`） |
+| 温存（§8） | 廃止。R6〜R8 は模試として置き、日々の演習にも出す（`holdoutGroupOf` は常に null） |
 
 書籍の肢（`truth_source='book'`）が同じ座標に既にあれば、statement・truth・解説・論点・重要度・law_status は**上書きせず**、公式の原文を `origin_statement` に入れる。truth・学習科目の食い違い、個数の問で書籍の ○ の数が正答と合わないもの、座標が公式に無い書籍の肢は一覧にする（書籍の値を残す）。
 公式由来の既存行（再実行）は本文・truth を公式で更新し、`law_status`・`law_note`（PR-K の確認結果）は据え置く。冪等。

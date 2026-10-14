@@ -110,10 +110,10 @@ describe('isFixtureId / holdoutGroupOf', () => {
     expect(isFixtureId('dc_1')).toBe(false)
   })
 
-  it('温存グループ（§8）を座標から割り当てる', () => {
-    expect(holdoutGroupOf('R07', 'RK')).toBe('pilot-r7-rk')
+  it('温存は廃止したので、どの座標にも温存グループを付けない（§8）', () => {
+    expect(holdoutGroupOf('R07', 'RK')).toBeNull()
     expect(holdoutGroupOf('R07', 'KH')).toBeNull()
-    expect(holdoutGroupOf('R08', 'KN')).toBe('gate-r8')
+    expect(holdoutGroupOf('R08', 'KN')).toBeNull()
     expect(holdoutGroupOf('R03', 'RK')).toBeNull()
   })
 })

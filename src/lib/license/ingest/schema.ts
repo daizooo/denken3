@@ -76,12 +76,10 @@ export function isFixtureId(id: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 温存グループ（§8）。書籍の肢が本試験の座標を持つ場合は、その温存グループを引き継ぐ。
-// 解放日・出題可否の判定（isAvailable）は別PRの範囲。ここでは取り込み時の割り当てと件数報告だけに使う。
+// 温存グループ（§8）。温存は廃止した（R6〜R8 は模試として置き、日々の演習にも出す）ため、常に null。
+// lic_questions.holdout_group の列と件数の報告は残す（再び使うときに取り込み経路を変えずに済むように）。
 
-export function holdoutGroupOf(year: string, scoredSubject: string): string | null {
-  if (year === 'R07' && scoredSubject === 'RK') return 'pilot-r7-rk'
-  if (year === 'R08') return 'gate-r8'
+export function holdoutGroupOf(_year: string, _scoredSubject: string): string | null {
   return null
 }
 
