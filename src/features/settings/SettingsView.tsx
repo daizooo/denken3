@@ -6,6 +6,7 @@ import type { Policy } from '../../lib/policy'
 import type { FsrsParamsRow } from '../../lib/fsrsParams'
 import PolicyCard from './PolicyCard'
 import OptimizeCard from './OptimizeCard'
+import PlanTargetsButton from './PlanTargetsButton'
 
 // 試験日程設定（§7.1）。資格×科目ごとに denken_exam_plans を編集する。
 // CBT期・筆記日程はマスターに持たず手入力（年度で変わるため）。既知の確定日程は説明文に表示。
@@ -133,6 +134,8 @@ export default function SettingsView({
           {msg && <span className="text-xs text-gray-500">{msg}</span>}
         </div>
       </div>
+
+      <PlanTargetsButton userId={userId} examId={examId} onSaved={onSaved} />
 
       <PolicyCard policy={policy} />
 
