@@ -4,6 +4,9 @@
 //   択一式  「問1  C B D A E C B」（科目の並びに7つ）  または 「労働基準法及び労働安全衛生法  A C E B D A B C D E」（問1〜10）
 //   選択式  「労働基準法及び労働安全衛生法  ③ ⑫ ⑤ ⑱ ⑨」（空欄A〜E）  または 「A  ③ ⑪ …」（科目の並びに8つ）
 // 読めない表記（「B又はD」「全員正解」など）は null にして、ゲートで「正答なし」と理由を出す（補正は corrections）。
+//
+// 試験センターの正答PDF（R6〜R8。pdftotext -layout）は、1つの表に選択式（空欄Ａ〜Ｅ）と択一式（問1〜10）が並び、
+// 科目名が複数行に折り返す。見出し行「Ａ Ｂ Ｃ Ｄ Ｅ 1 2 … 10」があれば、列の位置で読む（parseAnswerGrid）。
 import type { ItemLabel } from '../../../domain/license.ts'
 import { ITEM_LABELS, normalizeLabel } from '../../../domain/license.ts'
 import { SENTAKU_ORDER, subjectAtLineStart, TAKU_ORDER, TAKU_QUESTIONS_PER_SUBJECT } from './subjects.ts'
@@ -38,7 +41,91 @@ export function emptyAnswers(): OfficialAnswers {
   return { taku: {}, sentaku: {} }
 }
 
+// ---------------------------------------------------------------------------
+// 列の位置で読む表（選択式＋択一式の1つの表）
+//
+// - 丸数字が5つの行 → 選択式の次の科目（SENTAKU_ORDER の順）
+// - 英字（A〜E）・「/」が並ぶ行 → 択一式。各字を見出しの列（問1〜10）に当て、いまの科目で埋まっている列に当たったら次の科目へ
+//   （R6 の一般常識のように、問1〜5 と問6〜10 が別の行に分かれていても1科目として読む）
+// - 英字1〜2字だけの行（上下に積まれた「C／D」、R8 は「/」の上下に D／E）→ 近い行の、空いている（または「/」の）列の正答の候補。
+//   候補が2つ以上の列は null と理由（公表どおりなら corrections の multi で指定する）
+function gridHeader(lines: string[]): { at: number; cols: number[] } | null {
+  for (let at = 0; at < lines.length; at++) {
+    const cols: number[] = []
+    for (let q = 1; q <= TAKU_QUESTIONS_PER_SUBJECT; q++) {
+      const re = new RegExp(`(?<=[\\s　])${q}(?![0-9])`, 'g')
+      const m = [...lines[at].matchAll(re)].find(x => cols.length === 0 || x.index! > cols[cols.length - 1])
+      if (!m) break
+      cols.push(m.index! + (String(q).length - 1) / 2)
+    }
+    if (cols.length === TAKU_QUESTIONS_PER_SUBJECT && /[ＡA][\s　]+[ＢB][\s　]+[ＣC][\s　]+[ＤD][\s　]+[ＥE]/.test(lines[at])) return { at, cols }
+  }
+  return null
+}
+
+function parseAnswerGrid(text: string, year: string): { answers: OfficialAnswers; issues: OfficialIssue[] } | null {
+  const lines = text.replace(/\r\n?/g, '\n').replace(/\f/g, '\n').split('\n')
+  const head = gridHeader(lines)
+  if (!head) return null
+  const answers = emptyAnswers()
+  const issues: OfficialIssue[] = []
+  const nearest = (x: number) => head.cols.reduce((best, c, i) => (Math.abs(c - x) < Math.abs(head.cols[best] - x) ? i : best), 0)
+
+  type Row = { line: number; subject: number; cells: Map<number, string> }
+  const rows: Row[] = []
+  const stacked: { line: number; col: number; letter: string }[] = []
+  let sentakuAt = 0
+  let takuAt = -1
+  let filled = new Set<number>()
+  for (let i = head.at + 1; i < lines.length; i++) {
+    const line = lines[i]
+    const circled = [...line].filter(c => circledToNumber(c) !== null)
+    if (circled.length === ITEM_LABELS.length) {
+      const code = SENTAKU_ORDER[sentakuAt++]
+      if (code) answers.sentaku[code] = Object.fromEntries(ITEM_LABELS.map((l, k) => [l, circledToNumber(circled[k])]))
+    }
+    // 科目名の後ろ（表の列の範囲）にある英字・「/」1字のトークン
+    const letters = [...line.matchAll(/(?<=^|[\s　])([A-EＡ-Ｅ/／])(?=[\s　]|$)/g)].filter(m => m.index! >= head.cols[0] - 2)
+    if (letters.length === 0) continue
+    const cells = new Map(letters.map(m => [nearest(m.index!), toHalfWidth(m[1]).replace('／', '/')]))
+    if (letters.length <= 2 && circled.length === 0 && ![...cells.values()].includes('/')) {
+      cells.forEach((letter, col) => stacked.push({ line: i, col, letter }))
+      continue
+    }
+    if (takuAt < 0 || [...cells.keys()].some(c => filled.has(c))) { takuAt++; filled = new Set() }
+    cells.forEach((_, c) => filled.add(c))
+    rows.push({ line: i, subject: takuAt, cells })
+  }
+
+  const candidates = new Map<string, string[]>()   // 'IP-9' → ['D', 'E']
+  for (const s of stacked) {
+    const open = rows.filter(r => !r.cells.has(s.col) || r.cells.get(s.col) === '/')
+      .sort((a, b) => Math.abs(a.line - s.line) - Math.abs(b.line - s.line))[0]
+    if (!open) continue
+    const key = `${open.subject}-${s.col}`
+    candidates.set(key, [...(candidates.get(key) ?? []), s.letter])
+  }
+  for (const r of rows) {
+    const code = TAKU_ORDER[r.subject]
+    if (!code) { issues.push({ level: 'error', where: `${year} 正答 択一`, reason: `表の行が科目より多い: ${lines[r.line].trim()}` }); continue }
+    const arr = (answers.taku[code] ??= Array.from({ length: TAKU_QUESTIONS_PER_SUBJECT }, () => null))
+    r.cells.forEach((v, col) => { if (v !== '/') arr[col] = v as ItemLabel })
+  }
+  candidates.forEach((letters, key) => {
+    const [subject, col] = key.split('-').map(Number)
+    const code = TAKU_ORDER[subject]
+    if (!code) return
+    const arr = (answers.taku[code] ??= Array.from({ length: TAKU_QUESTIONS_PER_SUBJECT }, () => null))
+    if (letters.length === 1) { arr[col] = letters[0] as ItemLabel; return }
+    arr[col] = null
+    issues.push({ level: 'warning', where: `${year} 正答 択一 ${code} 問${col + 1}`, reason: `正答が複数（${letters.join('・')}）。公表どおりなら corrections の multi で指定する` })
+  })
+  return { answers, issues }
+}
+
 export function parseAnswersText(text: string, year: string): { answers: OfficialAnswers; issues: OfficialIssue[] } {
+  const grid = parseAnswerGrid(text, year)
+  if (grid) return grid
   const answers = emptyAnswers()
   const issues: OfficialIssue[] = []
   const setTaku = (code: string, qNo: number, v: ItemLabel | null, raw: string) => {

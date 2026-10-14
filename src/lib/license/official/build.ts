@@ -55,12 +55,16 @@ export function officialHoldoutGroup(year: string, format: LicFormat, scoredSubj
 //
 // 1つ選べ: 選んだ肢だけが「誤り（または正しい）」、他は逆。組合せ: 選んだ2肢が方向どおり、他は逆。
 // 個数: 0個・5個のときだけ全肢が決まる。それ以外は null（書籍から補う）。
+// accepted（問題誤りの公表で複数を正解とした「1つ選ぶ」問）: 正解とされた肢がすべて方向どおり、他は逆。
 
 export function deriveTruths(
-  q: Pick<OfficialTakuQuestion, 'kind' | 'direction' | 'comboPairs' | 'countOptions'>, correct: number,
+  q: Pick<OfficialTakuQuestion, 'kind' | 'direction' | 'comboPairs' | 'countOptions'>, correct: number, accepted?: number[],
 ): (boolean | null)[] {
   const dirTrue = q.direction === 'right'
-  if (q.kind === 'one') return ITEM_LABELS.map((_, i) => (i + 1 === correct ? dirTrue : !dirTrue))
+  if (q.kind === 'one') {
+    const hit = accepted ?? [correct]
+    return ITEM_LABELS.map((_, i) => (hit.includes(i + 1) ? dirTrue : !dirTrue))
+  }
   if (q.kind === 'combo') {
     const pair = q.comboPairs?.[correct - 1] ?? []
     return ITEM_LABELS.map(l => (pair.includes(l) ? dirTrue : !dirTrue))
@@ -90,7 +94,9 @@ function yearIssues(year: string, fixture: boolean): string[] {
 function lawOf(correction: { action: string; note: string } | undefined): { law_status: LawStatus; law_note: string | null } {
   return correction?.action === 'excluded'
     ? { law_status: 'excluded', law_note: `問題誤りの公表により除外: ${correction.note}` }
-    : { law_status: 'unchecked', law_note: correction ? `公表により正答を補正: ${correction.note}` : null }
+    : correction?.action === 'multi'
+      ? { law_status: 'unchecked', law_note: `問題誤りの公表により複数の選択肢を正解とした: ${correction.note}` }
+      : { law_status: 'unchecked', law_note: correction ? `公表により正答を補正: ${correction.note}` : null }
 }
 
 // ---------------------------------------------------------------------------
@@ -159,8 +165,20 @@ function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: Official
 
       // 正答
       let answer = answers?.taku[code]?.[n - 1] ?? null
+      let accepted: number[] | undefined
+      if (correction?.action === 'multi') {
+        const list = Array.isArray(correction.correct) ? correction.correct.map(c => normalizeLabel(c)) : []
+        if (q.kind !== 'one') err(where, '複数正答（multi）は「1つ選ぶ」問だけに指定できる')
+        else if (list.length < 2 || list.some(c => !c) || new Set(list).size !== list.length) {
+          err(where, `複数正答の指定が A〜E の2つ以上でない: ${JSON.stringify(correction.correct)}`)
+        } else {
+          answer = list[0]!
+          accepted = list.map(c => ITEM_LABELS.indexOf(c!) + 1).sort((a, b) => a - b)
+          warn(where, `問題誤りの公表により ${list.join('・')} をいずれも正答とする（本来の正答 ${list[0]}）: ${correction.note}`)
+        }
+      }
       if (correction?.action === 'correct') {
-        const c = normalizeLabel(correction.correct ?? '')
+        const c = normalizeLabel(typeof correction.correct === 'string' ? correction.correct : '')
         if (!c) err(where, `補正の正答が A〜E でない: ${correction.correct}`)
         else { if (answer !== c) warn(where, `公表により正答を ${answer ?? '(なし)'} → ${c} に補正: ${correction.note}`); answer = c }
       }
@@ -178,10 +196,10 @@ function buildTaku(year: string, taku: OfficialTakuQuestion[], answers: Official
 
       if (issues.filter(i => i.level === 'error').length > before) continue
       const correct = answer ? ITEM_LABELS.indexOf(answer) + 1 : null
-      const truths = correct ? deriveTruths(q, correct) : ITEM_LABELS.map(() => null)
+      const truths = correct ? deriveTruths(q, correct, accepted) : ITEM_LABELS.map(() => null)
       if (correct && q.kind === 'count') counts.push({ questionId: qid, direction: q.direction!, count: q.countOptions![correct - 1] })
       const spec: AnswerSpec | null = !correct ? null
-        : q.kind === 'one' ? { kind: 'one', direction: q.direction!, correct }
+        : q.kind === 'one' ? { kind: 'one', direction: q.direction!, correct, ...(accepted ? { accepted } : {}) }
         : { kind: q.kind!, correct } as AnswerSpec
       const line = choiceLine(q)
       questions.push({
@@ -265,7 +283,15 @@ function buildSentaku(year: string, sentaku: OfficialSentakuQuestion[], answers:
         if (!Number.isInteger(c)) err(where, `補正の正答が語群の番号でない: ${label} ${correction.correct}`)
         else { warn(where, `公表により空欄 ${label} の正答を ${n ?? '(なし)'} → ${c} に補正: ${correction.note}`); n = c }
       }
+      if (correction?.action === 'multi') err(where, `空欄 ${label}: 複数正答（multi）は択一の問だけに指定できる`)
       if (correction?.action === 'excluded') warn(where, `空欄 ${label}: 問題誤りの公表により除外: ${correction.note}`)
+      // 空欄ごとの語群: 正答表の ①〜④ は、その空欄の語群の位置 → 通し番号に直す（補正の番号も同じ扱い）
+      const group = q.groups?.[label]
+      if (group && n !== null) {
+        if (!(n >= 1 && n <= group.length)) err(where, `空欄 ${label} の正答 ${n} がその空欄の語群（${group.length} 語）に無い`)
+        n = group[n - 1] ?? null
+      }
+      if (q.groups && !group) err(where, `空欄 ${label} の語群が読めない（空欄ごとの語群の書式）`)
       if (n === null && correction?.action !== 'excluded') err(where, `空欄 ${label} の正答が無い`)
       else if (n !== null && !(String(n) in q.wordbank)) err(where, `空欄 ${label} の正答 ${n} が語群に無い`)
       if (n !== null) blanks[label] = n
@@ -276,7 +302,7 @@ function buildSentaku(year: string, sentaku: OfficialSentakuQuestion[], answers:
     questions.push({
       id: qid, year, format: 'sentaku', scored_subject: code, study_subject: sentakuStudySubject(code), q_no: null,
       stem: q.stem,
-      answer_spec: { kind: 'sentaku', blanks, wordbank: q.wordbank },
+      answer_spec: { kind: 'sentaku', blanks, wordbank: q.wordbank, ...(q.groups ? { groups: q.groups } : {}) },
       source: 'honshiken',
       holdout_group: officialHoldoutGroup(year, 'sentaku', code),
     })

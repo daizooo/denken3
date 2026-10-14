@@ -30,6 +30,8 @@ export interface OfficialSentakuQuestion {
   stem: string            // 空欄を ［A］ の形にした本文
   blanks: ItemLabel[]     // 本文に現れた順の空欄
   wordbank: Record<string, string>   // 語群の番号（'1'〜'20'）→ 語句
+  // 空欄ごとに語群が分かれる書式（「Ａ ①… ④…」）: 空欄 → その空欄の語群（wordbank の通し番号。正答表の ①〜④ はこの順の位置）
+  groups?: Partial<Record<ItemLabel, number[]>>
 }
 
 // 正答。択一は科目 → 問1〜10 の選択肢（null は読めなかった）、選択式は科目 → 空欄 → 語群の番号。
@@ -41,9 +43,10 @@ export interface OfficialAnswers {
 // 問題誤りの公表などによる補正（R6。利用者の判断で書く。§13）。
 //   excluded: 出題から外す（肢は law_status='excluded'、正答が読めなくてもゲートを通す）
 //   correct:  公表どおりの正答に置き換える（択一は 'A'〜'E'）
+//   multi:    公表で複数の選択肢を正解とした択一の「1つ選ぶ」問（correct: ['C', 'D']。先頭を本来の正答とする）
 export interface OfficialCorrection {
-  action: 'excluded' | 'correct'
-  correct?: string
+  action: 'excluded' | 'correct' | 'multi'
+  correct?: string | string[]
   note: string
 }
 

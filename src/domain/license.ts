@@ -20,13 +20,15 @@ export const ITEM_LABELS: readonly ItemLabel[] = ['A', 'B', 'C', 'D', 'E']
 
 // 正答（lic_questions.answer_spec）。correct は選択肢の番号（1〜5 = A〜E / ア〜オ）。
 export type AnswerSpec =
-  | { kind: 'one'; direction: 'wrong' | 'right'; correct: number }   // 誤っている／正しいものを1つ選べ
+  | { kind: 'one'; direction: 'wrong' | 'right'; correct: number; accepted?: number[] }   // 誤っている／正しいものを1つ選べ
+                                                                     // accepted: 問題誤りの公表で複数を正解とした問の正答の全部（correct を含む）
   | { kind: 'combo'; correct: number }                               // 組合せ
   | { kind: 'count'; correct: number }                               // 個数
   | {
       kind: 'sentaku'
       blanks: Partial<Record<ItemLabel, number>>                     // 空欄 → 語群の番号
       wordbank: Record<string, string>                               // 語群の番号 → 語句
+      groups?: Partial<Record<ItemLabel, number[]>>                  // 空欄ごとに語群が分かれる年度（R8）: 空欄 → 選べる語群の番号
     }
 
 export interface LicQuestionRow {
