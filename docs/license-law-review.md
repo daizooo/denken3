@@ -10,7 +10,7 @@
 | 取り込み（PR-D） | スクリプト | 公式PDF由来の肢を保存 | `unchecked`（問題誤りで除外した肢は `excluded`） |
 | 自動判定 | `scripts/license/flag-law-risk.mjs` の SQL | 数値・期間・金額・年齢・割合・時間・人数・改正/施行の語を含む肢を候補にする | `unchecked` → `review` |
 | 判定 | Claude Code（根拠は e-Gov 法令検索と2027年版の教材） | 根拠条文で確かめ、`law_note` に根拠を追記 | → `ok` / `review` / `excluded` |
-| 反映 | 利用者（SQL エディタ）または要確認一覧の画面 | 判定を DB に入れる | |
+| 反映 | Claude Code（Supabase MCP）または要確認一覧の画面 | 判定を DB に入れる | |
 | 出題 | アプリ | `ok` の肢だけを出題・集計する | |
 
 - `unchecked` / `review` / `excluded` の肢は、肢モード・一括コピー・一括記録（`isAskableItem`）と、
@@ -25,9 +25,9 @@
 - 保存先は `denken_settings.law_base_date`（migration 023。NULL・行なしは既定値）。要確認一覧の画面の上部で変更できる。
 - 2027年4月の公告後に更新し、§6 の再照合を行う。
 
-## 3. 自動判定（利用者が SQL エディタで実行）
+## 3. 自動判定（Claude Code が本番に実行）
 
-利用者はローカル環境を持たないため、Claude Code が SQL を生成してファイルで渡す。判定は DB 上の本文に対して SQL の正規表現で行い、
+Claude Code が SQL を生成し、ローカルの PostgreSQL で確かめてから、Supabase MCP（`execute_sql`）で本番に流す（licensehub-expansion.md §4.1。削除系は無い）。判定は DB 上の本文に対して SQL の正規表現で行い、
 **規則は `src/lib/license/lawRisk.ts` の `LAW_RISK_RULES` だけに置く**（JS と PostgreSQL で同じ正規表現。SQL には本文を含まない）。
 
 ```sh
@@ -37,7 +37,7 @@ node scripts/license/flag-law-risk.mjs --sql /tmp/work/law-risk [--base-date 202
 
 | ファイル | 内容 | 実行 |
 |---|---|---|
-| `law-risk.check.sql` | 読み出しのみ。年度・科目別の件数（unchecked / 候補）と候補の一覧（ID・当たった規則・本文の先頭80字） | 先に実行して件数を確認 |
+| `law-risk.check.sql` | 読み出しのみ。年度・科目別の件数（unchecked / 候補）と候補の一覧（ID・当たった規則・本文の先頭80字） | 先に流して件数を確認・報告 |
 | `law-risk.sql` | 本体。`unchecked` の候補を `review` にし、`law_note` に `[法改正の自動判定] 法令基準日 … 時点で要確認（期間・金額…）` を追記 | 確認後に実行。冪等（2回目は `UPDATE 0`） |
 | `law-risk.rollback.sql` | 自動判定で `review` にし、まだ `review` のままの肢を `unchecked` に戻し、自動判定の行だけを消す | 戻すときだけ |
 
@@ -50,7 +50,7 @@ node scripts/license/flag-law-risk.mjs --sql /tmp/work/law-risk [--base-date 202
 
 ```sh
 node scripts/license/flag-law-risk.mjs --dry-run --json /tmp/work/r08.json   # 公式PDFの中間JSON（ingest-official.mjs --dump-json）
-node scripts/license/flag-law-risk.mjs --dry-run --items /tmp/work/items.json # 肢の行の配列（SQL エディタからの書き出し）
+node scripts/license/flag-law-risk.mjs --dry-run --items /tmp/work/items.json # 肢の行の配列（execute_sql の結果の書き出し）
 node --env-file-if-exists=.env scripts/license/flag-law-risk.mjs --dry-run    # DB から読み出す（service key）
 ```
 
@@ -74,7 +74,7 @@ node --env-file-if-exists=.env scripts/license/flag-law-risk.mjs --dry-run    # 
    - 改正で正答が変わる肢は、`truth` や本文を書き換えずに `excluded` にする（書籍の取り込みで同じ座標の肢が入れば、書籍の版が正本になる。§14）。
 5. **注記を書く**: `[判定 YYYY-MM-DD 基準日 YYYY-MM-DD] 確認済み|要確認|除外: 根拠`（`lawDecisionNote` と同じ形）。根拠は「労基法第32条（改正なし）」「教材p.123」のように短く。
    公表の注記（`問題誤りの公表により…`）は消さずに、その下に追記する。
-6. **反映する**: 少数なら要確認一覧の画面で入力する。まとまった件数は、下の SQL を Claude Code が作り、利用者が SQL エディタで実行する。
+6. **反映する**: 少数なら利用者が要確認一覧の画面で入力してもよい。まとまった件数は、下の SQL を Claude Code が作り、ローカルで確かめてから本番に流す（実行したSQLの全文と件数を報告する）。
 
 ```sql
 -- 判定の反映（Claude Code が VALUES を埋めて渡す）。追記のみ・冪等（同じ注記が既にある行と、確認待ちでない行は触らない）
