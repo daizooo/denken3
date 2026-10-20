@@ -2,6 +2,11 @@
 
 このファイルは、Claude Code がこのリポジトリで作業する際に必ず参照する方針書です。
 
+## 開発環境方針（ローカル開発は行わない）
+
+- ユーザーの PC でのローカル開発は今後も行わない。実装・検証・DB 変更は **Claude Code のクラウド環境で完結**させる。
+- `supabase start` / `supabase db reset` / `vercel dev` などローカル環境を前提にした手順を、提案や新規ドキュメントに書かない。
+
 ## コンフリクト最小化方針（最優先で遵守）
 
 このリポジトリでは、複数の Claude Code セッション（並行実行・別ブランチでの作業）が
@@ -45,6 +50,10 @@
   他PRで既に使われていないか確認してから採番する（連番の奪い合いがコンフリクトの典型例）。
 - 既存カラム・既存制約の変更・削除は避け、追加（`ADD COLUMN`、新規テーブル）で表現する
   （`docs/design/expansion-design.md` の migration 008 の方針を標準とする）。
+- `public` に新規テーブルを作るマイグレーションには、同じファイル内に **明示的な GRANT**
+  （`authenticated` / `service_role` へ select・insert・update・delete。anon は未ログイン経路が無い限り付与しない）
+  を書く。Supabase は 2026-10-30 以降、新規テーブルへ Data API 権限を自動付与しない
+  （`supabase/migrations/028_data_api_grants.sql` 参照）。
 
 ### 5. 作業開始前・PR作成前の同期
 
