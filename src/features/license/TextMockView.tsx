@@ -13,6 +13,8 @@ import type { Attempt } from '../../lib/attempt'
 import type { ScoringSection } from '../../domain/scoring'
 import { SHAROUSHI_MOCK_DEADLINE, SHAROUSHI_SCORING } from '../../data/sharoushi/index.ts'
 import { isPaperReady, missedItemIds, mockProgress, scoreTextPaper } from '../../lib/license/textMock'
+import { yearLabelJa } from '../../lib/license/idLabel'
+import { splitSharedLead } from '../../lib/license/sharedLead'
 import TextPaperRunner, { type RunnerQuestion } from './TextPaperRunner'
 import TextMockResult from './TextMockResult'
 
@@ -64,11 +66,15 @@ async function loadQuestions(userId: string, year: string, format: LicFormat): P
   }
   const order = sectionOf(format).subjects.map(s => s.code)
   return (qs ?? [])
-    .map(q => ({
-      id: q.id as string, format, scored_subject: q.scored_subject as string, q_no: (q.q_no as number) ?? null,
-      stem: (q.stem as string) ?? null, answer_spec: (q.answer_spec as AnswerSpec) ?? null,
-      items: (items[q.id as string] ?? []).sort((a, b) => a.label.localeCompare(b.label)),
-    }))
+    .map(q => {
+      const sorted = (items[q.id as string] ?? []).sort((a, b) => a.label.localeCompare(b.label))
+      // 書籍版の肢は問の前文を各肢の頭に含む。本試験形式では前文を1回だけ出す。
+      const shared = format === 'taku' ? splitSharedLead((q.stem as string) ?? null, sorted) : { stem: (q.stem as string) ?? null, items: sorted }
+      return {
+        id: q.id as string, format, scored_subject: q.scored_subject as string, q_no: (q.q_no as number) ?? null,
+        stem: shared.stem, answer_spec: (q.answer_spec as AnswerSpec) ?? null, items: shared.items,
+      }
+    })
     .sort((a, b) => order.indexOf(a.scored_subject) - order.indexOf(b.scored_subject) || (a.q_no ?? 0) - (b.q_no ?? 0))
 }
 
@@ -241,7 +247,7 @@ export default function TextMockView({ userId, onRecord, onClose }: {
               <p className="text-xs">
                 {progress.remaining.length === 0
                   ? (progress.done.length > 0 ? 'すべて1回以上受験済み' : '本試験の年度がまだありません')
-                  : `未受験 ${progress.remaining.length}: ${progress.remaining.map(p => `${p.year} ${sectionOf(p.format).name}`).join('・')}`}
+                  : `未受験 ${progress.remaining.length}: ${progress.remaining.map(p => `${yearLabelJa(p.year)} ${sectionOf(p.format).name}`).join('・')}`}
               </p>
               {msg && <p className="text-xs text-gray-500">{msg}</p>}
             </div>
@@ -255,7 +261,7 @@ export default function TextMockView({ userId, onRecord, onClose }: {
               const best = finished.reduce<number | null>((m, s) => (s.score != null ? Math.max(m ?? 0, s.score) : m), null)
               return (
                 <div key={`${p.year}-${p.format}`} className="flex flex-wrap items-center gap-2 border rounded-xl p-2 text-sm">
-                  <span className="font-bold text-gray-700">{p.year} {sec.name}</span>
+                  <span className="font-bold text-gray-700">{yearLabelJa(p.year)} {sec.name}</span>
                   <span className="text-xs text-gray-500">
                     {p.count}問{finished.length > 0 ? `・受験${finished.length}回・最高${best ?? '-'}/${sec.totalMax}` : ''}
                   </span>

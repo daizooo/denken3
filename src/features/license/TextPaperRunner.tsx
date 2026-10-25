@@ -10,6 +10,7 @@ import { ITEM_LABELS } from '../../domain/license'
 import type { MockAnswer, TextMockSession } from '../../domain/types'
 import type { ScoringSection } from '../../domain/scoring'
 import { blankChoices, isTextAnswered } from '../../lib/license/textMock'
+import { yearLabelJa } from '../../lib/license/idLabel'
 
 export interface RunnerItem {
   label: ItemLabel; label_raw: string | null; statement: string
@@ -145,7 +146,7 @@ export default function TextPaperRunner({
     <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col">
       {/* ヘッダー: 残り時間・解答数 */}
       <div className="flex items-center gap-2 px-3 py-2 bg-white border-b text-sm">
-        <span className="font-bold text-gray-700">{year} {section.name}</span>
+        <span className="font-bold text-gray-700">{yearLabelJa(year)} {section.name}</span>
         <span className={`font-mono ${clock < 600 ? 'text-red-600' : 'text-gray-700'}`}>残り {formatClock(clock)}</span>
         <span className="text-gray-500">{answeredCount}/{questions.length}</span>
         <span className="flex-1" />
