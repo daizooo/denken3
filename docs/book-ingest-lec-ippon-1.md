@@ -236,8 +236,11 @@
 
 ### 労基の取り込み（実施済み）で起きたこと
 
-`ingest.mjs` が既存行の `law_status` を `ok`、`law_note` を null に書き換えた。労基 R06〜R08 の99肢は `law_status` が元から `ok` だったので判定は変わらないが、2026-10-14 の判定メモ（`law_note`）が消えた。
-`docs/license-law-review-r0{6,7,8}.sql`（追記のみ・冪等）の再実行で戻せる。
+- `ingest.mjs` が既存行の `law_status` を `ok`、`law_note` を null に書き換えた。労基 R06〜R08 の99肢は `law_status` が元から `ok` だったので判定は変わらなかったが、2026-10-14 の判定メモ（`law_note`）が消えた。
+- 判定SQL（`docs/license-law-review-r0{6,7,8}.sql`）は `law_status IN ('unchecked','review')` の行にしか効かないため、**再実行では戻らない**。代わりに、判定SQLの判定行（訂正を反映）と自動判定の規則（`lawRisk.ts`。公式の原文 `origin_statement` に当てる）からメモを再構成して戻した（99行、自動判定の行45件）。
+  再構成の方法は、取り込みで触っていない4肢（R08 問5 A・B・D・E）の実際のメモと照合し、4/4一致を確認した。
+- `ingest.mjs` を修正した（`keepLawJudgement`）。**既存行の `law_status` と `law_note` は書き換えない**（新規の肢だけ `ok`）。
+- 書籍に載らない R08 問5 の A・B・D・E は `excluded` にした（メモに理由を追記）。模試の採点には影響しない。
 
 ## 5. 利用者の対応・未決事項
 

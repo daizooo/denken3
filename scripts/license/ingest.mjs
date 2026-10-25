@@ -14,7 +14,7 @@
 // 冪等: 同じJSONを何度流しても結果は同じ（lic_items は upsert、lic_questions は既存なら触らない）。
 // 検証に失敗した肢は理由つきで一覧にして保存しない。失敗が1件でもあれば終了コード 1。
 import { chunk, createSupabase, fail, parseArgs, readJson, resolveUserId } from './lib.mjs'
-import { formatErrors, formatSummary, summarize, toRows, validateTranscription } from '../../src/lib/license/ingest/schema.ts'
+import { formatErrors, formatSummary, keepLawJudgement, summarize, toRows, validateTranscription } from '../../src/lib/license/ingest/schema.ts'
 
 const HELP = `usage: node --env-file-if-exists=.env scripts/license/ingest.mjs --data <json> [options]
 
@@ -59,7 +59,16 @@ for (const rows of chunk(questions, 500)) {
   if (error) fail(`lic_questions の保存に失敗: ${error.message}`)
   insertedQuestions += data.length
 }
-for (const rows of chunk(items, 500)) {
+// 既存の行の法改正の判定（law_status・law_note）は書き換えない（判定の履歴を消さない）。
+const existingLaw = new Map()
+for (const ids of chunk(items.map(i => i.id), 200)) {
+  const { data, error } = await supabase.from('lic_items')
+    .select('id, law_status, law_note').eq('user_id', userId).in('id', ids)
+  if (error) fail(`既存の判定の読み出しに失敗: ${error.message}`)
+  for (const r of data) existingLaw.set(r.id, { law_status: r.law_status, law_note: r.law_note })
+}
+console.log(`既存の行 ${existingLaw.size} 件は法改正の判定（law_status・law_note）を保持する`)
+for (const rows of chunk(keepLawJudgement(items, existingLaw), 500)) {
   const { error } = await supabase.from('lic_items').upsert(rows, { onConflict: 'user_id,id' })
   if (error) fail(`lic_items の保存に失敗: ${error.message}`)
 }

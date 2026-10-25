@@ -473,13 +473,4 @@ export const ROUKI_CHAPTERS: Chapter[] = [
       { id: 'R07_T_RK_07_A', number: 5, title: '25 雑則（R07 問7 A）', difficulty: 2, studyMode: 'memory' },
     ],
   },
-  {
-    code: 'rouki_26', name: '論点未設定', subject: '労基', totalCount: 4,
-    questions: [
-      { id: 'R08_T_RK_05_A', number: 1, title: '論点未設定（R08 問5 A）', difficulty: 2, studyMode: 'memory' },
-      { id: 'R08_T_RK_05_B', number: 2, title: '論点未設定（R08 問5 B）', difficulty: 2, studyMode: 'memory' },
-      { id: 'R08_T_RK_05_D', number: 3, title: '論点未設定（R08 問5 D）', difficulty: 2, studyMode: 'memory' },
-      { id: 'R08_T_RK_05_E', number: 4, title: '論点未設定（R08 問5 E）', difficulty: 2, studyMode: 'memory' },
-    ],
-  },
 ]
