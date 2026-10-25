@@ -1,7 +1,7 @@
 // 書き起こしJSONの検証・DB行への変換・件数報告（licensehub-expansion.md §4.2・§14・PR-J1a）。
 import { describe, expect, it } from 'vitest'
 import {
-  FIXTURE_YEARS, formatSummary, holdoutGroupOf, isFixtureId, parseSourceRef, summarize, toRows, validateTranscription,
+  FIXTURE_YEARS, formatSummary, holdoutGroupOf, isFixtureId, keepLawJudgement, parseSourceRef, summarize, toRows, validateTranscription,
 } from './schema'
 import fixtureRaw from '../../../../scripts/license/fixtures/ippon-fixture.json?raw'
 import invalidRaw from '../../../../scripts/license/fixtures/ippon-fixture-invalid.json?raw'
@@ -137,6 +137,26 @@ describe('toRows', () => {
     })
     expect(items[1]).toMatchObject({ explanation: null, explanation_source: 'none', explanation_verified: false })
     expect(items[0]).not.toHaveProperty('origin_statement')
+  })
+})
+
+describe('keepLawJudgement', () => {
+  it('既存の行は law_status・law_note を保ち、新規の肢だけ ok・null のままにする', () => {
+    const { valid } = validateTranscription(
+      [item({ source_ref: 'R07-RK-01-A' }), item({ source_ref: 'R07-RK-01-B' }), item({ source_ref: 'R07-RK-01-C' })],
+      { studySubject: 'rouki' },
+    )
+    const { items } = toRows(valid, 'u1')
+    const kept = keepLawJudgement(items, new Map([
+      ['R07_T_RK_01_A', { law_status: 'review' as const, law_note: '[判定] 要確認' }],
+      ['R07_T_RK_01_B', { law_status: 'ok' as const, law_note: '[判定] 確認済み' }],
+    ]))
+    expect(kept.map(i => [i.id, i.law_status, i.law_note])).toEqual([
+      ['R07_T_RK_01_A', 'review', '[判定] 要確認'],
+      ['R07_T_RK_01_B', 'ok', '[判定] 確認済み'],
+      ['R07_T_RK_01_C', 'ok', null],
+    ])
+    expect(kept[0]).toMatchObject({ statement: '本文', truth_source: 'book' })
   })
 })
 

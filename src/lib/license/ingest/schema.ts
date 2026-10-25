@@ -10,7 +10,7 @@
 //
 // 検証に失敗した肢は理由つきの一覧にして保存しない（無理に通さない）。
 // scripts/license/*.mjs からも Node の型除去で直接読むため、import は拡張子 .ts 付きで書く。
-import type { Importance, ItemLabel, LicItemRow, LicQuestionRow } from '../../../domain/license.ts'
+import type { Importance, ItemLabel, LawStatus, LicItemRow, LicQuestionRow } from '../../../domain/license.ts'
 import { makeItemId, makeQuestionId, normalizeLabel } from '../../../domain/license.ts'
 import { SHAROUSHI_SCORED_TO_STUDY, SHAROUSHI_SCORING, SHAROUSHI_SUBJECTS } from '../../../data/sharoushi/index.ts'
 
@@ -300,6 +300,17 @@ export function toRows(valid: ValidItem[], userId: string): { questions: IngestQ
     })
   }
   return { questions: [...questions.values()], items }
+}
+
+// 既存の行の法改正の判定（law_status・law_note）は、取り込みで書き換えない（判定の履歴を消さない。
+// 既存の review / excluded を ok に戻さない）。新規の肢だけ toRows の既定（ok）になる。
+export interface LawJudgement { law_status: LawStatus; law_note: string | null }
+
+export function keepLawJudgement(items: IngestItemRow[], existing: Map<string, LawJudgement>): IngestItemRow[] {
+  return items.map(it => {
+    const e = existing.get(it.id)
+    return e ? { ...it, law_status: e.law_status, law_note: e.law_note } : it
+  })
 }
 
 // ---------------------------------------------------------------------------
