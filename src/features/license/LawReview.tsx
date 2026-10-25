@@ -12,6 +12,7 @@ import { parseItemId, type LawStatus } from '../../domain/license'
 import { ITEM_BODY_COLUMNS, type ItemBody } from '../../lib/license/itemBody'
 import { writeBodies } from '../../lib/license/bodyCache'
 import { DEFAULT_LAW_BASE_DATE, appendLawNote } from '../../lib/license/lawRisk'
+import { itemIdLabelJa, subjectNameJa, yearLabelJa } from '../../lib/license/idLabel'
 import {
   LAW_DECISIONS, PENDING_LAW_STATUSES, groupPending, lawDecisionNote, lawStatusLabel,
 } from '../../lib/license/lawStatus'
@@ -135,7 +136,7 @@ export default function LawReview({ userId, onClose }: { userId: string; onClose
                     onClick={() => setFilter({ year: g.year, subject: g.subject })}
                     className={`px-2 py-1 rounded border text-xs ${active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
                   >
-                    {g.year} {g.subject}（{g.unchecked} / {g.review}）
+                    {yearLabelJa(g.year)} {subjectNameJa(g.subject, true)}（{g.unchecked} / {g.review}）
                   </button>
                 )
               })}
@@ -151,7 +152,7 @@ export default function LawReview({ userId, onClose }: { userId: string; onClose
           {shown.map(r => (
             <li key={r.id} className="border rounded-lg p-3 space-y-2">
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-gray-700">{r.id}</span>
+                <span className="text-gray-700" title={r.id}>{itemIdLabelJa(r.id)}</span>
                 <span className={`px-1.5 rounded ${r.law_status === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
                   {lawStatusLabel(r.law_status)}
                 </span>

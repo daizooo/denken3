@@ -9,6 +9,7 @@ import type { TextMockSession } from '../../domain/types'
 import { judgeText, MOCK_SCORE_NOTE, scoreQuestion, takuCorrectLabel, VERDICT_LABELS, type TextVerdict } from '../../lib/license/textMock'
 import type { RunnerQuestion } from './TextPaperRunner'
 import MockMissReview from './MockMissReview'
+import { yearLabelJa } from '../../lib/license/idLabel'
 
 const VERDICT_STYLE: Record<TextVerdict, string> = {
   safe: 'bg-green-100 text-green-800 border-green-400',
@@ -36,7 +37,7 @@ export default function TextMockResult({
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
       <div className="bg-white w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4 space-y-4">
         <div className="flex items-start gap-2">
-          <h2 className="flex-1 text-sm font-bold text-gray-700">結果　{session.paper_id} {section.name}</h2>
+          <h2 className="flex-1 text-sm font-bold text-gray-700">結果　{yearLabelJa(session.paper_id)} {section.name}</h2>
           <button onClick={onClose} aria-label="閉じる" className="p-1 text-gray-500"><X size={20} /></button>
         </div>
 
