@@ -1,0 +1,7625 @@
+[
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 136,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 24,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 32,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 100,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 40,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 44,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 46,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 50,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 64,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 56,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 62,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 66,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 62,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 92,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 92,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 94,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 92,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 112,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 120,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 7,
+"label": "A",
+"label_raw": "ア",
+"page": 144,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 7,
+"label": "B",
+"label_raw": "イ",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 7,
+"label": "C",
+"label_raw": "ウ",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 7,
+"label": "D",
+"label_raw": "エ",
+"page": 144,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 7,
+"label": "E",
+"label_raw": "オ",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 1,
+"label": "A",
+"label_raw": "ア",
+"page": 8,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 1,
+"label": "B",
+"label_raw": "イ",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 1,
+"label": "C",
+"label_raw": "ウ",
+"page": 12,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 1,
+"label": "D",
+"label_raw": "エ",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 1,
+"label": "E",
+"label_raw": "オ",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 26,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 26,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 26,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 26,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 32,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 36,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 154,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 40,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 48,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 48,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 62,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 64,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 74,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 98,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 98,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 100,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 100,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 102,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 112,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 114,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 114,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 112,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 114,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 154,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 148,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 20,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 24,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 14,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 36,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 38,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 44,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 54,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 58,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 58,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 58,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 60,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 60,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 5,
+"label": "A",
+"label_raw": "ア",
+"page": 86,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 5,
+"label": "B",
+"label_raw": "イ",
+"page": 98,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 5,
+"label": "C",
+"label_raw": "ウ",
+"page": 116,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 5,
+"label": "D",
+"label_raw": "エ",
+"page": 116,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 5,
+"label": "E",
+"label_raw": "オ",
+"page": 118,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 120,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 124,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 124,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 120,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 150,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 76,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 76,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 78,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 78,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 78,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 46,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 134,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 128,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 8,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 20,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 38,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 44,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 48,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 62,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 100,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 76,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 90,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 100,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 124,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 84,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 14,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 82,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 82,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 82,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 82,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 82,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 118,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 104,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 102,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 98,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 102,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 20,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 36,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 40,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 6,
+"label": "A",
+"label_raw": "ア",
+"page": 32,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 6,
+"label": "B",
+"label_raw": "イ",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 6,
+"label": "C",
+"label_raw": "ウ",
+"page": 70,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 6,
+"label": "D",
+"label_raw": "エ",
+"page": 60,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 6,
+"label": "E",
+"label_raw": "オ",
+"page": 78,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 84,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 86,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 106,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 110,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 120,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 8,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 12,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 38,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 44,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 122,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 56,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 56,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 66,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 64,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 70,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 72,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 74,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 72,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 72,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 72,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 102,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 86,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 134,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 90,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 144,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 18,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 18,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 20,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 20,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 154,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 154,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 152,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 152,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 152,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 130,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 24,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 5,
+"label": "A",
+"label_raw": "ア",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 5,
+"label": "B",
+"label_raw": "イ",
+"page": 40,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 5,
+"label": "C",
+"label_raw": "ウ",
+"page": 50,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 5,
+"label": "D",
+"label_raw": "エ",
+"page": 48,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 5,
+"label": "E",
+"label_raw": "オ",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 90,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 104,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 106,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 124,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 144,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 28,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 28,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 30,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 30,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 30,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 88,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 88,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 86,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 86,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 8,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 18,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 38,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 44,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 46,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 48,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 56,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 66,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 74,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 90,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 116,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 110,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 120,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 154,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 144,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 146,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 142,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 1,
+"label": "A",
+"label_raw": "ア",
+"page": 90,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 1,
+"label": "B",
+"label_raw": "イ",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 1,
+"label": "C",
+"label_raw": "ウ",
+"page": 84,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 1,
+"label": "D",
+"label_raw": "エ",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 1,
+"label": "E",
+"label_raw": "オ",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 88,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 94,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 92,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 50,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 50,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 108,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 108,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 108,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 110,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 106,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 4,
+"label": "A",
+"label_raw": "ア",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 4,
+"label": "B",
+"label_raw": "イ",
+"page": 4,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 4,
+"label": "C",
+"label_raw": "ウ",
+"page": 6,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 4,
+"label": "D",
+"label_raw": "エ",
+"page": 18,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 4,
+"label": "E",
+"label_raw": "オ",
+"page": 22,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 54,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 42,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 46,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 62,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 66,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 68,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 66,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 72,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 138,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 140,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 26,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 148,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 88,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 88,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 96,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 110,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 14,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 14,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 14,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 16,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 34,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 40,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 52,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 46,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 38,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 116,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 104,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 104,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 80,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 102,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 5,
+"label": "A",
+"label_raw": "ア",
+"page": 2,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 5,
+"label": "B",
+"label_raw": "イ",
+"page": 8,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 5,
+"label": "C",
+"label_raw": "ウ",
+"page": 10,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 5,
+"label": "D",
+"label_raw": "エ",
+"page": 12,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 5,
+"label": "E",
+"label_raw": "オ",
+"page": 18,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 56,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 70,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 64,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 64,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 74,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 126,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 132,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 134,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 188,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 160,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 216,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 222,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 224,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 224,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R08",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 224,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 160,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 196,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 180,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 178,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 218,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 218,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 218,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 218,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 218,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R07",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 220,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 168,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 164,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 170,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 182,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 178,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 226,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 228,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 228,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 232,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 234,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 234,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 234,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 234,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R06",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 234,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 204,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 204,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 204,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 204,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 206,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 226,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 222,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 226,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 226,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R05",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 224,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 190,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 190,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 192,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 200,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 196,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 186,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 186,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 188,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 186,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R04",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 188,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 162,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 194,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 212,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 212,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 9,
+"label": "A",
+"label_raw": "ア",
+"page": 164,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 9,
+"label": "B",
+"label_raw": "イ",
+"page": 164,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 9,
+"label": "C",
+"label_raw": "ウ",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 9,
+"label": "D",
+"label_raw": "エ",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 9,
+"label": "E",
+"label_raw": "オ",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 238,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 238,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 238,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R03",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 236,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 228,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 228,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 230,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 228,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 232,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 164,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 166,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 160,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 238,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 214,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 216,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 216,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R02",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 216,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 198,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 188,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 192,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 198,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 202,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 208,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 208,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 208,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 208,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 208,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 222,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 222,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 222,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 224,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "R01",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 226,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 240,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 210,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 210,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 210,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 210,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 210,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 230,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 230,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 230,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 230,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H30",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 232,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 8,
+"label": "A",
+"label_raw": "A",
+"page": 238,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 8,
+"label": "B",
+"label_raw": "B",
+"page": 236,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 8,
+"label": "C",
+"label_raw": "C",
+"page": 160,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 8,
+"label": "D",
+"label_raw": "D",
+"page": 160,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 8,
+"label": "E",
+"label_raw": "E",
+"page": 158,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 9,
+"label": "A",
+"label_raw": "A",
+"page": 180,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 9,
+"label": "B",
+"label_raw": "B",
+"page": 186,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 9,
+"label": "C",
+"label_raw": "C",
+"page": 172,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 9,
+"label": "D",
+"label_raw": "D",
+"page": 174,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 9,
+"label": "E",
+"label_raw": "E",
+"page": 176,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 10,
+"label": "A",
+"label_raw": "A",
+"page": 180,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 10,
+"label": "B",
+"label_raw": "B",
+"page": 182,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 10,
+"label": "C",
+"label_raw": "C",
+"page": 182,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 10,
+"label": "D",
+"label_raw": "D",
+"page": 182,
+"remark": null
+},
+{
+"subject": "労基安衛",
+"year": "H29",
+"q": 10,
+"label": "E",
+"label_raw": "E",
+"page": 184,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 1,
+"label": "A",
+"label_raw": "ア",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 1,
+"label": "B",
+"label_raw": "イ",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 1,
+"label": "C",
+"label_raw": "ウ",
+"page": 250,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 1,
+"label": "D",
+"label_raw": "エ",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 1,
+"label": "E",
+"label_raw": "オ",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 298,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 298,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 300,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 300,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 300,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 348,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 350,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 362,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 350,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 350,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 270,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 272,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 272,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 278,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 278,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 366,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 338,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 338,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 338,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 338,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 338,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 7,
+"label": "A",
+"label_raw": "ア",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 7,
+"label": "B",
+"label_raw": "イ",
+"page": 386,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 7,
+"label": "C",
+"label_raw": "ウ",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 7,
+"label": "D",
+"label_raw": "エ",
+"page": 388,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R08",
+"q": 7,
+"label": "E",
+"label_raw": "オ",
+"page": 246,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 246,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 246,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 248,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 246,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 254,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 258,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 266,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 264,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 264,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 262,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 268,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 390,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 300,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 308,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 360,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 328,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 382,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 382,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 382,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 384,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R07",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 384,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 290,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 292,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 292,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 292,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 292,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 270,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 278,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 280,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 280,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 270,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 310,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 310,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 296,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 298,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 298,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 5,
+"label": "A",
+"label_raw": "ア",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 5,
+"label": "B",
+"label_raw": "イ",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 5,
+"label": "C",
+"label_raw": "ウ",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 5,
+"label": "D",
+"label_raw": "エ",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 5,
+"label": "E",
+"label_raw": "オ",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 388,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 388,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 390,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 390,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 388,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 7,
+"label": "A",
+"label_raw": "ア",
+"page": 354,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 7,
+"label": "B",
+"label_raw": "イ",
+"page": 336,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 7,
+"label": "C",
+"label_raw": "ウ",
+"page": 356,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 7,
+"label": "D",
+"label_raw": "エ",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R06",
+"q": 7,
+"label": "E",
+"label_raw": "オ",
+"page": 358,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 272,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 274,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 274,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 274,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 274,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 260,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 262,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 4,
+"label": "A",
+"label_raw": "ア",
+"page": 360,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 4,
+"label": "B",
+"label_raw": "イ",
+"page": 360,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 4,
+"label": "C",
+"label_raw": "ウ",
+"page": 360,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 4,
+"label": "D",
+"label_raw": "エ",
+"page": 362,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 4,
+"label": "E",
+"label_raw": "オ",
+"page": 362,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 330,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 330,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 330,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 330,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": null,
+"remark": "－（法改正等により問題不成立。本書に掲載なし）"
+},
+{
+"subject": "労災",
+"year": "R05",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 296,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 264,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 268,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 262,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 262,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 268,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 370,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 370,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 370,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 370,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 370,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 380,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 380,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 380,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 380,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 380,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 4,
+"label": "A",
+"label_raw": "ア",
+"page": 254,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 4,
+"label": "B",
+"label_raw": "イ",
+"page": 252,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 4,
+"label": "C",
+"label_raw": "ウ",
+"page": 254,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 4,
+"label": "D",
+"label_raw": "エ",
+"page": 254,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 4,
+"label": "E",
+"label_raw": "オ",
+"page": 252,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 290,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 290,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 290,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 254,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 294,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 7,
+"label": "A",
+"label_raw": "ア",
+"page": 302,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 7,
+"label": "B",
+"label_raw": "イ",
+"page": 302,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 7,
+"label": "C",
+"label_raw": "ウ",
+"page": 302,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R04",
+"q": 7,
+"label": "D",
+"label_raw": "エ",
+"page": 304,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 256,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 258,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 258,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 258,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 258,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 286,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 294,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 294,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 286,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 288,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 382,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 390,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 390,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 388,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 386,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 276,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 276,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 276,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 276,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 278,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 322,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 322,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 322,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 322,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 324,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 332,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 334,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 334,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 334,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 334,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 280,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 280,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 282,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 282,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R03",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 282,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 354,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 356,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 354,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 356,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 356,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 346,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 346,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 358,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 358,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 348,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 384,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 384,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 384,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 386,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 386,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 4,
+"label": "A",
+"label_raw": "ア",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 4,
+"label": "B",
+"label_raw": "イ",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 4,
+"label": "C",
+"label_raw": "ウ",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 4,
+"label": "D",
+"label_raw": "エ",
+"page": 398,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 4,
+"label": "E",
+"label_raw": "オ",
+"page": 398,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 320,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 320,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 320,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 320,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 322,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 308,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 314,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 330,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 318,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 328,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 378,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 392,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R02",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 346,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 394,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 398,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 394,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 2,
+"label": "A",
+"label_raw": "ア",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 2,
+"label": "B",
+"label_raw": "イ",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 2,
+"label": "C",
+"label_raw": "ウ",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 2,
+"label": "D",
+"label_raw": "エ",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 2,
+"label": "E",
+"label_raw": "オ",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 264,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 262,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 266,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 266,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 268,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 250,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 250,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 286,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 354,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 354,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 340,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 6,
+"label": "A",
+"label_raw": "ア",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 6,
+"label": "B",
+"label_raw": "イ",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 6,
+"label": "C",
+"label_raw": "ウ",
+"page": 374,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 6,
+"label": "D",
+"label_raw": "エ",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 6,
+"label": "E",
+"label_raw": "オ",
+"page": 376,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "R01",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 270,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 272,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 272,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 276,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 274,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 312,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 326,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 306,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 3,
+"label": "A",
+"label_raw": "A",
+"page": 394,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 3,
+"label": "B",
+"label_raw": "B",
+"page": 394,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 3,
+"label": "C",
+"label_raw": "C",
+"page": 394,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 3,
+"label": "D",
+"label_raw": "D",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 3,
+"label": "E",
+"label_raw": "E",
+"page": 396,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 4,
+"label": "A",
+"label_raw": "ア",
+"page": 348,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 4,
+"label": "B",
+"label_raw": "イ",
+"page": 348,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 4,
+"label": "C",
+"label_raw": "ウ",
+"page": 348,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 4,
+"label": "D",
+"label_raw": "エ",
+"page": 398,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 4,
+"label": "E",
+"label_raw": "オ",
+"page": 246,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 308,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 310,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 312,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 308,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 308,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 316,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 324,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 318,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 324,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 318,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 342,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 344,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 344,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H30",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 344,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 1,
+"label": "A",
+"label_raw": "A",
+"page": 252,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 1,
+"label": "B",
+"label_raw": "B",
+"page": 250,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 1,
+"label": "C",
+"label_raw": "C",
+"page": 252,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 1,
+"label": "D",
+"label_raw": "D",
+"page": 252,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 1,
+"label": "E",
+"label_raw": "E",
+"page": 250,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 2,
+"label": "A",
+"label_raw": "A",
+"page": 312,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 2,
+"label": "B",
+"label_raw": "B",
+"page": 312,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 2,
+"label": "C",
+"label_raw": "C",
+"page": 314,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 2,
+"label": "D",
+"label_raw": "D",
+"page": 312,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 2,
+"label": "E",
+"label_raw": "E",
+"page": 314,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 3,
+"label": "A",
+"label_raw": "ア",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 3,
+"label": "B",
+"label_raw": "イ",
+"page": 368,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 3,
+"label": "C",
+"label_raw": "ウ",
+"page": 372,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 3,
+"label": "D",
+"label_raw": "エ",
+"page": 372,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 3,
+"label": "E",
+"label_raw": "オ",
+"page": 372,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 4,
+"label": "A",
+"label_raw": "A",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 4,
+"label": "B",
+"label_raw": "B",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 4,
+"label": "C",
+"label_raw": "C",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 4,
+"label": "D",
+"label_raw": "D",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 4,
+"label": "E",
+"label_raw": "E",
+"page": 244,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 5,
+"label": "A",
+"label_raw": "A",
+"page": 286,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 5,
+"label": "B",
+"label_raw": "B",
+"page": 340,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 5,
+"label": "C",
+"label_raw": "C",
+"page": 284,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 5,
+"label": "D",
+"label_raw": "D",
+"page": 286,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 5,
+"label": "E",
+"label_raw": "E",
+"page": 290,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 6,
+"label": "A",
+"label_raw": "A",
+"page": 364,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 6,
+"label": "B",
+"label_raw": "B",
+"page": 364,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 6,
+"label": "C",
+"label_raw": "C",
+"page": 362,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 6,
+"label": "D",
+"label_raw": "D",
+"page": 364,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 6,
+"label": "E",
+"label_raw": "E",
+"page": 364,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 7,
+"label": "A",
+"label_raw": "A",
+"page": 302,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 7,
+"label": "B",
+"label_raw": "B",
+"page": 372,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 7,
+"label": "C",
+"label_raw": "C",
+"page": 382,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 7,
+"label": "D",
+"label_raw": "D",
+"page": 352,
+"remark": null
+},
+{
+"subject": "労災",
+"year": "H29",
+"q": 7,
+"label": "E",
+"label_raw": "E",
+"page": 354,
+"remark": null
+}
+]
