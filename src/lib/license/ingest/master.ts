@@ -27,7 +27,7 @@ export function chapterConstName(subjectId: string): string {
   return `${subjectId.toUpperCase()}_CHAPTERS`
 }
 
-// 肢の索引上の表題: 論点名（年度 問n 肢）。電験の分野別（'抵抗直列回路（H10-A5）'）と同じ形。
+// 肢の索引上の表題: 論点名（年度 問n 肢）。
 // 選択式の空欄は「選択式（R06 RK 空欄A）」（画面側 titleJa が年度・科目を日本語にする）。
 function titleOf(topic: string, id: string): string {
   const c = parseItemId(id)

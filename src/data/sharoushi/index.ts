@@ -79,7 +79,7 @@ export const SHAROUSHI_EXAM: ExamDefinition = {
   // 想定得点・ペース等（analytics/pace/policy）は100点・合格60点の前提のまま（§3.2、PR-L で ScoringModel 化）。
   // 社労士の合否は features.scoring で判定する。
   passingScore: 60,
-  features: { subjectPass: false, twoStage: false, scoring: SHAROUSHI_SCORING, allText: true },
+  features: { scoring: SHAROUSHI_SCORING, allText: true },
   subjects: SHAROUSHI_SUBJECTS.map(s => ({ ...s, chapters: SHAROUSHI_SUBJECT_CHAPTERS[s.id] ?? s.chapters })),
 }
 

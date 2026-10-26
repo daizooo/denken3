@@ -399,5 +399,5 @@ export function gradeOf(status: Status, a: Attempt | undefined, slow: boolean): 
 
 - `docs/design/expansion-design.md` — 年度別演習・多資格対応・試験日程ベースのペース分析
 - `docs/design/study-time-scarcity.md` — 時間予算・FSRS 保持率・課題5・課題11・課題13
-- `docs/data-correction-workflow.md` §5-A — 表示座標は `denken_question_assets` が唯一の正
+- （削除済み）`docs/data-correction-workflow.md` §5-A — 表示座標は `denken_question_assets` が唯一の正
 - `CLAUDE.md` — コンフリクト最小化方針（新規ファイル優先・末尾追加・migration 採番）

@@ -84,7 +84,7 @@ describe('保存と読み出し', () => {
     const st = memStorage()
     const s = newBatchSession(IDS, 'u1', 'sharoushi', NOW)
     saveBatchSession(st, s)
-    expect(loadBatchSession(st, 'u1', 'denken3')).toBeNull()
+    expect(loadBatchSession(st, 'u1', 'other-exam')).toBeNull()
     expect(loadBatchSession(st, 'u1', 'sharoushi')).toEqual(s)
   })
 

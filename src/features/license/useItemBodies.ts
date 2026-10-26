@@ -55,7 +55,7 @@ export function useItemBodies(ids: string[], userId: string | null = null): Item
 }
 
 /**
- * 起動時の先取り。allText の資格（社労士）でだけ動く。電験では何もしない。
+ * 起動時の先取り。allText の資格（社労士）でだけ動く。
  * 先取りの成否は画面に影響させない（失敗した肢は開いたときに改めて取りに行く）。
  */
 export function usePrefetchItemBodies(

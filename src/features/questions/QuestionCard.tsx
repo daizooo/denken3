@@ -1,8 +1,5 @@
-import { useState } from 'react'
-import { Image as ImageIcon, PencilLine, ClipboardCopy, ClipboardCheck } from 'lucide-react'
+import { Image as ImageIcon, PencilLine } from 'lucide-react'
 import type { MasterQuestion, Review, Status } from '../../domain/types'
-import { hasKnownAsset } from '../../lib/assets'
-import { hasQuestionText, getQuestionText, formatForClipboard } from '../../lib/questionText'
 import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
@@ -20,7 +17,7 @@ export default function QuestionCard({
   isEditing, editMemo, onEditMemoChange, onToggleEdit, onSaveMemo,
   onRecordStatus, onReactivate, onViewProblem, onSolveProblem,
   dateValue, dateOpen, onOpenDate, onDateChange, onResetDate,
-  onDeleteEntry, allText = false,
+  onDeleteEntry,
 }: {
   q: QuestionWithChapter
   review: Review
@@ -46,27 +43,7 @@ export default function QuestionCard({
   onDateChange: (v: string) => void
   onResetDate: () => void
   onDeleteEntry: (index: number) => void
-  // 全問がテキストを持つ資格（社労士。exam.features.allText）。
-  // 「問題を見る／解く」は画像の有無に依らず出し、App 側で肢モード（ItemSolver）を開く。
-  // 難易度は index 側が固定値（★★）の仮置きなので、この資格では表示しない。
-  allText?: boolean
 }) {
-  // コピー直後だけアイコンを切り替えて「コピーした」ことを示す（会社では音も出せないため視覚のみ）。
-  const [copied, setCopied] = useState(false)
-  const questionText = hasQuestionText(q.id) ? getQuestionText(q.id) : undefined
-
-  const onCopyText = async () => {
-    if (!questionText) return
-    const title = `${q.chapterName} 問${q.number}　${titleJa(q.title)}`
-    try {
-      await navigator.clipboard.writeText(formatForClipboard(title, questionText))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // クリップボードAPIが使えない環境（非HTTPS・権限拒否）。ここでは黙って諦める。
-    }
-  }
-
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
       <div className="p-3.5">
@@ -76,13 +53,7 @@ export default function QuestionCard({
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
             {review.status}
           </span>
-          {/* 難易度・重要度を「どちらか分からない」を防ぐため、ラベル付きで2つ並べる（問題画像と同じ）。
-              分野別（MasterQuestion）は難易度・重要度をどちらも示す。尺度は現行の3段階のまま。 */}
-          {!allText && 'difficulty' in q && (
-            <span className="text-xs text-gray-400 inline-flex items-center gap-0.5" title={`難易度 ${q.difficulty}/3`}>
-              難<span className="text-amber-400">{'★'.repeat(q.difficulty as number)}</span>
-            </span>
-          )}
+          {/* 難易度は索引側が固定値（★★）の仮置きなので表示しない。重要度のみ示す（3段階）。 */}
           {q.importance != null && (
             <span className="text-xs text-gray-400 inline-flex items-center gap-0.5" title={`重要度 ${q.importance}/3`}>
               重<span className="text-rose-400">{'★'.repeat(q.importance)}</span>
@@ -106,7 +77,7 @@ export default function QuestionCard({
             {review.due_date && (() => {
               // 「N日遅延」の赤表示はやめ、忘却リスク帯（優先度）で示す（reviewPlan.ts）。
               // 遅れは失敗ではなく、FSRS が経過を織り込むので順番の問題に過ぎない。
-              const bm = bandMeta(reviewValue(q, review, todayStr, examDate).band)
+              const bm = bandMeta(reviewValue(review, todayStr, examDate).band)
               return (
                 <span className="flex items-center gap-1">
                   <span className="text-gray-300">/</span>
@@ -157,47 +128,27 @@ export default function QuestionCard({
               className="px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all"
             >復習に戻す</button>
           )}
-          {(hasKnownAsset(q.id) || allText) && (
-            <>
-              {/* 確認のみ。タイマーは動かさない（解答時間に混ぜない）。 */}
-              <button
-                onClick={onViewProblem}
-                title="タイマー計測なしで問題を確認します"
-                className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 hover:border-gray-400 px-2 py-1.5 rounded-lg transition-colors"
-              >
-                <ImageIcon size={13} /> 問題を見る
-              </button>
-              {/* 解答時間の計測を開始してから問題を開く（§7.6）。 */}
-              {/* 計算問題は「解く」を主ボタン（塗り）にする。眺めるだけの導線を弱める（設計 §2.7）。 */}
-              <button
-                onClick={onSolveProblem}
-                title="解答時間を計測して問題を解きます"
-                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg transition-colors ${
-                  q.studyMode === 'calc'
-                    ? 'bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 font-semibold'
-                    : 'text-blue-600 border border-blue-200 hover:border-blue-400'
-                }`}
-              >
-                <PencilLine size={13} /> 問題を解く
-              </button>
-            </>
-          )}
-          {/* 会社向け：本文をメモ帳などに貼り付けられる形でコピーする（画像を開けない・周囲の目がある場面用）。
-              テキスト転記が無い問題（図必須など）ではボタン自体を出さない＝hasQuestionText と同じ判定。 */}
-          {questionText && (
-            <button
-              onClick={onCopyText}
-              title="問題文・選択肢をメモ帳などに貼り付けられる形でコピーします（解答は下の方に隠してあります）"
-              className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border transition-colors ${
-                copied
-                  ? 'text-emerald-600 border-emerald-200 bg-emerald-50'
-                  : 'text-amber-600 border-amber-200 hover:border-amber-400'
-              }`}
-            >
-              {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
-              {copied ? 'コピーしました' : 'テキストをコピー'}
-            </button>
-          )}
+          {/* 確認のみ。タイマーは動かさない（解答時間に混ぜない）。 */}
+          <button
+            onClick={onViewProblem}
+            title="タイマー計測なしで問題を確認します"
+            className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 hover:border-gray-400 px-2 py-1.5 rounded-lg transition-colors"
+          >
+            <ImageIcon size={13} /> 問題を見る
+          </button>
+          {/* 解答時間の計測を開始してから問題を開く（§7.6）。 */}
+          {/* 計算問題は「解く」を主ボタン（塗り）にする。眺めるだけの導線を弱める（設計 §2.7）。 */}
+          <button
+            onClick={onSolveProblem}
+            title="解答時間を計測して問題を解きます"
+            className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg transition-colors ${
+              q.studyMode === 'calc'
+                ? 'bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 font-semibold'
+                : 'text-blue-600 border border-blue-200 hover:border-blue-400'
+            }`}
+          >
+            <PencilLine size={13} /> 問題を解く
+          </button>
           {activeTab === 'list' && (
             <button
               onClick={onToggleEdit}

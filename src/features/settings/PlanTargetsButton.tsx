@@ -1,5 +1,5 @@
 // 「目標日の逆算」の入口（licensehub-expansion.md §10.1・§15の9）。
-// 設定画面への組み込みをこの1要素だけにする。社労士でだけ出す（電験の設定は変えない）。
+// 設定画面への組み込みをこの1要素だけにする。社労士でだけ出す。
 import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import type { ExamPlan } from '../../domain/types'

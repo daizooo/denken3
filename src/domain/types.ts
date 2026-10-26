@@ -7,19 +7,18 @@ import type { ScoringModel } from './scoring.js'
 // マスターデータは DB 化せず src/data/ に TS として分離し、この型で表現する。
 // ==============================
 
-// 学習資格。既知のIDは補完のために列挙しつつ、`(string & {})` で将来のIDも許容する。
-export type ExamId = 'denken3' | 'denken2' | 'enekan' | (string & {})
+// 学習資格のID（現在は 'sharoushi' のみ）。DB の exam_id 列の値と一致させる。
+export type ExamId = string
 
-// 科目の表示名。電験の4値は補完のために列挙しつつ、`(string & {})` で他資格の科目名も許容する
-// （ExamId と同じ形。licensehub-expansion.md §3.2）。
-export type Subject = '理論' | '電力' | '機械' | '法規' | (string & {})
+// 科目の表示名（'労基' など。licensehub-expansion.md §3.2）。
+export type Subject = string
 
 // S = 完璧に理解した（復習不要）。復習キューから外すが、いつでも復習に戻せる（due_date を再設定するだけ）。
 export type Status = 'S' | 'A' | 'B' | 'C' | '未着手'
 
-// 問題の学習形態（所要時間の推定に使う）。出典（電験王）の問題区分に対応する。
-//   'calc'   … 計算問題（立式が必要。回路図の精読・紙での式展開が要る）
-//   'memory' … 暗記・概念問題（論説・空欄穴埋・選択。立式せず頭で解ける）
+// 問題の学習形態（所要時間の推定に使う）。
+//   'calc'   … 計算問題（立式が必要）
+//   'memory' … 暗記・概念問題（立式せず頭で解ける。社労士の肢はすべてこれ）
 // 未設定は「未分類」として扱う。
 export type StudyMode = 'calc' | 'memory'
 
@@ -41,20 +40,14 @@ export interface Chapter {
 }
 
 export interface SubjectDefinition {
-  id: string           // 'riron'
+  id: string           // 'rouki'
   name: Subject         // '理論'
   chapters: Chapter[]
-  papers?: PaperDefinition[]  // 年度別（CBT模試）ペーパー。未収録の科目は undefined。
-  // 年度別の問題ID → 分野別の問題ID の自動リンク（課題6・src/lib/sourceLink.ts）。
-  // 分野別タイトルの出典表記から起動時に組み立てる。誤答の復習前倒しの引き当てに使う。
-  sourceLinks?: ReadonlyMap<string, string>
 }
 
 // 資格ごとの試験制度の差異（§7.8）。UIの分岐やモデルの拡張点はここに集約する。
 export interface ExamFeatures {
-  subjectPass: boolean  // 科目合格制度（電験3種・2種一次: true）
-  twoStage: boolean     // 一次/二次の二段階（電験2種: true）
-  // 科目別の配点・足切り（licensehub-expansion.md §4.3）。未指定（電験）は passingScore の従来経路。
+  // 科目別の配点・足切り（licensehub-expansion.md §4.3）。未指定なら passingScore の従来経路。
   scoring?: ScoringModel
   // 全問がテキストを持つ資格（社労士）。問題を見る／解くを画像の有無に依らず出す。
   allText?: boolean
@@ -62,7 +55,7 @@ export interface ExamFeatures {
 
 export interface ExamDefinition {
   id: ExamId
-  name: string          // '電験3種'
+  name: string          // '社労士'
   passingScore: number  // 60（移行判定・合格ライン・想定得点推定の既定値）
   features: ExamFeatures
   subjects: SubjectDefinition[]
@@ -114,75 +107,7 @@ export interface Review {
 }
 
 // ==============================
-// 年度別演習（CBT模試）— PaperDefinition / §5.2・§7.4
-// 公式過去問1回分（例: 令和8年度上期 理論）のメタデータ。
-// 問題文・図・選択肢・解説はすべて切り出し画像（非公開Storage）で持ち、
-// 正答・配点だけをこの TS 定義で持つ（データの二重管理を避ける）。
-// ==============================
-
-// 出典（分野別⇔年度別リンクの生成元）。当面は任意フィールド。
-export interface PastExamRef {
-  era: 'H' | 'R'
-  year: number                       // H10, R6 → 10, 6
-  session?: '上' | '下'              // R4以降のみ
-  section: 'A' | 'B'
-  number: number                     // A5 → 5
-}
-
-// 1問（A問題）または1小問（B問題の(a)(b)）の正答・配点。
-export interface PaperQuestionPart {
-  label?: '(a)' | '(b)'
-  correct: 1 | 2 | 3 | 4 | 5         // 公式正答（公式正答表と突き合わせて確定する）
-  points: number                     // A: 5点 / B: 5点×2 等（配点は回により定義）
-}
-
-export interface PaperQuestion {
-  id: string                         // 'r8-1_a05'（paperId_セクション+番号）
-  section: 'A' | 'B'
-  number: number                     // 表示上の問番号（A: 1..14 / B: 15..18）
-  // タイトル・シェアボタン・動画埋め込み・目次…問題文…ワンポイント解説…解答…関連記事、
-  // が縦に並んだ1問1枚の元画像（paperフォルダ内、物理クロップなし）。
-  // 実際のStorageパスは paperImagePath(userId, paperId, imageFile) で解決する。
-  imageFile: string                  // 'a05.png'
-  // 以下3つの表示座標は「取り込み時の初期値」。表示の正は denken_question_assets 側の
-  // question_start_pct / answer_y_pct / explanation_end_pct で、ImportPanel が取り込み時に
-  // ここの値をDBへ投入し、以後の修正はSQLのUPDATE1行で行う
-  // （docs/data-correction-workflow.md §5-A）。DBに行が無い回のみここの値が表示に使われる。
-  //
-  // 【難易度】行の直後（問題文が始まる位置）の縦位置(%)。表示は常にこの位置から始め、上部の
-  // タイトル・共有ボタン・動画・目次・【問題】見出し・難易度行を切り捨てる。既定0=切り捨てなし。
-  // 小数可（画像によっては難易度行と本文の間の空白が1%未満しかなく、整数では収まらないため）。
-  questionStartPct: number
-  // 【ワンポイント解説】見出しの直前（見出し自体も表示しない）の縦位置(%)。CBT解答中はこの位置
-  // より下をマスクして隠し、結果画面では解除する（§11.2）。既定100=分割なし（検出不能時に安全側へ
-  // 倒し、目視確認を促すためのプレースホルダ）。小数可（questionStartPct と同様の理由）。
-  answerYPct: number
-  // 解説・解答の実質的な内容が終わる位置（%）。関連記事の宣伝バナー・タグ・共有ボタン・
-  // おすすめ記事リンクなど、電験王ページ末尾の定型フッターが始まる直前で切る。
-  // 結果画面（showAnswer=true）ではこの位置までを表示する。既定100=切り捨てなし。
-  explanationEndPct: number
-  explanationUrl?: string            // 取得元（電験王）該当ページURL（外部参照用）
-  selectable?: boolean               // B問題の選択問題（問17/18 の択一等）。同一paper内の selectable 群から1問を選ぶ
-  parts: PaperQuestionPart[]         // A問題は1要素。B問題は (a)(b) の2要素
-  topic?: string                     // 'RLC共振' 等（分野集計用）
-  studyMode?: StudyMode              // 学習形態（計算 / 暗記・概念）。電験王の問題区分に対応（§MasterQuestion 参照）
-  sourceQuestionId?: string          // 分野別の既存問題ID（例 'ac1_54'）任意。誤答の復習前倒しに使う
-}
-
-export interface PaperDefinition {
-  id: string                         // 'r8-1'（R8上期）
-  examId: ExamId
-  subjectId: string                  // 'riron'
-  name: string                       // '令和8年度 上期'
-  timeLimitMin: number               // 理論: 90
-  questions: PaperQuestion[]         // 理論: A×14 + B×4（うち選択1問）
-  // 収録準備中（正答・画像が未確定）のペーパー。選択画面では非活性表示にし、
-  // ビルド時の正答・配点チェック（validatePaper）の対象外にする（設計 §8 Phase 2a: エンジン＋雛形）。
-  draft?: boolean
-}
-
-// ==============================
-// CBT模試セッション（denken_mock_sessions / §6.3）
+// 模試セッション（denken_mock_sessions。テーブル名は旧名のまま据え置き）
 // ==============================
 
 export type MockMode = 'cbt' | 'free'
@@ -190,13 +115,13 @@ export type MockStatus = 'in_progress' | 'finished' | 'abandoned'
 
 // 1問ぶんの解答状態。
 export interface MockAnswer {
-  selected: number[]                 // parts の並び順に対応（A: 1要素 / B: (a)(b) の2要素）。未解答の要素は 0
+  selected: number[]                 // 選んだ選択肢の番号。未解答の要素は 0
   flagged?: boolean                  // 「後で見直す」フラグ
   seconds?: number                   // その問題を表示していた累積秒数（§7.6）
 }
 
 export interface MockSession {
-  kind?: 'paper'                     // 判別子（電験の画像CBT。省略可）。テキストの模試は TextMockSession
+  kind?: 'paper'                     // 判別子（省略可）。テキストの模試は TextMockSession
   id: string
   exam_id: string
   subject_id: string

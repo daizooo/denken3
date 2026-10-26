@@ -6,7 +6,7 @@
 // 保存先は denken_reviews.review_history（JSONB）のエントリに同梱するため、
 // DBスキーマの変更は不要。旧エントリには存在しないので、読む側は常に optional として扱う。
 
-/** 選択肢の番号（電験は本試験・分野別ともに5択）。 */
+/** 選択肢の番号（本試験は5択）。 */
 export const CHOICES = [1, 2, 3, 4, 5] as const
 
 export interface Attempt {

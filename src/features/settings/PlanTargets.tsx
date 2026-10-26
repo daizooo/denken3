@@ -3,7 +3,7 @@
 // 本試験日・基準点・科目の重み・学習順・書籍の発売日・目標日の上書きを編集し、その場で computeTargets で再計算する。
 // 保存すると、設定を denken_settings（plan_anchors / plan_weights / plan_order。migration 027）に、
 // 各科目の本試験日・目標日・上書きの印を denken_exam_plans（exam_date / bunya_target_date / target_overridden）に書く。
-// 上書きした科目は再計算で目標日を変えない。電験の行には触れない。
+// 上書きした科目は再計算で目標日を変えない。
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'

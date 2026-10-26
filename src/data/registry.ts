@@ -1,13 +1,11 @@
 // マスターデータの唯一の入口（registry）。
 // 資格・科目・章を追加するときは各 data ファイルを編集し、EXAMS から辿れるようにする。
 // UI はこの registry を起点に描画する（資格・科目のハードコードをしない・§7.8）。
-import type { Chapter, ExamDefinition, ExamId, PaperDefinition, PaperQuestion, Subject, SubjectDefinition } from '../domain/types'
-import { DENKEN3_EXAM } from './denken3'
+import type { Chapter, ExamDefinition, ExamId, Subject, SubjectDefinition } from '../domain/types'
 import { SHAROUSHI_EXAM } from './sharoushi'
 
-// 全資格。将来 電験2種・エネ管等を配列に追加するだけで UI に現れる。
+// 全資格。別の資格を配列の末尾に追加すれば UI に現れる（2つ以上でセレクタが出る）。
 export const EXAMS: ExamDefinition[] = [
-  DENKEN3_EXAM,
   SHAROUSHI_EXAM,
 ]
 
@@ -41,27 +39,8 @@ export function passingScoreOf(id: ExamId): number {
   return getExam(id).passingScore
 }
 
-// 科目表示名（'理論'）→ subject_id（'riron'）。
+// 科目表示名（'労基'）→ subject_id（'rouki'）。
 // 定義が見つからない場合は表示名をそのまま id として扱う（フォールバック）。
 export function subjectIdOf(examId: ExamId, name: Subject): string {
   return getExam(examId).subjects.find(s => s.name === name)?.id ?? name
 }
-
-// 指定資格・指定科目の年度別（CBT模試）ペーパー一覧。未収録なら空配列。
-export function papersForSubject(examId: ExamId, name: Subject): PaperDefinition[] {
-  return getExam(examId).subjects.find(s => s.name === name)?.papers ?? []
-}
-
-// 年度別（CBT模試）の問題IDに対応する分野別問題IDを引く（課題6）。
-// 各問題に手入力された sourceQuestionId を優先し、無ければ出典表記からの自動リンクを使う。
-// リンクが無ければ undefined（＝誤答の復習前倒しボタンを出さない）。
-export function sourceQuestionIdOf(
-  examId: ExamId, subjectId: string, paperQuestion: PaperQuestion,
-): string | undefined {
-  if (paperQuestion.sourceQuestionId) return paperQuestion.sourceQuestionId
-  return getExam(examId).subjects.find(s => s.id === subjectId)?.sourceLinks?.get(paperQuestion.id)
-}
-
-// ---- 後方互換の静的エクスポート（既定資格ベース）----
-// 資格切替に依存しない箇所（ImportPanel の取り込みパネル等）で使う。
-export const PAPERS: PaperDefinition[] = subjectDefsOf(DEFAULT_EXAM_ID).flatMap(s => s.papers ?? [])

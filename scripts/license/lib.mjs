@@ -35,10 +35,45 @@ export function readJson(path) {
   }
 }
 
-// service key は .env（.gitignore 済み）から読む。既存スクリプトと同じ assertSupabaseCredentials を使う。
+// 認証情報が「キーそのもの」ではなく「キーの書式を説明したプレースホルダ」になっていることが
+// 実際にあった。この状態で走らせると undici が Authorization ヘッダを組み立てられず
+//   TypeError: Cannot convert argument to a ByteString …
+// という原因の分からない例外になるので、HTTPヘッダに載せられない値は先に弾く。
+const HEADER_SAFE = /^[!-~]+$/ // 空白・制御文字・非ASCIIを含まない可視ASCIIのみ
+const PLACEHOLDER = /^<|>$|your[-_]|xxxx|ここに|＜|＞/i
+
+function assertSupabaseCredentials() {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const where = '.env（.gitignore 済み）か実行環境の環境変数'
+  if (!url || !key) {
+    fail(`SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を ${where} で指定してください（雛形は .env.example）。`)
+  }
+  try {
+    if (new URL(url).protocol !== 'https:') throw new Error('https ではない')
+  } catch {
+    fail(`SUPABASE_URL が URL として読めません。https://<project-ref>.supabase.co の形で ${where} に設定してください。`)
+  }
+  if (!HEADER_SAFE.test(key) || PLACEHOLDER.test(key)) {
+    // 値そのものは出さない（秘密情報なので）。何が問題かだけを示す。
+    const reasons = []
+    if (!HEADER_SAFE.test(key)) reasons.push('空白・全角文字・記号など、HTTPヘッダに載せられない文字が含まれている')
+    if (PLACEHOLDER.test(key)) reasons.push('プレースホルダ（説明文・雛形）のまま置き換えられていない')
+    fail([
+      'SUPABASE_SERVICE_ROLE_KEY がキーの値になっていません。',
+      `  検出した問題: ${reasons.join(' / ')}（長さ ${key.length}）`,
+      '  Supabase ダッシュボード → Project Settings → API Keys の secret key（sb_secret_… ）を',
+      `  引用符・括弧・説明文を付けずにそのまま ${where} へ貼り直してください。`,
+    ].join('\n'))
+  }
+  return { url, key }
+}
+
+// service key は .env（.gitignore 済み）から読む。
 export async function createSupabase() {
-  const { createSupabase: create } = await import('../lib/ocr-lines.mjs')
-  return create()
+  const { url, key } = assertSupabaseCredentials()
+  const { createClient } = await import('@supabase/supabase-js')
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -89,7 +89,7 @@ export async function POST(req: Request): Promise<Response> {
     const { supabase, userId } = await authenticate(req)
 
     const body = await req.json().catch(() => ({})) as { examId?: string; apply?: boolean }
-    const examId = body.examId ?? 'denken3'
+    const examId = body.examId ?? 'sharoushi'
     const apply = body.apply === true
 
     // ---- 1. 履歴を読む（RLS により自分の行だけ） ----
