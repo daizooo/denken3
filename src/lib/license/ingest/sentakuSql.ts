@@ -19,8 +19,9 @@ const ITEM_COLUMNS = [
   'explanation_verified', 'topic_id', 'importance', 'law_status', 'law_note', 'study_subject', 'scored_subject',
 ] as const
 
-// 既存の空欄で書籍の値に置き換える列（これ以外は据え置く: origin_statement・truth・law_status・law_note など）
-const ITEM_UPDATE_COLUMNS = ['statement', 'explanation', 'explanation_source', 'explanation_verified', 'study_subject'] as const
+// 既存の空欄で書籍の値に置き換える列（これ以外は据え置く: origin_statement・truth・law_status・law_note など）。
+// truth_source='book' にすることで、公式PDFの再取り込み（official/merge.ts の keepIfBook）が statement・study_subject を戻さない。
+const ITEM_UPDATE_COLUMNS = ['statement', 'explanation', 'explanation_source', 'explanation_verified', 'study_subject', 'truth_source'] as const
 
 const answerSpec = (v: ValidSentaku) => ({ kind: 'sentaku', blanks: v.blanks, wordbank: v.wordbank })
 

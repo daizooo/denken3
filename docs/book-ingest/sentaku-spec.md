@@ -75,7 +75,7 @@
 | 対象 | 既存の行 | 新規の行 |
 |---|---|---|
 | `lic_questions` | **更新しない**（公式の `stem`・`answer_spec` を守る）。書籍の `blanks`・`wordbank` との**一致だけ検証**する。食い違いは書き起こしの誤りか公式との差かを確認 | `source='ippon'`・`stem=null`・`answer_spec=` 書籍の `blanks`/`wordbank`（`kind:'sentaku'`） |
-| `lic_items` | `statement`・`explanation`・`study_subject` を書籍で更新。`origin_statement` は上書きしない。`law_status`・`law_note` は保持 | `truth_source='book'`・`law_status='ok'`・`truth=null`・`topic_id=null` |
+| `lic_items` | `statement`・`explanation`・`study_subject` を書籍で更新し、`truth_source='book'` にする（公式の再取り込みが書籍の値を戻さない）。`origin_statement` は上書きしない。`law_status`・`law_note`・`truth` は保持 | `truth_source='book'`・`law_status='ok'`・`truth=null`・`topic_id=null` |
 
 - 本番書き込みは択一式と同じく、承認を得て Supabase MCP の `execute_sql` で行う（DELETE/DROP/TRUNCATE は使わない）。
 - 空欄ごとに語群が分かれる年度（R08）は、公式の `groups` を保持する。書籍が語群を分けて載せているときだけ、その年度の `groups` を書籍で照合する。
@@ -122,12 +122,12 @@
 ### 保存の規則
 
 - `lic_questions` は新規の問だけ作る（`ON CONFLICT DO NOTHING`）。既存の問の `answer_spec` が書籍と違えば、保存用 SQL 自体が例外で中止する（何も書かない）。
-- `lic_items` は `statement`・`explanation`・`explanation_source`・`explanation_verified`・`study_subject` の5列だけ上書きする。`origin_statement`・`truth`・`truth_source`・`law_status`・`law_note` は据え置く。
-- 既存の空欄は `truth_source='derived'` のまま残るため、将来 `ingest-official.mjs` を同じ年度で再実行すると `statement` は公式の原文に戻る（書籍の `truth_source='book'` を守る規則は択一式のみ）。再実行する場合は、その後にこの SQL を流し直す。
+- `lic_items` は `statement`・`explanation`・`explanation_source`・`explanation_verified`・`study_subject`・`truth_source`（`'book'`）の6列だけ上書きする。`origin_statement`・`truth`・`law_status`・`law_note` は据え置く。
+- 書籍で上書きした空欄は `truth_source='book'` になるため、公式PDFの再取り込み（`ingest-official.mjs`。`merge.ts` の `keepIfBook`）を同じ年度で再実行しても `statement`・`study_subject` は戻らない（公式の原文は `origin_statement` に入る）。`truth` は空欄補充では `null` のままで、突合の食い違いにも数えない。
 - 20問そろっていなければ `--partial` が必要。語群の `groups`（R08 の空欄ごとの語群）は突合の対象にしない（§3.3）。
 
 ### 動作確認（クラウド環境）
 
-使い捨ての Postgres 16 に最小のテーブルを作り、保存用 SQL を2回流して、新規の問・空欄が入ること、既存の空欄の `origin_statement`・`law_status`・`law_note` が残ること、再実行で結果が変わらないこと、既存の `answer_spec` を食い違わせると何も保存せず中止することを確認した。
+使い捨ての Postgres 16 に最小のテーブルを作り、保存用 SQL を2回流して、新規の問・空欄が入ること、既存の空欄の `origin_statement`・`law_status`・`law_note` が残ること、公式PDFの取り込み SQL を後から流しても書籍の本文が戻らないこと、再実行で結果が変わらないこと、既存の `answer_spec` を食い違わせると何も保存せず中止することを確認した。
 
 - 次の作業: 画像21枚の書き起こし → 検証 → 突合（R06〜R08 の30空欄）→ 画像との全問照合 → 承認を得て保存。

@@ -43,7 +43,7 @@ describe('toSentakuApplySql', () => {
     expect(sql).toContain(`'ippon'::text, NULL::text)`)
   })
 
-  it('空欄は5列だけ上書きし、origin_statement・truth・law_status・law_note は更新しない', () => {
+  it('空欄は6列だけ上書きし（truth_source は book にして公式の再取り込みから守る）、origin_statement・truth・law_status・law_note は更新しない', () => {
     const set = sql.slice(sql.indexOf('INSERT INTO lic_items'))
     const update = set.slice(set.indexOf('DO UPDATE SET'), set.indexOf('COMMIT'))
     expect(update).toContain('statement = EXCLUDED.statement')
@@ -51,7 +51,8 @@ describe('toSentakuApplySql', () => {
     expect(update).toContain('explanation_source = EXCLUDED.explanation_source')
     expect(update).toContain('explanation_verified = EXCLUDED.explanation_verified')
     expect(update).toContain('study_subject = EXCLUDED.study_subject')
-    for (const col of ['origin_statement', 'truth', 'truth_source', 'law_status', 'law_note', 'topic_id', 'importance']) {
+    expect(update).toContain('truth_source = EXCLUDED.truth_source')
+    for (const col of ['origin_statement', 'truth', 'law_status', 'law_note', 'topic_id', 'importance']) {
       expect(update).not.toContain(`${col} =`)
     }
     expect(sql.split('\n').filter(l => !l.startsWith('--')).join('\n')).not.toContain('origin_statement')
