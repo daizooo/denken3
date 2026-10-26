@@ -317,7 +317,7 @@ export const ROUSAI_CHAPTERS: Chapter[] = [
     ],
   },
   {
-    code: 'rousai_17', name: '17 受給権の保護・保険給付の非課税・届出報告等', subject: '労災', totalCount: 16,
+    code: 'rousai_17', name: '17 受給権の保護・保険給付の非課税・届出報告等', subject: '労災', totalCount: 17,
     questions: [
       { id: 'H29_T_RS_07_D', number: 1, title: '17 受給権の保護・保険給付の非課税・届出報告等（H29 問7 D）', difficulty: 2, importance: 2, studyMode: 'memory' },
       { id: 'H29_T_RS_07_E', number: 2, title: '17 受給権の保護・保険給付の非課税・届出報告等（H29 問7 E）', difficulty: 2, importance: 2, studyMode: 'memory' },
@@ -334,7 +334,8 @@ export const ROUSAI_CHAPTERS: Chapter[] = [
       { id: 'R02_T_RS_01_D', number: 13, title: '17 受給権の保護・保険給付の非課税・届出報告等（R02 問1 D）', difficulty: 2, importance: 2, studyMode: 'memory' },
       { id: 'R02_T_RS_01_E', number: 14, title: '17 受給権の保護・保険給付の非課税・届出報告等（R02 問1 E）', difficulty: 2, importance: 2, studyMode: 'memory' },
       { id: 'R06_T_RS_07_A', number: 15, title: '17 受給権の保護・保険給付の非課税・届出報告等（R06 問7 A）', difficulty: 2, importance: 2, studyMode: 'memory' },
-      { id: 'R06_T_RS_07_D', number: 16, title: '17 受給権の保護・保険給付の非課税・届出報告等（R06 問7 D）', difficulty: 2, importance: 2, studyMode: 'memory' },
+      { id: 'R06_T_RS_07_C', number: 16, title: '17 受給権の保護・保険給付の非課税・届出報告等（R06 問7 C）', difficulty: 2, importance: 2, studyMode: 'memory' },
+      { id: 'R06_T_RS_07_D', number: 17, title: '17 受給権の保護・保険給付の非課税・届出報告等（R06 問7 D）', difficulty: 2, importance: 2, studyMode: 'memory' },
     ],
   },
   {
