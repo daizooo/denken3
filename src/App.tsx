@@ -37,10 +37,12 @@ import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
-import FilterBar from './features/questions/FilterBar'
+import FilterBar, { type FilterGroup } from './features/questions/FilterBar'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
 import AnyItemSolver from './features/license/AnyItemSolver'
+import { FORMAT_LABEL, formatsOf, matchSource, yearChipLabel, yearsOf } from './lib/license/sourceFilter'
+import type { LicFormat } from './domain/license'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
 import LawReviewButton from './features/license/LawReviewButton'
@@ -74,6 +76,9 @@ export default function App() {
   // セッション内のみの状態（永続化しない）。
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
   const [filterOpen, setFilterOpen] = useState(false)
+  // 出題年度・出題形式（択一式／選択式）の絞り込み。章の前段の軸で、ID から読める資格（社労士）だけ出る。
+  const [filterYears, setFilterYears] = useState<Set<string>>(() => new Set())
+  const [filterFormats, setFilterFormats] = useState<Set<LicFormat>>(() => new Set())
   // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
   // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
   const [fsrsParams, setFsrsParams] = useState<FsrsParamsRow | null>(null)
@@ -371,6 +376,8 @@ export default function App() {
   useEffect(() => {
     setSubject(subjectNamesOf(examId)[0])
     setChapterCode('ALL')
+    setFilterYears(new Set())
+    setFilterFormats(new Set())
     setReviews({})
     setPlans({})
   }, [examId])
@@ -523,8 +530,16 @@ export default function App() {
       return next
     })
   }, [])
+  const toggleFilterYear = useCallback((y: string) => {
+    setFilterYears(prev => { const next = new Set(prev); if (next.has(y)) next.delete(y); else next.add(y); return next })
+  }, [])
+  const toggleFilterFormat = useCallback((f: LicFormat) => {
+    setFilterFormats(prev => { const next = new Set(prev); if (next.has(f)) next.delete(f); else next.add(f); return next })
+  }, [])
   const clearFilters = useCallback(() => {
     setFilterStatuses(new Set())
+    setFilterYears(new Set())
+    setFilterFormats(new Set())
   }, [])
 
   // 弱点ランキング・学習曲線（§7.7(2)(3)）。ペース分析は合格ライン目標を使うため後段。
@@ -660,14 +675,18 @@ export default function App() {
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
 
+  // 出題年度・形式の絞り込み（空集合は素通し）。章の選択肢の件数もこれに連動させる。
+  const sourceSel = useMemo(() => ({ years: filterYears, formats: filterFormats }), [filterYears, filterFormats])
   const allQuestions = useMemo(() => {
     const chaps = chapterCode === 'ALL'
       ? currentChapters
       : currentChapters.filter(c => c.code === chapterCode)
     return chaps.flatMap(c =>
-      c.questions.map(q => ({ ...q, chapterName: c.name, chapterCode: c.code }))
+      c.questions
+        .filter(q => matchSource(q.id, sourceSel))
+        .map(q => ({ ...q, chapterName: c.name, chapterCode: c.code }))
     )
-  }, [currentChapters, chapterCode])
+  }, [currentChapters, chapterCode, sourceSel])
 
   const reviewSchedule = useMemo(() => {
     const today = todayJST()
@@ -913,16 +932,45 @@ export default function App() {
   const isTodayView = selectedDate === todayStr
   // 章セレクトの選択肢（Phase H。旧: 本文上のチップ10個）。件数の意味はタブで変わる
   // （復習タブ＝表示中の日付の件数 / 全問題タブ＝収録数）ので、そこは従来どおり。
+  // 年度・形式を絞っているときは、章の件数もその範囲で数え、該当の無い章は選べなくする（選択中の章を除く）。
+  const sourceActive = filterYears.size > 0 || filterFormats.size > 0
   const chapterOptions = [
     { code: 'ALL', label: `全章（${activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問）` },
-    ...inputChapters.map(c => ({
-      code: c.code,
-      label: `${c.name}（${activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length}）`,
-    })),
+    ...inputChapters.map(c => {
+      const qs = sourceActive ? c.questions.filter(q => matchSource(q.id, sourceSel)) : c.questions
+      return {
+        code: c.code,
+        label: `${c.name}（${activeTab === 'review' ? reviewDueCount(qs) : qs.length}）`,
+        ...(sourceActive && qs.length === 0 && c.code !== chapterCode ? { disabled: true } : {}),
+      }
+    }),
     ...currentChapters.filter(c => c.questions.length === 0).map(c => ({
       code: c.code, label: `${c.name}（未入力）`, disabled: true,
     })),
   ]
+
+  // 出題年度・出題形式の軸。ID から読める問が無い資格（電験）や、選べる値が1つしかない軸は出さない。
+  const filterGroups: FilterGroup[] = (() => {
+    const ids = currentChapters.flatMap(c => c.questions.map(q => q.id))
+    const years = yearsOf(ids)
+    const formats = formatsOf(ids)
+    const groups: FilterGroup[] = []
+    if (years.length > 1) {
+      groups.push({
+        key: 'year', label: '出題年度',
+        options: years.map(y => ({ value: y, label: yearChipLabel(y) })),
+        selected: filterYears, onToggle: toggleFilterYear,
+      })
+    }
+    if (formats.length > 1) {
+      groups.push({
+        key: 'format', label: '出題形式',
+        options: formats.map(f => ({ value: f, label: FORMAT_LABEL[f] })),
+        selected: filterFormats, onToggle: f => toggleFilterFormat(f as LicFormat),
+      })
+    }
+    return groups
+  })()
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
@@ -1182,12 +1230,13 @@ export default function App() {
               chapterCode={chapterCode}
               onChangeChapter={setChapterCode}
               chapterOptions={chapterOptions}
+              groups={filterGroups}
             />
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                {filterStatuses.size > 0 && baseQuestions.length > 0 ? (
+                {(filterStatuses.size > 0 && baseQuestions.length > 0) || sourceActive ? (
                   <>
                     <p className="text-gray-400 text-sm">絞り込み条件に一致する問題がありません</p>
                     <button
@@ -1221,6 +1270,7 @@ export default function App() {
                     isTodayView &&
                     chapterCode === 'ALL' &&
                     filterStatuses.size === 0 &&
+                    !sourceActive &&
                     idx === todayPlan.recommendedCount &&
                     todayPlan.recommendedCount < filteredQuestions.length
 

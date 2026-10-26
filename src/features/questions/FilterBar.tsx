@@ -4,16 +4,29 @@ import { STATUS_BG, STATUS_LABEL } from '../shared/status'
 
 const STATUS_OPTIONS: Status[] = ['S', 'A', 'B', 'C', '未着手']
 
+// 理解度のほかに足せる絞り込みの軸（例: 出題年度・出題形式）。軸内は OR、軸間は AND。
+export interface FilterGroup {
+  key: string
+  label: string
+  options: { value: string; label: string }[]
+  selected: ReadonlySet<string>
+  onToggle: (value: string) => void
+}
+
 // 選択中を要約したバッジ文字列（例: B/C）。パネルを閉じている間の目印。
-function summarize(statuses: Set<Status>): string[] {
+function summarize(statuses: Set<Status>, groups: FilterGroup[]): string[] {
   const out: string[] = []
+  for (const g of groups) {
+    const picked = g.options.filter(o => g.selected.has(o.value)).map(o => o.label)
+    if (picked.length > 0) out.push(picked.join('/'))
+  }
   if (statuses.size > 0) {
     out.push(STATUS_OPTIONS.filter(s => statuses.has(s)).join('/'))
   }
   return out
 }
 
-// 問題の絞り込み（章 × 理解度）。復習・一覧の両タブで使う。
+// 問題の絞り込み（章 × 理解度 ×（あれば）出題年度・出題形式）。復習・一覧の両タブで使う。
 // 軸間はAND、軸内はOR（複数選択可）。空集合＝その軸は絞り込みなし。
 //
 // 章は Phase H（learning-metrics-ui-redesign）でここへ移した。以前は本文の上に
@@ -23,7 +36,7 @@ function summarize(statuses: Set<Status>): string[] {
 export default function FilterBar({
   statuses, onToggleStatus, onClear,
   statusCounts, open, onToggleOpen,
-  chapterCode, onChangeChapter, chapterOptions,
+  chapterCode, onChangeChapter, chapterOptions, groups = [],
 }: {
   statuses: Set<Status>
   onToggleStatus: (s: Status) => void
@@ -35,9 +48,11 @@ export default function FilterBar({
   onChangeChapter: (code: string) => void
   /** 章セレクトの選択肢。code='ALL' を先頭に含める。disabled は未入力チャプター。 */
   chapterOptions: { code: string; label: string; disabled?: boolean }[]
+  /** 章・理解度のほかの絞り込み軸（出題年度・出題形式など）。選択肢が無い軸は渡さない。 */
+  groups?: FilterGroup[]
 }) {
-  const activeCount = statuses.size
-  const summary = summarize(statuses)
+  const activeCount = statuses.size + groups.reduce((n, g) => n + g.selected.size, 0)
+  const summary = summarize(statuses, groups)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100">
@@ -99,6 +114,27 @@ export default function FilterBar({
       {/* パネル本体 */}
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-3 border-t border-gray-50">
+          {/* 出題年度・出題形式など（章の絞り込みの前段） */}
+          {groups.map(g => (
+            <div key={g.key}>
+              <p className="text-[11px] font-medium text-gray-400 mb-1.5">{g.label}</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {g.options.map(o => {
+                  const on = g.selected.has(o.value)
+                  return (
+                    <button key={o.value}
+                      onClick={() => g.onToggle(o.value)}
+                      className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                        on
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'
+                      }`}
+                    >{o.label}</button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
           {/* 理解度 */}
           <div>
             <p className="text-[11px] font-medium text-gray-400 mb-1.5">理解度</p>
