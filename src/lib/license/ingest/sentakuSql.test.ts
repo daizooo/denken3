@@ -67,8 +67,24 @@ describe('toSentakuApplySql', () => {
     expect(sql).toContain('BEGIN;')
     expect(sql).toContain('RAISE EXCEPTION')
     expect(sql).toContain('IS DISTINCT FROM b.blanks')
-    expect(sql).toContain('IS DISTINCT FROM b.wordbank')
+    expect(sql).toContain(`q.answer_spec->'blanks' IS DISTINCT FROM b.blanks`)
     expect(sql.indexOf('RAISE EXCEPTION')).toBeLessThan(sql.indexOf('INSERT INTO lic_questions'))
+  })
+
+  it('中止条件は語句を NFKC 正規化して空白を除いて比べ、空欄ごとの語群も見る', () => {
+    expect(sql).toContain(`regexp_replace(normalize(t.v, NFKC), '\\s', '', 'g')`)
+    expect(sql).toContain(`FROM jsonb_each_text(q.answer_spec->'wordbank') AS t(k, v)`)
+    expect(sql).toContain(`FROM jsonb_each_text(b.wordbank) AS t(k, v)`)
+    expect(sql).toContain(`q.answer_spec->'groups' IS DISTINCT FROM b.groups`)
+  })
+
+  it('空欄ごとの語群がある問は answer_spec と中止条件に groups を入れる。無い問は NULL', () => {
+    const groups = { A: [1, 2, 3, 4], B: [5, 6, 7, 8], C: [9, 10, 11, 12], D: [13, 14, 15, 16], E: [17, 18, 19, 20] }
+    const g = toSentakuApplySql(valid(question({ blanks: { A: 3, B: 6, C: 12, D: 13, E: 19 }, groups })), { userId: USER, label: 'x' })
+    expect(g).toContain(`"groups":{"A":[1,2,3,4],"B":[5,6,7,8],"C":[9,10,11,12],"D":[13,14,15,16],"E":[17,18,19,20]}`)
+    expect(g).toContain(`'{"A":[1,2,3,4],"B":[5,6,7,8],"C":[9,10,11,12],"D":[13,14,15,16],"E":[17,18,19,20]}'::jsonb)\n    )`)
+    expect(sql).not.toContain('"groups"')
+    expect(sql).toContain('NULL::jsonb)\n    )')
   })
 
   it('削除系の文を含まず、最後に件数の確認がある', () => {

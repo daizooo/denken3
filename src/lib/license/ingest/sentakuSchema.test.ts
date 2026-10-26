@@ -102,6 +102,31 @@ describe('validateSentaku', () => {
     expect(errors[0].reasons[0]).toContain('問IDが重複: R03_S_RK')
   })
 
+  describe('空欄ごとの語群（groups）', () => {
+    const groups = () => ({ A: [1, 2, 3, 4], B: [5, 6, 7, 8], C: [9, 10, 11, 12], D: [13, 14, 15, 16], E: [17, 18, 19, 20] })
+    const withGroups = { blanks: { A: 3, B: 6, C: 12, D: 13, E: 19 }, groups: groups() }
+
+    it('5空欄すべてに語群があり、正答がその空欄の語群にあれば通り、groups を保持する', () => {
+      const { valid, errors } = validateSentaku([question(withGroups)])
+      expect(errors).toEqual([])
+      expect(valid[0].groups).toEqual(groups())
+    })
+
+    it('groups が無い問は groups を持たない', () => {
+      expect(validateSentaku([question()]).valid[0]).not.toHaveProperty('groups')
+    })
+
+    it('正答が空欄の語群に無い・番号が範囲外・重複・空欄の欠けを失敗にする', () => {
+      expect(reasonsOf([question({ ...withGroups, blanks: { A: 5, B: 6, C: 12, D: 13, E: 19 } })]).join()).toContain('blanks.A の 5 が空欄 A の語群')
+      expect(reasonsOf([question({ ...withGroups, groups: { ...groups(), A: [1, 2, 3, 21] } })]).join()).toContain('groups.A に語群の番号')
+      expect(reasonsOf([question({ ...withGroups, groups: { ...groups(), A: [1, 1, 3, 4] } })]).join()).toContain('groups.A の番号が重複')
+      const { E: _omit, ...four } = groups()
+      expect(reasonsOf([question({ ...withGroups, groups: four })]).join()).toContain('groups に空欄 E の語群が無い')
+      expect(reasonsOf([question({ ...withGroups, groups: [] })]).join()).toContain('groups がオブジェクトでない')
+      expect(reasonsOf([question({ ...withGroups, groups: { ...groups(), F: [1] } })]).join()).toContain('groups に A〜E 以外の空欄: F')
+    })
+  })
+
   it('配列でない入力・オブジェクトでない問を失敗にする', () => {
     expect(validateSentaku({}).errors[0].reasons).toEqual(['JSON の最上位が問の配列でない'])
     expect(validateSentaku([3]).errors[0].reasons).toEqual(['問がオブジェクトでない'])
@@ -139,8 +164,23 @@ describe('compareWithOfficial', () => {
     expect(compareWithOfficial(validOf(), { kind: 'combo', correct: 1 })?.reasons).toHaveLength(1)
   })
 
-  it('公式の groups（R08 の空欄ごとの語群）は比較の対象にせず、書籍と無関係に許す', () => {
-    expect(compareWithOfficial(validOf(), { ...official(), groups: { A: [1, 2, 3] } })).toBeNull()
+  it('語句は全角半角・空白の違いを無視して比べる（公式は「1，000」のように全角で持つ）', () => {
+    const o = official()
+    o.wordbank['5'] = '１，０００人'
+    const v = validOf({ wordbank: { ...wordbank(), '5': '1,000 人' } })
+    expect(compareWithOfficial(v, o)).toBeNull()
+    expect(compareWithOfficial(v, { ...o, wordbank: { ...o.wordbank, '5': '1,200人' } })?.reasons).toEqual(['語群 5: 書籍「1,000 人」/ 公式「1,200人」'])
+  })
+
+  it('書籍が空欄ごとの語群を載せるときは公式の groups と一致すること。公式だけが持つときも食い違い', () => {
+    const groups = { A: [1, 2, 3, 4], B: [5, 6, 7, 8], C: [9, 10, 11, 12], D: [13, 14, 15, 16], E: [17, 18, 19, 20] }
+    const blanks = { A: 3, B: 6, C: 12, D: 13, E: 19 }
+    const book = validOf({ blanks, groups })
+    expect(compareWithOfficial(book, { kind: 'sentaku', blanks, wordbank: wordbank(), groups })).toBeNull()
+    expect(compareWithOfficial(book, { kind: 'sentaku', blanks, wordbank: wordbank(), groups: { ...groups, B: [5, 6, 7, 9] } })?.reasons)
+      .toEqual(['空欄 B の語群: 書籍 [5,6,7,8] / 公式 [5,6,7,9]'])
+    expect(compareWithOfficial(book, { kind: 'sentaku', blanks, wordbank: wordbank() })?.reasons).toHaveLength(5)
+    expect(compareWithOfficial(validOf({ blanks }), { kind: 'sentaku', blanks, wordbank: wordbank(), groups })?.reasons).toHaveLength(5)
   })
 })
 

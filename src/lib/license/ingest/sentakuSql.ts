@@ -23,7 +23,11 @@ const ITEM_COLUMNS = [
 // truth_source='book' にすることで、公式PDFの再取り込み（official/merge.ts の keepIfBook）が statement・study_subject を戻さない。
 const ITEM_UPDATE_COLUMNS = ['statement', 'explanation', 'explanation_source', 'explanation_verified', 'study_subject', 'truth_source'] as const
 
-const answerSpec = (v: ValidSentaku) => ({ kind: 'sentaku', blanks: v.blanks, wordbank: v.wordbank })
+const answerSpec = (v: ValidSentaku) => ({ kind: 'sentaku', blanks: v.blanks, wordbank: v.wordbank, ...(v.groups ? { groups: v.groups } : {}) })
+
+// 語群の語句の比較は、NFKC 正規化して空白を除く（公式のPDFは「1，000」のように全角で持つことがあるため。sentakuSchema.ts の normalizeWord と同じ規則）
+const normWords = (x: string) =>
+  `(SELECT jsonb_object_agg(t.k, regexp_replace(normalize(t.v, NFKC), '\\s', '', 'g')) FROM jsonb_each_text(${x}) AS t(k, v))`
 
 function questionRow(v: ValidSentaku): string {
   return `  (${[
@@ -55,24 +59,26 @@ ORDER BY id;
 export function toSentakuApplySql(valid: ValidSentaku[], opts: SentakuSqlOptions): string {
   const { guard, expr } = userGuard(opts.userId)
   const ids = valid.flatMap(v => v.items.map(it => lit(it.itemId))).join(', ')
-  const book = valid.map(v => `  (${lit(v.questionId)}, ${lit(v.blanks, 'jsonb')}, ${lit(v.wordbank, 'jsonb')})`).join(',\n')
+  const book = valid.map(v => `  (${lit(v.questionId)}, ${lit(v.blanks, 'jsonb')}, ${lit(v.wordbank, 'jsonb')}, ${lit(v.groups ?? null, 'jsonb')})`).join(',\n')
   const blanksTotal = valid.reduce((n, v) => n + v.items.length, 0)
   return `-- 選択式（書籍）の取り込み: ${opts.label}
 -- scripts/license/ingest-sentaku.mjs が生成（検証を通した問だけ）。execute_sql で実行する。
 -- 冪等（再実行可）。lic_questions は新規の問だけ作る（公式の stem・answer_spec は更新しない）。
+-- 既存の問は blanks・語群（全角半角・空白を無視）・空欄ごとの語群が書籍と一致しなければ、何も書かずに中止する。
 -- lic_items は ${ITEM_UPDATE_COLUMNS.join('・')} だけ上書きし、origin_statement・truth・law_status・law_note は据え置く。
 -- lic_questions ${valid.length} 問 / lic_items ${blanksTotal} 空欄
 BEGIN;
 ${guard}
 DO $sentaku$ BEGIN
   IF EXISTS (
-    WITH book(id, blanks, wordbank) AS (VALUES
+    WITH book(id, blanks, wordbank, groups) AS (VALUES
 ${book.replace(/^/gm, '  ')}
     )
     SELECT 1 FROM book b JOIN lic_questions q ON q.user_id = ${expr} AND q.id = b.id
     WHERE q.answer_spec->>'kind' IS DISTINCT FROM 'sentaku'
        OR q.answer_spec->'blanks' IS DISTINCT FROM b.blanks
-       OR q.answer_spec->'wordbank' IS DISTINCT FROM b.wordbank
+       OR ${normWords("q.answer_spec->'wordbank'")} IS DISTINCT FROM ${normWords('b.wordbank')}
+       OR q.answer_spec->'groups' IS DISTINCT FROM b.groups
   ) THEN
     RAISE EXCEPTION '既存の answer_spec が書籍と食い違う問があります。何も保存しません（ingest-sentaku.mjs --existing で突合する）';
   END IF;

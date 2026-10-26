@@ -37,11 +37,12 @@ export interface TranscribedSentaku {
   question_id: string
   wordbank: Record<string, string>
   blanks: Record<string, number>
+  groups?: Record<string, number[]>   // 空欄ごとに語群が分かれる問: 空欄 → 選べる語群の番号（blanks はこの通し番号）
   items: TranscribedBlank[]
   _meta?: unknown   // 検証用（DBに入れない）
 }
 
-const KNOWN_QUESTION_KEYS = new Set(['question_id', 'wordbank', 'blanks', 'items', '_meta'])
+const KNOWN_QUESTION_KEYS = new Set(['question_id', 'wordbank', 'blanks', 'groups', 'items', '_meta'])
 const KNOWN_ITEM_KEYS = new Set(['label', 'statement', 'explanation', 'study_subject'])
 
 export interface ValidBlank {
@@ -60,6 +61,7 @@ export interface ValidSentaku {
   studySubject: string
   wordbank: Record<string, string>
   blanks: Record<ItemLabel, number>
+  groups?: Partial<Record<ItemLabel, number[]>>
   items: ValidBlank[]
 }
 
@@ -146,6 +148,29 @@ function validateOne(raw: unknown, index: number, opts: SentakuValidateOptions):
     }
   }
 
+  // 空欄ごとの語群（任意）: 5空欄すべてに、語群の番号（重複なし）の配列。正答はその空欄の語群の中にあること。
+  let groups: Partial<Record<ItemLabel, number[]>> | undefined
+  if (raw.groups !== undefined) {
+    if (!isObject(raw.groups)) {
+      reasons.push('groups がオブジェクトでない')
+    } else {
+      const g: Partial<Record<ItemLabel, number[]>> = {}
+      const bad = Object.keys(raw.groups).filter(k => !(ITEM_LABELS as readonly string[]).includes(k))
+      if (bad.length > 0) reasons.push(`groups に A〜E 以外の空欄: ${bad.join(',')}`)
+      for (const label of ITEM_LABELS) {
+        const arr = raw.groups[label]
+        if (!Array.isArray(arr) || arr.length === 0) { reasons.push(`groups に空欄 ${label} の語群が無い（番号の配列が必要）`); continue }
+        const nums = arr as unknown[]
+        if (!nums.every(n => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= WORDBANK_SIZE)) { reasons.push(`groups.${label} に語群の番号（1〜${WORDBANK_SIZE}）でない値: ${JSON.stringify(arr)}`); continue }
+        if (new Set(nums).size !== nums.length) { reasons.push(`groups.${label} の番号が重複: ${JSON.stringify(arr)}`); continue }
+        g[label] = nums as number[]
+        const answer = blanks[label]
+        if (answer !== undefined && !(nums as number[]).includes(answer)) reasons.push(`blanks.${label} の ${answer} が空欄 ${label} の語群 ${JSON.stringify(arr)} に無い`)
+      }
+      groups = g
+    }
+  }
+
   // 空欄ごとの本文: A〜E が1つずつ。本文はその空欄 ［X］ を含む。
   const items: ValidBlank[] = []
   if (!Array.isArray(raw.items)) {
@@ -201,7 +226,7 @@ function validateOne(raw: unknown, index: number, opts: SentakuValidateOptions):
   return {
     index, questionId, year, scoredSubject,
     studySubject: QUESTION_STUDY[scoredSubject],
-    wordbank, blanks: blanks as Record<ItemLabel, number>, items,
+    wordbank, blanks: blanks as Record<ItemLabel, number>, ...(groups ? { groups } : {}), items,
   }
 }
 
@@ -233,10 +258,16 @@ export function validateSentaku(input: unknown, opts: SentakuValidateOptions = {
 // ---------------------------------------------------------------------------
 // 公式（既存の lic_questions.answer_spec）との突合（spec §4 の3）
 //
-// 公式の stem・answer_spec は守り、書籍の blanks / wordbank が一致するかだけ見る。
-// 食い違いは書き起こしの誤りか公式との差かを確認する対象（保存の可否には使わない）。
+// 公式の stem・answer_spec は守り、書籍の blanks / wordbank / groups が一致するかだけ見る。
+// 公式の PDF は「1，000」のように全角で持つことがあるため、語句は NFKC 正規化して空白を除いて比べる
+// （保存用 SQL の中止条件 sentakuSql.ts と同じ規則）。食い違いは書き起こしの誤りか公式との差かを確認する対象。
 
 export interface OfficialDiff { questionId: string; reasons: string[] }
+
+export const normalizeWord = (s: string): string => s.normalize('NFKC').replace(/\s+/g, '')
+
+const sameNumbers = (a: readonly number[] | undefined, b: readonly number[] | undefined) =>
+  !!a && !!b && a.length === b.length && a.every((n, i) => n === b[i])
 
 export function compareWithOfficial(v: ValidSentaku, official: AnswerSpec | null): OfficialDiff | null {
   if (!official || official.kind !== 'sentaku') return { questionId: v.questionId, reasons: ['公式の answer_spec が選択式でない・無い'] }
@@ -250,7 +281,15 @@ export function compareWithOfficial(v: ValidSentaku, official: AnswerSpec | null
   for (const n of nums) {
     const a = v.wordbank[n]
     const b = official.wordbank[n]
-    if (a !== b) reasons.push(`語群 ${n}: 書籍「${a ?? '(なし)'}」/ 公式「${b ?? '(なし)'}」`)
+    if (a === undefined || b === undefined || normalizeWord(a) !== normalizeWord(b)) reasons.push(`語群 ${n}: 書籍「${a ?? '(なし)'}」/ 公式「${b ?? '(なし)'}」`)
+  }
+  // 空欄ごとの語群: 書籍が載せているときは公式と同じであること。公式だけが持つときも食い違い。
+  if (v.groups || official.groups) {
+    for (const label of ITEM_LABELS) {
+      const a = v.groups?.[label]
+      const b = official.groups?.[label]
+      if (!sameNumbers(a, b)) reasons.push(`空欄 ${label} の語群: 書籍 ${a ? JSON.stringify(a) : '(単一の語群)'} / 公式 ${b ? JSON.stringify(b) : '(単一の語群)'}`)
+    }
   }
   return reasons.length > 0 ? { questionId: v.questionId, reasons } : null
 }
