@@ -8,7 +8,6 @@ export default function LoginScreen() {
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center space-y-4 w-72">
         <BookOpen size={36} className="mx-auto text-blue-600" />
         <h1 className="text-lg font-bold text-gray-800">{APP_NAME}</h1>
-        <p className="text-xs text-gray-500">2027/2 理論CBT 合格まで</p>
         <button
           onClick={() => supabase.auth.signInWithOAuth({
             provider: 'google',

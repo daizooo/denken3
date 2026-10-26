@@ -1,5 +1,5 @@
 // 本番形式模試の一覧（licensehub-expansion.md §7・§8・PR-H）。年度×式の選択・受験・再開・結果と、温存の解放日の設定を束ねる。
-// - 年度は lic_questions に揃っている（択一70問／選択式8科目）ものなら、いつでも選べる（電験の年度別と同じ）
+// - 年度は lic_questions に揃っている（択一70問／選択式8科目）ものなら、いつでも選べる
 // - どれをいつ解くかは決めず、最終期限（denken_settings.mock_deadline。migration 025）と未受験の年度×式だけを出す
 // - セッションは denken_mock_sessions（exam_id='sharoushi'、subject_id=式、paper_id=年度、mode='cbt'）
 // - 採点確定時に、誤答した問の肢を理解度 C で記録し、日々の復習キューに入れる（§8.1。記録は App の updateStatus の経路）

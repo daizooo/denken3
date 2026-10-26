@@ -142,7 +142,7 @@ export function forwardSlotsToday(policy: Policy, startedToday: number): number 
  * 切り替えるだけで優先度の定義が変わっており、「いま何が効いているのか分からない」
  * という利用者の一次不満を、アプリ自身が作り出していた。
  *
- * 同点は出題頻度 → 難易度で割る。
+ * 同点は難易度で割る。
  */
 export function orderByDensity(params: {
   candidates: TodayCandidate[]
@@ -159,7 +159,7 @@ export function orderByDensity(params: {
     // 帯（🔴優先）の判定は、その問題に適用されている目標保持率を基準にする（Phase C・層3）。
     // コアは 0.90 でスケジュールされるので、しきい値もそれに追従させないと帯が鈍る。
     const v = reviewValue(
-      c.question, c.review, today, examDate,
+      c.review, today, examDate,
       policy.retentionOf(c.question.id, c.question.studyMode ?? 'unset'),
     )
     const minutes = estimateMinutes(c.question, c.review, stats)
@@ -176,14 +176,12 @@ export function orderByDensity(params: {
         // 0分で割らないための下限。見積もりが 15秒未満の問題は 15秒として扱う。
         density: impact / Math.max(minutes, 0.25),
       } as TodayPlanItem,
-      frequency: v.frequency,
       difficulty: c.question.difficulty,
     }
   })
 
   scored.sort((a, b) => {
     if (a.item.density !== b.item.density) return b.item.density - a.item.density
-    if (a.frequency !== b.frequency) return b.frequency - a.frequency
     return b.difficulty - a.difficulty
   })
   return scored.map(s => s.item)

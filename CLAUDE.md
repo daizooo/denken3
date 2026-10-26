@@ -40,7 +40,7 @@
 ### 3. データ追加はファイル単位・ID単位で分離する
 
 - 章・年度・資格などの単位でデータを追加する場合は、既存データファイルを直接編集せず、
-  新しいファイル（例: `src/data/denken3/riron/papers/r7-1.ts`）を追加し、末尾の index/registry
+  新しいファイル（例: `src/data/sharoushi/subjects/rouki.ts`）を追加し、末尾の index/registry
   にのみ1行追記する形にする。
 - ID・キーの命名は衝突しない接頭辞規則（既存: `exam_id`/`question_id` のスコープ設計）に従う。
   新規追加のたびに既存IDの採番ルールを変更しない。

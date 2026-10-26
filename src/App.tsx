@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
 import { supabase } from './lib/supabase'
 import type { User } from '@supabase/supabase-js'
-import { BookOpen, Save, LogOut, Upload, Settings } from 'lucide-react'
-import ProblemViewer from './components/ProblemViewer'
-import ImportPanel from './components/ImportPanel'
+import { BookOpen, Save, LogOut, Settings } from 'lucide-react'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, Subject } from './domain/types'
-import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, papersForSubject, subjectIdOf } from './data/registry'
+import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, RETENTION_DEFAULT } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
@@ -22,20 +20,16 @@ import {
   type EstimateModeKey,
 } from './lib/estimateMinutes'
 import {
-  startTimer, pauseTimer, resumeTimer, elapsedSeconds, elapsedMs, setManualPause,
+  startTimer, pauseTimer, resumeTimer, elapsedSeconds,
   durationCapSeconds, MAX_DURATION_SECONDS, type TimerState,
 } from './lib/timer'
-import { cutoffSeconds } from './lib/solveTimer'
-import { primeAlarm } from './lib/alarm'
 import {
   loadSnapshot, saveSnapshot, snapshotKey, queueWrite, pendingWrites, removeWrite, pendingCount,
 } from './lib/offlineStore'
-import { clearProblemImageCache, prefetchProblemImages } from './lib/problemImageCache'
 import { isMeaningful, type Attempt } from './lib/attempt'
 import LoginScreen from './features/auth/LoginScreen'
 import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
-import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type FilterGroup } from './features/questions/FilterBar'
 import SubjectSelect from './features/questions/SubjectSelect'
@@ -59,7 +53,7 @@ export default function App() {
   const [user, setUser]           = useState<User | null>(null)
   const [reviews, setReviews]     = useState<Record<string, Review>>({})
   const [plans, setPlans]         = useState<Record<string, ExamPlan>>({})
-  // 年度別CBTの確定スコア（想定得点の実測補正・§7.7(4)）。分析タブでのみ使う。
+  // 模試の確定スコア（想定得点の実測補正・§7.7(4)）。分析タブでのみ使う。
   const [mockSessions, setMockSessions] = useState<MockSession[]>([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
@@ -67,7 +61,7 @@ export default function App() {
   const [online, setOnline]       = useState(() => navigator.onLine)
   const [pending, setPending]     = useState(0)
   // スタート画面は常に復習タブを表示する。
-  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'mock' | 'settings'>('review')
+  const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'settings'>('review')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   // 対象資格（registry駆動・§7.8）。登録が1つの間は DEFAULT_EXAM_ID で固定。
   const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
@@ -97,11 +91,9 @@ export default function App() {
   // 実施日ピッカーを開いている問題のID（通常は「今日」なので畳んでおく）
   const [dateOpenId, setDateOpenId] = useState<string | null>(null)
   // solving=true は「問題を解く」で開いた（解答時間を計測中の）状態。
-  // cutoffSec は「答えを見る」までの目安（solveTimer.cutoffSeconds）。開いた時点の推定で固定する。
   const [viewerQ, setViewerQ] = useState<
-    { id: string; title: string; solving: boolean; cutoffSec: number } | null
+    { id: string; title: string; solving: boolean } | null
   >(null)
-  const [showImport, setShowImport] = useState(false)
   // 復習タブでこのセッション中に理解度を記録した問題。記録した瞬間に一覧から消すために使う。
   const [reviewedNowIds, setReviewedNowIds] = useState<Set<string>>(() => new Set())
   // 分野別の解答時間計測（§7.6）。「問題を解く」で開始、A/B/C で終了。
@@ -143,7 +135,7 @@ export default function App() {
   const subjects = useMemo(() => subjectNamesOf(examId), [examId])
   const chapters = useMemo(() => chaptersOf(examId), [examId])
   const passingScore = exam.passingScore
-  // 社労士（allText）の肢の本文を起動時に先取りする（licensehub-expansion.md §5）。電験では何もしない。
+  // 社労士（allText）の肢の本文を起動時に先取りする（licensehub-expansion.md §5）。
   usePrefetchItemBodies(user?.id ?? null, exam, subject, reviews, todayStr)
 
   // ---- Auth ----
@@ -156,8 +148,6 @@ export default function App() {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setReviews({})
-        // 先読みした問題画像も捨てる（端末を共有したときに前のユーザーの画像を残さない・課題7c）。
-        void clearProblemImageCache()
         // 空になった状態をスナップショットとして書き戻さない（課題7）。
         reviewsLoadedKeyRef.current = null
         plansLoadedKeyRef.current = null
@@ -353,19 +343,6 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
-  // 経過時間の表示用（ProblemViewer が毎秒読む）。計測の実体は ref なので依存は空にでき、
-  // 関数の同一性が変わらない＝ビューア側のインターバルが貼り直されない。
-  const elapsedMsOf = useCallback((questionId: string) => {
-    const t = timersRef.current[questionId]
-    return t ? elapsedMs(t) : 0
-  }, [])
-
-  // 手動の一時停止／再開。ここまでの経過は残したまま加算だけ止める（中断＝破棄とは別物）。
-  const setTimerPaused = useCallback((questionId: string, paused: boolean) => {
-    const t = timersRef.current[questionId]
-    if (t) timersRef.current[questionId] = setManualPause(t, paused)
-  }, [])
-
   // タブ・対象日を切り替えたら「復習済みで消した」記録はリセットする。
   useEffect(() => {
     setReviewedNowIds(new Set())
@@ -505,14 +482,6 @@ export default function App() {
   )
 
   const currentPlan = plans[subjectIdOf(examId, subject)] ?? null
-  const currentPapers = useMemo(() => papersForSubject(examId, subject), [examId, subject])
-
-  // 年度別（CBT模試）の誤答→分野別復習の前倒し（§7.4(3)）。
-  // 該当する分野別問題の due_date を今日にして、今日の復習へ引き上げる。
-  const boostReview = useCallback((sourceQuestionId: string) => {
-    const current = reviews[sourceQuestionId] ?? defaultReview(sourceQuestionId)
-    saveReview({ ...current, due_date: todayStr })
-  }, [reviews, saveReview, todayStr])
 
   // S（復習不要）にした問題を、いつでも復習に戻す。
   // 学習履歴・FSRS状態はそのままに、次回復習日を今日へ設定して復習キューへ戻すだけ。
@@ -653,25 +622,6 @@ export default function App() {
     ),
     [subjectQuestions, reviews, currentPlan, todayStr, passTarget, goalValidated]
   )
-
-  // 問題画像の先読み（課題7c・Phase F）。今日のキュー（復習due）の画像を
-  // オンラインのうちに Cache Storage へ置いておく。電波が弱い場面こそが隙間時間なので、
-  // 「開いてから待つ」をなくす。鍵は storage_path（署名URLは TTL 3600秒で毎回変わるため
-  // 鍵にできない・§9.4）。実処理と上限は lib/problemImageCache.ts。
-  const todayImageIds = useMemo(() => {
-    const qs = currentChapters.flatMap(c => c.questions)
-    return qs
-      .filter(q => {
-        const due = reviews[q.id]?.due_date
-        return !!(due && due <= todayStr)
-      })
-      .map(q => q.id)
-  }, [currentChapters, reviews, todayStr])
-
-  useEffect(() => {
-    if (!user || !online) return
-    return prefetchProblemImages(todayImageIds)
-  }, [user, online, todayImageIds])
 
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
@@ -956,7 +906,7 @@ export default function App() {
     return { value: sub, label: `${sub}${count > 0 ? `（${count}）` : ''}` }
   })
 
-  // 出題年度・出題形式の軸。ID から読める問が無い資格（電験）や、選べる値が1つしかない軸は出さない。
+  // 出題年度・出題形式の軸。ID から読める問が無い資格や、選べる値が1つしかない軸は出さない。
   const filterGroups: FilterGroup[] = (() => {
     const ids = currentChapters.flatMap(c => c.questions.map(q => q.id))
     const years = yearsOf(ids)
@@ -1038,13 +988,6 @@ export default function App() {
                 </span>
               )}
               <button
-                onClick={() => setShowImport(true)}
-                title="問題画像の取り込み"
-                className="ml-1 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <Upload size={13} />
-              </button>
-              <button
                 onClick={() => setActiveTab('settings')}
                 title="試験日程の設定"
                 className={`p-1 rounded-md hover:bg-gray-100 transition-colors ${
@@ -1075,10 +1018,8 @@ export default function App() {
                   （復習キュー）で呼ぶ。バッジは今日の推奨件数＝パネルの主数値と一致。 */}
               復習{todaySummary.remainingCount > 0 ? ` (${todaySummary.remainingCount})` : ''}
             </button>
-            {(['list', 'dashboard', 'mock'] as const).map(t => {
-              // 年度別タブは、ペーパー定義が無い科目では表示しない（§7.4）。
-              if (t === 'mock' && currentPapers.length === 0) return null
-              const label = t === 'list' ? '全問題' : t === 'dashboard' ? '分析' : '年度別'
+            {(['list', 'dashboard'] as const).map(t => {
+              const label = t === 'list' ? '全問題' : '分析'
               return (
                 <button key={t}
                   onClick={() => setActiveTab(t)}
@@ -1147,16 +1088,6 @@ export default function App() {
             planAlert={planAlert}
             requiredPace={requiredLine.pace}
             weeklyLoad={requiredLine.weekly}
-          />
-        ) : activeTab === 'mock' ? (
-          <MockExamView
-            userId={user.id}
-            examId={examId}
-            subjectId={subjectIdOf(examId, subject)}
-            papers={currentPapers}
-            passingScore={passingScore}
-            targetScore={policy.targetScore}
-            onBoostReview={boostReview}
           />
         ) : (
           <>
@@ -1318,21 +1249,15 @@ export default function App() {
                           id: q.id,
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: false,
-                          cutoffSec: 0,
                         })
                       }}
                       onSolveProblem={() => {
                         // 「問題を解く」= 解答時間の計測開始（§7.6）。A/B/C 押下時に秒数を確定する。
                         timersRef.current[q.id] = startTimer(todayStr)
-                        // アラームの音源はこのタップの中で用意する（iOS の自動再生制限）。
-                        primeAlarm()
                         setViewerQ({
                           id: q.id,
                           title: `${q.chapterName} 問${q.number}　${q.title}`,
                           solving: true,
-                          // 切り上げ時間は「難易度×studyMode の典型所要時間 × 1.5、本番の持ち時間まで」。
-                          // 理解度・その問題自身の履歴は入れない（solveTimer.ts 冒頭の理由）。
-                          cutoffSec: cutoffSeconds(q, timeStats),
                         })
                       }}
                       dateValue={dateFor(q.id)}
@@ -1344,7 +1269,6 @@ export default function App() {
                         setDateOpenId(null)
                       }}
                       onDeleteEntry={i => deleteEntry(q.id, i)}
-                      allText={exam.features.allText}
                     />
                     </Fragment>
                   )
@@ -1356,39 +1280,8 @@ export default function App() {
 
       </div>
 
-      {viewerQ && !exam.features.allText && (
-        <ProblemViewer
-          questionId={viewerQ.id}
-          title={viewerQ.title}
-          solving={viewerQ.solving}
-          cutoffSec={viewerQ.cutoffSec}
-          getElapsedMs={elapsedMsOf}
-          onPauseChange={setTimerPaused}
-          onClose={() => setViewerQ(null)}
-          // 解いた直後にこの画面から記録する（課題8）。閉じない＝記録後も解説を読み続けられる。
-          onRecord={s => {
-            lastRecordRef.current = { id: viewerQ.id, date: dateFor(viewerQ.id), status: s }
-            void updateStatus(viewerQ.id, s)
-          }}
-          // 誤タップの修正: 直前にこの画面で記録したエントリだけを取り消す。
-          onUndoRecord={() => {
-            const last = lastRecordRef.current
-            const hist = reviews[viewerQ.id]?.review_history ?? []
-            if (!last || last.id !== viewerQ.id) return
-            for (let i = hist.length - 1; i >= 0; i--) {
-              if (hist[i].date === last.date && hist[i].status === last.status) {
-                void deleteEntry(viewerQ.id, i)
-                break
-              }
-            }
-            setReviewedNowIds(prev => { const n = new Set(prev); n.delete(viewerQ.id); return n })
-          }}
-          // 中断（課題13）: 計測を破棄して閉じる。中断時間を解答時間に混ぜない。
-          onAbort={() => { delete timersRef.current[viewerQ.id]; setViewerQ(null) }}
-        />
-      )}
-      {/* 社労士（allText）は肢モード（licensehub-expansion.md §6.1）。記録は電験と同じ updateStatus の経路。 */}
-      {viewerQ && exam.features.allText && (
+      {/* 肢モード（licensehub-expansion.md §6.1）。記録は updateStatus の経路。 */}
+      {viewerQ && (
         <AnyItemSolver
           itemId={viewerQ.id}
           title={viewerQ.title}
@@ -1407,9 +1300,6 @@ export default function App() {
             setReviewedNowIds(prev => { const n = new Set(prev); n.delete(viewerQ.id); return n })
           }}
         />
-      )}
-      {showImport && (
-        <ImportPanel userId={user.id} onClose={() => setShowImport(false)} />
       )}
     </div>
   )

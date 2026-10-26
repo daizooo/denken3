@@ -9,11 +9,10 @@
 // 同じ「今日どれをやるか」の答えが2つあると、画面ごとに違う順序が出て
 // 「いま何が効いているのか分からない」――利用者の一次不満そのものになる。
 //
-// 入力は (question, review, today, examDate) のみ。DB・UI には依存しない。
+// 入力は (review, today, examDate) のみ。DB・UI には依存しない。
 
-import type { MasterQuestion, Review, Status } from '../domain/types'
+import type { Review, Status } from '../domain/types'
 import { retentionFor, retrievability } from './fsrs'
-import { sourceFrequency } from './sourceLink'
 
 // 理解度の重み（大きいほど価値が高い＝先に復習）。
 // C（答えを見た）> B（方向性OK・計算ミス）> A（見ずに解けた）> S（完璧に理解）。
@@ -42,7 +41,6 @@ export interface ReviewValue {
   r: number | null // 想起確率 R（0..1）。対象外は null
   risk: number // 忘却リスク 1-R（対象外は 0）
   band: RiskBand
-  frequency: number // 過去の出題回数（同点時のタイブレーク専用・§8.4）
 }
 
 function bandOf(r: number | null, retention: number): RiskBand {
@@ -56,18 +54,14 @@ function bandOf(r: number | null, retention: number): RiskBand {
 // examDate はリスク帯のしきい値（目標保持率）を決めるためだけに使う。
 // 未指定なら既定の保持率で判定する（試験日未設定時の従来どおりの挙動）。
 //
-// importance はスコアから外した（課題11）。分布が 3:366 / 2:70 / 1:4 と83%が3で、
-// 重みは実質つねに1.4の定数になっており、並び順に寄与していなかった。代替として
-// 検討した出題頻度も 1回:360 / 2回:75 / 3回:5 とほぼ同じ偏りで、定数を別の定数へ
-// 置き換えるだけになる（§8.4）。そこで頻度は主キーには入れず、価値が同点のときの
-// タイブレークとしてだけ返す（2回以上出題された80問を、同条件のときだけ前に出す）。
+// importance はスコアから外した（課題11）。分布が偏っていて重みは実質つねに定数になり、
+// 並び順に寄与していなかったため。
 // targetRetention は、その問題に適用されている目標保持率（Phase C・層3）。
 // 省略時は従来どおり日付だけで決まる `retentionFor(today, examDate)` を使う。
 // **帯のしきい値はスケジューリングに使った保持率と揃える必要がある。** コアを 0.90 で
 // スケジュールしているのに帯だけ 0.85 基準で見ると、FSRS が「そろそろ危ない」と判断して
 // due にした問題が画面上は「余裕あり」に見え、帯が優先度として機能しなくなる（§6-2 と同じ理由）。
 export function reviewValue(
-  question: MasterQuestion,
   review: Review | undefined,
   today: string,
   examDate?: string | null,
@@ -75,14 +69,13 @@ export function reviewValue(
 ): ReviewValue {
   const status = review?.status ?? '未着手'
   const statusW = STATUS_WEIGHT[status]
-  const frequency = sourceFrequency(question.title)
   // 復習対象外（未着手＝新規着手枠）はスコア0で末尾へ。
-  if (statusW === undefined) return { score: 0, r: null, risk: 0, band: 'low', frequency }
+  if (statusW === undefined) return { score: 0, r: null, risk: 0, band: 'low' }
   const r = retrievability(review, today)
   const risk = r === null ? 0 : 1 - r
   const score = statusW * (RISK_FLOOR + risk)
   const retention = targetRetention ?? retentionFor(today, examDate)
-  return { score, r, risk, band: bandOf(r, retention), frequency }
+  return { score, r, risk, band: bandOf(r, retention) }
 }
 
 // リスク帯の表示メタ（QuestionCard 等で使う）。

@@ -34,7 +34,7 @@ const ROWS = [
 
 function run() {
   return reschedule({
-    rows: ROWS, userId: 'u1', examId: 'denken3', examDate: EXAM, version: VERSION, w: TRAINED_W,
+    rows: ROWS, userId: 'u1', examId: 'sharoushi', examDate: EXAM, version: VERSION, w: TRAINED_W,
   })
 }
 
@@ -46,7 +46,7 @@ describe('reschedule', () => {
     expect(out.map(r => r.question_id)).toEqual(['dc_10', 'ac1_25', 'elec_11'])
     const empty = reschedule({
       rows: [{ question_id: 'x', review_history: [] }],
-      userId: 'u1', examId: 'denken3', examDate: EXAM, version: VERSION, w: TRAINED_W,
+      userId: 'u1', examId: 'sharoushi', examDate: EXAM, version: VERSION, w: TRAINED_W,
     })
     expect(empty).toHaveLength(0)
   })
@@ -67,7 +67,7 @@ describe('reschedule', () => {
       rows: [{ question_id: 'q', review_history: [
         { date: '2026-07-18', status: 'A', policy: { retention: 0.9 } },
       ] }],
-      userId: 'u1', examId: 'denken3', examDate: EXAM, version: VERSION, w: TRAINED_W,
+      userId: 'u1', examId: 'sharoushi', examDate: EXAM, version: VERSION, w: TRAINED_W,
     })
     expect(withPolicy[0].review_history[0].policy?.retention).toBe(0.9)
   })
@@ -78,7 +78,7 @@ describe('reschedule', () => {
         { date: '2026-07-18', status: 'A', duration_seconds: 245 },
         { date: '2026-08-01', status: 'B', duration_seconds: 90 },
       ] }],
-      userId: 'u1', examId: 'denken3', examDate: EXAM, version: VERSION, w: TRAINED_W,
+      userId: 'u1', examId: 'sharoushi', examDate: EXAM, version: VERSION, w: TRAINED_W,
     })
     expect(out[0].review_history.map(e => e.duration_seconds)).toEqual([245, 90])
   })
