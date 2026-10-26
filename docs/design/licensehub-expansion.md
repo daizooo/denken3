@@ -76,7 +76,7 @@
 - **本番DBへのSQLは、削除系を除いて Claude Code が実行する**（利用者に SQL エディタでの実行を依頼しない）。
   - 対象: migration（ADD COLUMN・新規テーブル等の追加）、データの投入・更新（upsert・UPDATE）、読み出しの確認、データを消さないロールバック（状態を戻す UPDATE）。
   - 経路: Supabase MCP（DDL は `apply_migration`、それ以外は `execute_sql`）。migration はリポジトリのファイルと同じ内容を、同じ番号の名前で適用する。
-  - 手順: ①ローカルの PostgreSQL で EXPLAIN と実行（2回流して冪等）を確かめる ②本番で読み出しのみの確認SQL（件数・一覧）→ 本体 → 結果を確かめる SELECT の順に流す ③実行したSQLの全文と件数を PR本文とチャットに報告する。
+  - 手順: ①ローカルの PostgreSQL で EXPLAIN と実行（2回流して冪等）を確かめる ②本番で読み出しのみの確認SQL（件数・一覧）→ 本体 → 結果を確かめる SELECT の順に流す ③実行したSQLの全文と件数を PR本文とチャットに報告する（書籍の本文を含む大きなSQLは、全文の代わりに件数・大きさ・ハッシュ・確認SELECTの結果で報告する。本文を PR に載せると転載になり、PR本文の上限も超えるため。削除系を含むSQLは下記のとおり必ず全文）。
   - **削除系（DELETE・DROP・TRUNCATE、データが消えるロールバック）は利用者が実行する。** PR本文とチャットの報告に必ず全文を出力し（ファイル名や要約だけで済ませない）、ロールバック用のSQLも全文を併記する。
     - 対象は文の種類で決める。`DROP POLICY IF EXISTS`・`DROP TRIGGER IF EXISTS`・`DROP INDEX` など、**データが消えない DROP も含め、DELETE・DROP・TRUNCATE を1文でも含む SQL は Claude Code が実行しない**（migration の冪等化のための DROP も同じ。Supabase MCP では確認待ちになり通らない）。
     - その SQL は、Claude Code が別の書き方に書き換えて自分で流すのではなく、PR本文とチャットに全文を出力して利用者に実行を依頼する。削除系を含まない形で書けることもあるが、書き換えるかどうかは利用者が決める。
