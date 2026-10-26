@@ -1,14 +1,15 @@
-// 書籍の選択式（空欄補充）の書き起こしJSONのスキーマ・検証・公式との突合・DB行への変換（docs/book-ingest/sentaku-spec.md）。
+// 書籍の選択式（空欄補充）の書き起こしJSONのスキーマ・検証・公式との突合（docs/book-ingest/sentaku-spec.md）。
+// 保存用の SQL は sentakuSql.ts。
 //
 // 択一式の基盤（schema.ts）は1問=5肢の○×が前提のため触らず、選択式は別ファイルで扱う。
 // 1問 = 1年度×1科目（RK 労基安衛 / RS 労災）、空欄 A〜E、語群①〜⑳。
 //
 // 検証に失敗した問は理由つきの一覧にして保存しない（無理に通さない）。
 // scripts/license/*.mjs からも Node の型除去で直接読むため、import は拡張子 .ts 付きで書く。
-import type { AnswerSpec, ItemLabel, LicItemRow, LicQuestionRow } from '../../../domain/license.ts'
+import type { AnswerSpec, ItemLabel } from '../../../domain/license.ts'
 import { ITEM_LABELS, makeItemId, parseQuestionId } from '../../../domain/license.ts'
 import { SHAROUSHI_SUBJECTS } from '../../../data/sharoushi/index.ts'
-import { FIXTURE_YEARS, holdoutGroupOf } from './schema.ts'
+import { FIXTURE_YEARS } from './schema.ts'
 
 // 本書（一問一答①）に選択式が載る採点科目と、空欄に付けられる学習科目。
 // 労基安衛は空欄ごとに労基法（rouki）か安衛法（anei）かが分かれる（空欄の根拠条文で決まる）。
@@ -252,63 +253,6 @@ export function compareWithOfficial(v: ValidSentaku, official: AnswerSpec | null
     if (a !== b) reasons.push(`語群 ${n}: 書籍「${a ?? '(なし)'}」/ 公式「${b ?? '(なし)'}」`)
   }
   return reasons.length > 0 ? { questionId: v.questionId, reasons } : null
-}
-
-// ---------------------------------------------------------------------------
-// DB 行への変換
-//
-// 問: 既存（公式）なら触らない。新規だけ source='ippon'・stem=null・answer_spec=書籍の blanks/wordbank。
-// 空欄: 新規は全項目。既存は statement・explanation・study_subject だけ書籍で更新し、
-//       origin_statement・law_status・law_note・truth などは据え置く（SentakuItemUpdate）。
-
-export type SentakuQuestionRow = Omit<LicQuestionRow, 'updated_at'>
-export type SentakuItemInsert = Omit<LicItemRow, 'origin_statement' | 'updated_at'>
-
-export interface SentakuItemUpdate {
-  id: string
-  statement: string
-  explanation: string | null
-  explanation_source: 'book' | 'none'
-  explanation_verified: boolean
-  study_subject: string
-}
-
-export interface SentakuRows {
-  newQuestions: SentakuQuestionRow[]
-  newItems: SentakuItemInsert[]
-  itemUpdates: SentakuItemUpdate[]
-}
-
-export function toSentakuRows(valid: ValidSentaku[], userId: string, existingQuestionIds: ReadonlySet<string>, existingItemIds: ReadonlySet<string>): SentakuRows {
-  const out: SentakuRows = { newQuestions: [], newItems: [], itemUpdates: [] }
-  for (const v of valid) {
-    if (!existingQuestionIds.has(v.questionId)) {
-      out.newQuestions.push({
-        user_id: userId, id: v.questionId, year: v.year, format: 'sentaku', scored_subject: v.scoredSubject,
-        study_subject: v.studySubject, q_no: null, stem: null,
-        answer_spec: { kind: 'sentaku', blanks: v.blanks, wordbank: v.wordbank },
-        source: 'ippon', holdout_group: holdoutGroupOf(v.year, ''),
-      })
-    }
-    for (const it of v.items) {
-      if (existingItemIds.has(it.itemId)) {
-        out.itemUpdates.push({
-          id: it.itemId, statement: it.statement, explanation: it.explanation,
-          explanation_source: it.explanation ? 'book' : 'none', explanation_verified: !!it.explanation,
-          study_subject: it.studySubject,
-        })
-      } else {
-        out.newItems.push({
-          user_id: userId, id: it.itemId, question_id: v.questionId, label: it.label, label_raw: it.label,
-          statement: it.statement, truth: null, truth_source: 'book',
-          explanation: it.explanation, explanation_source: it.explanation ? 'book' : 'none', explanation_verified: !!it.explanation,
-          topic_id: null, importance: null, law_status: 'ok', law_note: null,
-          study_subject: it.studySubject, scored_subject: v.scoredSubject,
-        })
-      }
-    }
-  }
-  return out
 }
 
 // ---------------------------------------------------------------------------

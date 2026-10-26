@@ -1,7 +1,7 @@
-// 書籍の選択式（空欄補充）の検証・公式との突合・DB行への変換（docs/book-ingest/sentaku-spec.md）。
+// 書籍の選択式（空欄補充）の検証・公式との突合（docs/book-ingest/sentaku-spec.md）。
 import { describe, expect, it } from 'vitest'
 import {
-  compareWithOfficial, formatSentakuSummary, missingQuestionIds, summarizeSentaku, toSentakuRows, validateSentaku,
+  compareWithOfficial, formatSentakuSummary, missingQuestionIds, summarizeSentaku, validateSentaku,
 } from './sentakuSchema'
 import type { ValidSentaku } from './sentakuSchema'
 import fixtureRaw from '../../../../scripts/license/fixtures/ippon-sentaku-fixture.json?raw'
@@ -141,48 +141,6 @@ describe('compareWithOfficial', () => {
 
   it('公式の groups（R08 の空欄ごとの語群）は比較の対象にせず、書籍と無関係に許す', () => {
     expect(compareWithOfficial(validOf(), { ...official(), groups: { A: [1, 2, 3] } })).toBeNull()
-  })
-})
-
-describe('toSentakuRows', () => {
-  const USER = '00000000-0000-0000-0000-000000000000'
-
-  it('新規の問・空欄は全項目を作る（ippon・stem null・truth null・論点と重要度なし）', () => {
-    const r = toSentakuRows([validOf()], USER, new Set(), new Set())
-    expect(r.itemUpdates).toEqual([])
-    expect(r.newQuestions).toEqual([{
-      user_id: USER, id: 'R03_S_RK', year: 'R03', format: 'sentaku', scored_subject: 'RK', study_subject: 'rouki',
-      q_no: null, stem: null, answer_spec: { kind: 'sentaku', blanks: { A: 3, B: 7, C: 11, D: 16, E: 20 }, wordbank: wordbank() },
-      source: 'ippon', holdout_group: null,
-    }])
-    expect(r.newItems).toHaveLength(5)
-    expect(r.newItems[1]).toMatchObject({
-      id: 'R03_S_RK_B', question_id: 'R03_S_RK', label: 'B', label_raw: 'B', truth: null, truth_source: 'book',
-      explanation: '（法21条）', explanation_source: 'book', explanation_verified: true,
-      topic_id: null, importance: null, law_status: 'ok', law_note: null, study_subject: 'rouki', scored_subject: 'RK',
-    })
-    expect(r.newItems[0]).toMatchObject({ explanation: null, explanation_source: 'none', explanation_verified: false })
-    expect(r.newItems[3].study_subject).toBe('anei')
-    expect(r.newItems[0]).not.toHaveProperty('origin_statement')
-  })
-
-  it('既存の問は作り直さず、既存の空欄は statement・解説・学習科目だけ更新する（law_status などは送らない）', () => {
-    const existing = new Set(['R03_S_RK_A', 'R03_S_RK_B', 'R03_S_RK_C', 'R03_S_RK_D', 'R03_S_RK_E'])
-    const r = toSentakuRows([validOf()], USER, new Set(['R03_S_RK']), existing)
-    expect(r.newQuestions).toEqual([])
-    expect(r.newItems).toEqual([])
-    expect(r.itemUpdates).toHaveLength(5)
-    expect(r.itemUpdates[1]).toEqual({
-      id: 'R03_S_RK_B', statement: '段落2［B］を補う。', explanation: '（法21条）',
-      explanation_source: 'book', explanation_verified: true, study_subject: 'rouki',
-    })
-    expect(Object.keys(r.itemUpdates[0]).sort()).toEqual(['explanation', 'explanation_source', 'explanation_verified', 'id', 'statement', 'study_subject'])
-  })
-
-  it('問は既存・空欄は一部だけ既存でも、行き先を空欄ごとに分ける', () => {
-    const r = toSentakuRows([validOf()], USER, new Set(['R03_S_RK']), new Set(['R03_S_RK_A']))
-    expect(r.itemUpdates.map(u => u.id)).toEqual(['R03_S_RK_A'])
-    expect(r.newItems.map(i => i.id)).toEqual(['R03_S_RK_B', 'R03_S_RK_C', 'R03_S_RK_D', 'R03_S_RK_E'])
   })
 })
 

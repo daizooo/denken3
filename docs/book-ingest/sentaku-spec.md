@@ -4,6 +4,17 @@
 択一式の基盤（`schema.ts` / `ingest.mjs`）は択一式（1問=5肢）前提のため**変更せず**、選択式は新規ファイルで足す（コンフリクト最小化）。
 本書には書籍の本文を引用しない。作業用の画像・書き起こしJSONはリポジトリに置かない。
 
+## 0. 作業環境
+
+ローカル開発は行わない（`CLAUDE.md`「開発環境方針」）。実装・検証・DB 変更は Claude Code のクラウド環境で完結させ、本書の手順にローカル DB・利用者の PC での実行・npm install を前提にするものは無い。
+
+| 作業 | 方法 |
+|---|---|
+| 型・lint・テスト | PR の CI（`check`）の結果を正とする（クラウド環境から npm レジストリに届かず、vitest / tsc / oxlint は手元で動かせない） |
+| 純関数・スクリプトの動作確認 | Node の型除去で直接実行し、保存用 SQL は使い捨ての一時 Postgres（クラウド環境内）で構文・冪等性・中止条件を確かめる |
+| 画像の読み取り | Claude Code が Drive から取得して読む（作業用の画像・JSON はリポジトリに置かない） |
+| DB への書き込み | スクリプトが SQL を出力し、利用者の承認を得て Claude Code が Supabase MCP の `execute_sql` で実行する |
+
 ## 1. 入力素材（実物の調査結果）
 
 | 項目 | 内容 |
@@ -59,7 +70,7 @@
 
 ### 3.3 DBへの反映
 
-新規スクリプト `scripts/license/ingest-sentaku.mjs`（新規ファイル）と検証の純関数 `src/lib/license/ingest/sentakuSchema.ts`（新規ファイル）で行い、`schema.ts` / `ingest.mjs` は触らない。
+新規ファイル `scripts/license/ingest-sentaku.mjs`（SQL を出力するだけ。DB には触れない）と、純関数 `sentakuSchema.ts`（検証・公式との突合）・`sentakuSql.ts`（SQL 生成）で行い、`schema.ts` / `ingest.mjs` は触らない。
 
 | 対象 | 既存の行 | 新規の行 |
 |---|---|---|
@@ -75,7 +86,7 @@
 2. **語群と解答**: 各問で語群が20語、【解答】5件、解答の語句と語群の番号が一致する。
 3. **既存DBとの突合（R06〜R08の6問・30空欄）**: `blanks` と `wordbank` が公式と完全一致すること（一致しなければ書き起こしを画像で再読して原因を特定する。書籍が語群を編集していれば区分として記録する）。`statement` は択一式と同じ区分（①表記 ②単独化 ③内容の変更 ④正誤反転）で分類し、③は1件ずつ確認する。
 4. **画像との再照合**: 択一式で差が出たため、**抜き取りではなく全問**を別担当が画像と1文字ずつ照合する（100空欄・語群400語規模で全数が現実的）。
-5. **dry-run**: `ingest-sentaku.mjs --dry-run`（座標・語群・解答・学習科目）。
+5. **検証の実行**: `ingest-sentaku.mjs --data <json>`（座標・語群・解答・学習科目。DB に触れない）。
 6. **法令**: 既存行は判定を保持。新規の行は `ok`。選択式の `review`（R06 国年 B・C など別書籍の科目）は本書の対象外。
 
 ## 5. 重要度・論点・索引
@@ -87,7 +98,7 @@
 ## 6. 作業の進め方・規模
 
 - 画像21枚の読み取り＋JSON 20問。別PR（`scripts/license/ingest-sentaku.mjs`・`sentakuSchema.ts`・テスト・本書の結果追記だけ）。
-- 手順: 書き起こし → 自動検査（語群20語・解答5件・座標）→ 公式との突合（R06〜R08）→ 画像での全問照合 → `--dry-run` → 承認を得て取り込み。
+- 手順: 書き起こし → 自動検査（語群20語・解答5件・座標）→ 公式との突合（R06〜R08）→ 画像での全問照合 → 検証の実行 → 承認を得て取り込み（SQL を `execute_sql` で実行）。
 - 先に p.422〜423 の内容を確認し、年度の問でなければ対象から外す（§1）。
 
 ## 7. 実装の記録（基盤）
@@ -96,12 +107,27 @@
 
 | ファイル | 役割 |
 |---|---|
-| `src/lib/license/ingest/sentakuSchema.ts` | §3.2 の検証（語群20語・解答A〜E・空欄の `［X］`・学習科目）、公式との突合（`compareWithOfficial`）、DB行への変換（`toSentakuRows`）、20問の網羅（`missingQuestionIds`） |
-| `src/lib/license/ingest/sentakuSchema.test.ts` | 上記の単体テスト |
-| `scripts/license/ingest-sentaku.mjs` | `--dry-run`（DB に触れない）/ `--compare`（読み出しのみで公式と突合）/ 保存。公式と食い違えば何も保存しない |
+| `src/lib/license/ingest/sentakuSchema.ts` | §3.2 の検証（語群20語・解答A〜E・空欄の `［X］`・学習科目）、公式との突合（`compareWithOfficial`）、20問の網羅（`missingQuestionIds`） |
+| `src/lib/license/ingest/sentakuSql.ts` | 突合用 SQL（読み出しのみ）と保存用 SQL の生成 |
+| `src/lib/license/ingest/sentakuSchema.test.ts` / `sentakuSql.test.ts` | 上記の単体テスト |
+| `scripts/license/ingest-sentaku.mjs` | 検証・件数・SQL の書き出し。DB には触れない |
 | `scripts/license/fixtures/ippon-sentaku-fixture.json` | 架空の2問（年度 R98・R99。`--fixture` のときだけ通る） |
 
-- 既存の空欄の更新は `statement`・`explanation`（と付随する `explanation_source` / `explanation_verified`）・`study_subject` の列だけ。`origin_statement`・`law_status`・`law_note`・`truth` は送らない。
-- 保存は既定で20問そろっていることを要求する。途中までの取り込みは `--partial`。
-- 語群の `groups`（R08 の空欄ごとの語群）は突合の対象にしない（§3.3）。書籍が語群を分けて載せていると分かった年度で、別途照合を足す。
-- 次の作業: 画像21枚の書き起こし → `--dry-run` → `--compare`（R06〜R08 の30空欄）→ 画像との全問照合 → 承認を得て保存。
+### 取り込みの手順（Claude Code が実行）
+
+1. `ingest-sentaku.mjs --data <json> --check-sql <path>` で検証し、突合用 SQL を作る。
+2. 突合用 SQL を `execute_sql` で実行し、結果（`[{id, answer_spec}, …]`）を JSON にして `--existing <json>` で突合する。食い違えば理由つきで一覧にして終了コード 1（保存用 SQL は作らない）。
+3. `--sql <path>` で保存用 SQL を作り、承認を得て `execute_sql` で実行する。実行した SQL の全文と件数を PR 本文に報告する。
+
+### 保存の規則
+
+- `lic_questions` は新規の問だけ作る（`ON CONFLICT DO NOTHING`）。既存の問の `answer_spec` が書籍と違えば、保存用 SQL 自体が例外で中止する（何も書かない）。
+- `lic_items` は `statement`・`explanation`・`explanation_source`・`explanation_verified`・`study_subject` の5列だけ上書きする。`origin_statement`・`truth`・`truth_source`・`law_status`・`law_note` は据え置く。
+- 既存の空欄は `truth_source='derived'` のまま残るため、将来 `ingest-official.mjs` を同じ年度で再実行すると `statement` は公式の原文に戻る（書籍の `truth_source='book'` を守る規則は択一式のみ）。再実行する場合は、その後にこの SQL を流し直す。
+- 20問そろっていなければ `--partial` が必要。語群の `groups`（R08 の空欄ごとの語群）は突合の対象にしない（§3.3）。
+
+### 動作確認（クラウド環境）
+
+使い捨ての Postgres 16 に最小のテーブルを作り、保存用 SQL を2回流して、新規の問・空欄が入ること、既存の空欄の `origin_statement`・`law_status`・`law_note` が残ること、再実行で結果が変わらないこと、既存の `answer_spec` を食い違わせると何も保存せず中止することを確認した。
+
+- 次の作業: 画像21枚の書き起こし → 検証 → 突合（R06〜R08 の30空欄）→ 画像との全問照合 → 承認を得て保存。
