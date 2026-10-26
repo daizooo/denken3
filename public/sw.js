@@ -18,7 +18,7 @@
  * controllerchange を受けて1度だけリロードする。
  */
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const SHELL_CACHE = `electricpro-shell-${VERSION}`
 
 // activate で消さないキャッシュ。ここに無い名前＝古い版として捨てる。
@@ -84,7 +84,29 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // ② 静的ファイル: cache-first。URLが不変なので、掴んだキャッシュが古くなることはない。
+  // ②' ハッシュなしの静的ファイル（favicon.svg・icon-*.png・manifest 等）: network-first。
+  // URLが固定のまま中身を差し替える（アイコン変更）ため、cache-first だと古い画像を掴み続ける。
+  if (isImmutableAsset(url) && !url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      (async () => {
+        try {
+          const fresh = await fetch(request)
+          if (fresh.ok && fresh.status === 200) {
+            const cache = await caches.open(SHELL_CACHE)
+            cache.put(request, fresh.clone())
+          }
+          return fresh
+        } catch {
+          const cached = await caches.match(request)
+          if (cached) return cached
+          throw new Error('offline and no cached asset')
+        }
+      })(),
+    )
+    return
+  }
+
+  // ② ハッシュ付き成果物（/assets/）: cache-first。URLが不変なので、掴んだキャッシュが古くなることはない。
   if (isImmutableAsset(url)) {
     event.respondWith(
       (async () => {
