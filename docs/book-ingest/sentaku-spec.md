@@ -89,3 +89,19 @@
 - 画像21枚の読み取り＋JSON 20問。別PR（`scripts/license/ingest-sentaku.mjs`・`sentakuSchema.ts`・テスト・本書の結果追記だけ）。
 - 手順: 書き起こし → 自動検査（語群20語・解答5件・座標）→ 公式との突合（R06〜R08）→ 画像での全問照合 → `--dry-run` → 承認を得て取り込み。
 - 先に p.422〜423 の内容を確認し、年度の問でなければ対象から外す（§1）。
+
+## 7. 実装の記録（基盤）
+
+書き起こし（画像21枚）の前に、取り込みの基盤だけを先に足した。書き起こしと取り込みの実行は含まない。
+
+| ファイル | 役割 |
+|---|---|
+| `src/lib/license/ingest/sentakuSchema.ts` | §3.2 の検証（語群20語・解答A〜E・空欄の `［X］`・学習科目）、公式との突合（`compareWithOfficial`）、DB行への変換（`toSentakuRows`）、20問の網羅（`missingQuestionIds`） |
+| `src/lib/license/ingest/sentakuSchema.test.ts` | 上記の単体テスト |
+| `scripts/license/ingest-sentaku.mjs` | `--dry-run`（DB に触れない）/ `--compare`（読み出しのみで公式と突合）/ 保存。公式と食い違えば何も保存しない |
+| `scripts/license/fixtures/ippon-sentaku-fixture.json` | 架空の2問（年度 R98・R99。`--fixture` のときだけ通る） |
+
+- 既存の空欄の更新は `statement`・`explanation`（と付随する `explanation_source` / `explanation_verified`）・`study_subject` の列だけ。`origin_statement`・`law_status`・`law_note`・`truth` は送らない。
+- 保存は既定で20問そろっていることを要求する。途中までの取り込みは `--partial`。
+- 語群の `groups`（R08 の空欄ごとの語群）は突合の対象にしない（§3.3）。書籍が語群を分けて載せていると分かった年度で、別途照合を足す。
+- 次の作業: 画像21枚の書き起こし → `--dry-run` → `--compare`（R06〜R08 の30空欄）→ 画像との全問照合 → 承認を得て保存。

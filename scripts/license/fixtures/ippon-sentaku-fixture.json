@@ -1,0 +1,144 @@
+[
+  {
+    "question_id": "R98_S_RK",
+    "wordbank": {
+      "1": "RK語1",
+      "2": "RK語2",
+      "3": "RK語3",
+      "4": "RK語4",
+      "5": "RK語5",
+      "6": "RK語6",
+      "7": "RK語7",
+      "8": "RK語8",
+      "9": "RK語9",
+      "10": "RK語10",
+      "11": "RK語11",
+      "12": "RK語12",
+      "13": "RK語13",
+      "14": "RK語14",
+      "15": "RK語15",
+      "16": "RK語16",
+      "17": "RK語17",
+      "18": "RK語18",
+      "19": "RK語19",
+      "20": "RK語20"
+    },
+    "blanks": {
+      "A": 3,
+      "B": 7,
+      "C": 11,
+      "D": 16,
+      "E": 20
+    },
+    "items": [
+      {
+        "label": "A",
+        "statement": "（架空）R98_S_RK の段落1。［A］を補う。",
+        "explanation": null,
+        "study_subject": "rouki"
+      },
+      {
+        "label": "B",
+        "statement": "（架空）R98_S_RK の段落2。［B］を補う。",
+        "explanation": "（架空の根拠 2条）",
+        "study_subject": "rouki"
+      },
+      {
+        "label": "C",
+        "statement": "（架空）R98_S_RK の段落3。［C］を補う。",
+        "explanation": null,
+        "study_subject": "rouki"
+      },
+      {
+        "label": "D",
+        "statement": "（架空）R98_S_RK の段落4。［D］を補う。",
+        "explanation": "（架空の根拠 4条）",
+        "study_subject": "anei"
+      },
+      {
+        "label": "E",
+        "statement": "（架空）R98_S_RK の段落5。［E］を補う。",
+        "explanation": null,
+        "study_subject": "anei"
+      }
+    ],
+    "_meta": {
+      "page": 0,
+      "image": "none",
+      "difficulty": "普通",
+      "hon_page": "-",
+      "confidence": "ok"
+    }
+  },
+  {
+    "question_id": "R99_S_RS",
+    "wordbank": {
+      "1": "RS語1",
+      "2": "RS語2",
+      "3": "RS語3",
+      "4": "RS語4",
+      "5": "RS語5",
+      "6": "RS語6",
+      "7": "RS語7",
+      "8": "RS語8",
+      "9": "RS語9",
+      "10": "RS語10",
+      "11": "RS語11",
+      "12": "RS語12",
+      "13": "RS語13",
+      "14": "RS語14",
+      "15": "RS語15",
+      "16": "RS語16",
+      "17": "RS語17",
+      "18": "RS語18",
+      "19": "RS語19",
+      "20": "RS語20"
+    },
+    "blanks": {
+      "A": 1,
+      "B": 2,
+      "C": 3,
+      "D": 4,
+      "E": 5
+    },
+    "items": [
+      {
+        "label": "A",
+        "statement": "（架空）R99_S_RS の段落1。［A］を補う。",
+        "explanation": null,
+        "study_subject": "rousai"
+      },
+      {
+        "label": "B",
+        "statement": "（架空）R99_S_RS の段落2。［B］を補う。",
+        "explanation": "（架空の根拠 2条）",
+        "study_subject": "rousai"
+      },
+      {
+        "label": "C",
+        "statement": "（架空）R99_S_RS の段落3。［C］を補う。",
+        "explanation": null,
+        "study_subject": "rousai"
+      },
+      {
+        "label": "D",
+        "statement": "（架空）R99_S_RS の段落4。［D］を補う。",
+        "explanation": "（架空の根拠 4条）",
+        "study_subject": "rousai"
+      },
+      {
+        "label": "E",
+        "statement": "（架空）R99_S_RS の段落5。［E］を補う。",
+        "explanation": null,
+        "study_subject": "rousai"
+      }
+    ],
+    "_meta": {
+      "page": 0,
+      "image": "none",
+      "difficulty": "普通",
+      "hon_page": "-",
+      "confidence": "ok"
+    }
+  }
+]
