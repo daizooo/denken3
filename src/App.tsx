@@ -37,9 +37,7 @@ import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
-import FilterBar, { type ModeKey } from './features/questions/FilterBar'
-import { hasQuestionText } from './lib/questionText'
-import { studyPlaceOf } from './features/shared/status'
+import FilterBar from './features/questions/FilterBar'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
 import ItemSolver from './features/license/ItemSolver'
@@ -72,12 +70,9 @@ export default function App() {
   const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
-  // 問題の絞り込み（学習場所 × 理解度）。軸間AND・軸内OR。空集合＝その軸は絞り込みなし。
+  // 問題の絞り込み（理解度）。空集合＝絞り込みなし。
   // セッション内のみの状態（永続化しない）。
-  const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
-  // 会社向けテキスト転記がある問題だけに絞る（画像を開けない場面向け）。単独のON/OFF。
-  const [filterTextOnly, setFilterTextOnly] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
   // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
@@ -520,14 +515,7 @@ export default function App() {
     saveReview({ ...current, due_date: todayStr })
   }, [reviews, saveReview, todayStr])
 
-  // ---- 絞り込み（学習場所 × 理解度）のトグル ----
-  const toggleFilterMode = useCallback((m: ModeKey) => {
-    setFilterModes(prev => {
-      const next = new Set(prev)
-      if (next.has(m)) next.delete(m); else next.add(m)
-      return next
-    })
-  }, [])
+  // ---- 絞り込み（理解度）のトグル ----
   const toggleFilterStatus = useCallback((s: Status) => {
     setFilterStatuses(prev => {
       const next = new Set(prev)
@@ -535,13 +523,8 @@ export default function App() {
       return next
     })
   }, [])
-  const toggleFilterTextOnly = useCallback(() => {
-    setFilterTextOnly(v => !v)
-  }, [])
   const clearFilters = useCallback(() => {
-    setFilterModes(new Set())
     setFilterStatuses(new Set())
-    setFilterTextOnly(false)
   }, [])
 
   // 弱点ランキング・学習曲線（§7.7(2)(3)）。ペース分析は合格ライン目標を使うため後段。
@@ -716,7 +699,7 @@ export default function App() {
   }, [allQuestions, reviews])
 
   // 絞り込み前の母数（タブ・日付・復習キューのロジックだけを適用）。
-  // 学習場所×理解度の絞り込みと、そのチップ件数（ファセット）は、この母数から導く。
+  // 理解度の絞り込みと、そのチップ件数は、この母数から導く。
   const baseQuestions = useMemo(() => {
     const today = todayJST()
     const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
@@ -740,34 +723,18 @@ export default function App() {
     })
   }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds])
 
-  // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
-  const matchMode = useCallback(
-    (id: string) => filterModes.size === 0 || filterModes.has(studyPlaceOf(id, exam.features.allText)),
-    [filterModes, exam]
-  )
+  // 絞り込み判定（空集合は素通し）。
   const matchStatus = useCallback(
     (id: string) => filterStatuses.size === 0 || filterStatuses.has(reviews[id]?.status ?? '未着手'),
     [filterStatuses, reviews]
   )
-  const matchText = useCallback(
-    (id: string) => !filterTextOnly || hasQuestionText(id),
-    [filterTextOnly]
-  )
 
-  // チップの件数（ファセット）。各軸の件数は「他方の軸の選択」を尊重して数える。
-  const filterCounts = useMemo(() => {
-    const modeCounts = { home: 0, company: 0 } as Record<ModeKey, number>
-    const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
-    let textOnlyCount = 0
-    for (const q of baseQuestions) {
-      const mk: ModeKey = studyPlaceOf(q.id, exam.features.allText)
-      const st: Status = reviews[q.id]?.status ?? '未着手'
-      if (matchStatus(q.id) && matchText(q.id)) modeCounts[mk]++
-      if (matchMode(q.id) && matchText(q.id)) statusCounts[st]++
-      if (matchMode(q.id) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
-    }
-    return { modeCounts, statusCounts, textOnlyCount }
-  }, [baseQuestions, reviews, matchMode, matchStatus, matchText, exam])
+  // チップの件数。母数（絞り込み前）の理解度ごとの件数。
+  const statusCounts = useMemo(() => {
+    const counts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
+    for (const q of baseQuestions) counts[reviews[q.id]?.status ?? '未着手']++
+    return counts
+  }, [baseQuestions, reviews])
 
   // 今日のライン（planToday.ts・Phase B-1）。
   //
@@ -831,7 +798,7 @@ export default function App() {
   }, [allQuestions, reviews, policy, timeStats, todayStr, currentPlan])
 
   const filteredQuestions = useMemo(() => {
-    const filtered = baseQuestions.filter(q => matchMode(q.id) && matchStatus(q.id) && matchText(q.id))
+    const filtered = baseQuestions.filter(q => matchStatus(q.id))
     if (activeTab !== 'review') return filtered
     // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
     //
@@ -859,7 +826,7 @@ export default function App() {
     return [...filtered].sort(
       (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     )
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, matchText, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
+  }, [baseQuestions, reviews, activeTab, matchStatus, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
   // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
@@ -1204,29 +1171,23 @@ export default function App() {
             )}
             {activeTab === 'review' && exam.features.allText && <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />}
 
-            {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
+            {/* ===== 絞り込み（章・理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar
-              modes={filterModes}
               statuses={filterStatuses}
-              onToggleMode={toggleFilterMode}
               onToggleStatus={toggleFilterStatus}
               onClear={clearFilters}
-              modeCounts={filterCounts.modeCounts}
-              statusCounts={filterCounts.statusCounts}
+              statusCounts={statusCounts}
               open={filterOpen}
               onToggleOpen={() => setFilterOpen(o => !o)}
               chapterCode={chapterCode}
               onChangeChapter={setChapterCode}
               chapterOptions={chapterOptions}
-              textOnly={filterTextOnly}
-              onToggleTextOnly={toggleFilterTextOnly}
-              textOnlyCount={filterCounts.textOnlyCount}
             />
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                {(filterModes.size > 0 || filterStatuses.size > 0 || filterTextOnly) && baseQuestions.length > 0 ? (
+                {filterStatuses.size > 0 && baseQuestions.length > 0 ? (
                   <>
                     <p className="text-gray-400 text-sm">絞り込み条件に一致する問題がありません</p>
                     <button
@@ -1259,9 +1220,7 @@ export default function App() {
                     activeTab === 'review' &&
                     isTodayView &&
                     chapterCode === 'ALL' &&
-                    filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
-                    !filterTextOnly &&
                     idx === todayPlan.recommendedCount &&
                     todayPlan.recommendedCount < filteredQuestions.length
 
