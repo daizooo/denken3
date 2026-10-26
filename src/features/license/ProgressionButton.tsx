@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { GraduationCap, X } from 'lucide-react'
 import type { ExamDefinition, MasterQuestion, ReviewHistoryEntry, Status } from '../../domain/types'
 import type { Attempt } from '../../lib/attempt'
+import { titleJa } from '../../lib/license/idLabel'
 import { SHAROUSHI_PROGRESSION } from '../../data/sharoushi/index.ts'
 import { judgeProgression, type ProgressionVerdict } from '../../lib/license/progression'
 import ItemSolver from './ItemSolver'
@@ -32,7 +33,7 @@ export default function ProgressionButton({
 
   const titleOf = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const s of exam.subjects) for (const c of s.chapters) for (const q of c.questions) m[q.id] = `${s.name}｜${q.title}`
+    for (const s of exam.subjects) for (const c of s.chapters) for (const q of c.questions) m[q.id] = `${s.name}｜${titleJa(q.title)}`
     return m
   }, [exam])
 

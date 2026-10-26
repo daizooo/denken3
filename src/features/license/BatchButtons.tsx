@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { ClipboardCopy, ListChecks } from 'lucide-react'
 import type { ReviewHistoryEntry, Status } from '../../domain/types'
 import type { Attempt } from '../../lib/attempt'
+import { titleJa } from '../../lib/license/idLabel'
 import BatchCopy from './BatchCopy'
 import BatchGrade from './BatchGrade'
 
@@ -22,7 +23,7 @@ export default function BatchButtons({
 }) {
   const [open, setOpen] = useState<'copy' | 'grade' | null>(null)
   const titles = useMemo(
-    () => new Map(questions.map(q => [q.id, `${q.chapterName} 問${q.number}　${q.title}`])),
+    () => new Map(questions.map(q => [q.id, `${q.chapterName} 問${q.number}　${titleJa(q.title)}`])),
     [questions],
   )
 
