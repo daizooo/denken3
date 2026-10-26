@@ -89,7 +89,7 @@
 | `lic_questions` | **更新しない**（公式の `stem`・`answer_spec` を守る）。書籍の `blanks`・`wordbank`・`groups` との**一致だけ検証**する（語群の語句は NFKC 正規化して空白を除いて比べる）。食い違いは書き起こしの誤りか公式との差かを確認 | `source='ippon'`・`stem=null`・`answer_spec=` 書籍の `blanks`/`wordbank`（空欄ごとの語群の問は `groups` も。`kind:'sentaku'`） |
 | `lic_items` | `statement`・`explanation`・`study_subject` を書籍で更新し、`truth_source='book'` にする（公式の再取り込みが書籍の値を戻さない）。`origin_statement` は上書きしない。`law_status`・`law_note`・`truth` は保持 | `truth_source='book'`・`law_status='ok'`・`truth=null`・`topic_id=null` |
 
-- 本番書き込みは択一式と同じく、承認を得て Supabase MCP の `execute_sql` で行う（DELETE/DROP/TRUNCATE は使わない）。
+- 本番書き込みは択一式と同じく、承認を得て Supabase MCP の `execute_sql` で行う。ただし DELETE/DROP/TRUNCATE を含む SQL は Claude が実行せず、ユーザーが実行する（全文を PR 本文とチャットに出し、戻し SQL を添える。`licensehub-expansion.md` §4.1）。
 - 空欄ごとの語群（`groups`）は、書籍が載せているときは公式の `groups` と同じであること、公式だけが持つときも食い違いとして扱う。R08 労災は書籍の表と公式の `groups` が一致することを確認済み（§8）。
 
 ## 4. 品質ゲート
@@ -105,7 +105,7 @@
 
 - **重要度**: 選択式の空欄は付けない。択一式の出題回数から算出した値（`compute-importance.mjs`）は択一式の肢だけが対象。
 - **論点**: 書籍に章分けが無いので `topic_id=null`（論点未設定）。必要になれば、空欄の根拠条文から別途付ける。
-- **索引**: `build-master.mjs` は択一式のみ対象（選択式は含めない）。選択式の画面は、問ID（`R03_S_RK`）から `answer_spec` と空欄ごとの肢を読む（既存の公式の選択式と同じ経路）。**新しい索引・画面の変更は不要**。
+- **索引**: `build-master.mjs` は択一式のみ対象（選択式は含めない）。このため現状、選択式は復習・一覧のリストに出ない（問ID `R03_S_RK` から `answer_spec` を読む画面経路はあるが、入口が無い）。一覧に出して絞り込めるようにするには索引への追加が要り、復習キュー・進捗・合格ライン母数に影響するため、別途判断する。
 
 ## 6. 作業の進め方・規模
 

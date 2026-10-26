@@ -6,6 +6,7 @@
 
 - ユーザーの PC でのローカル開発は今後も行わない。実装・検証・DB 変更は **Claude Code のクラウド環境で完結**させる。
 - `supabase start` / `supabase db reset` / `vercel dev` などローカル環境を前提にした手順を、提案や新規ドキュメントに書かない。
+- 本番 DB への SQL のうち **DELETE / DROP / TRUNCATE を含むものだけは、ユーザーが実行する**（Claude は実行しない）。全文を PR 本文とチャットに出し、戻し SQL を添える。詳細は `docs/design/licensehub-expansion.md` §4.1。
 
 ## コンフリクト最小化方針（最優先で遵守）
 

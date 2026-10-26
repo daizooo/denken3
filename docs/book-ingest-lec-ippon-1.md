@@ -118,7 +118,7 @@
 
 - `ingest.mjs` は `lic_items` を upsert、`lic_questions` は既存なら触らない（公式PDFの `stem`・`answer_spec` を守る）。新規の問は `source='ippon'`、`stem=null`。
 - **R06〜R08 の既存肢への上書きは、突合を通ったものだけ**（§4.2）。`origin_statement` は上書きしない（既存の挙動）。
-- 書き込みは Claude Code が Supabase MCP の `execute_sql` で行う（§4.1。削除系は使わない）。`.env` の service key が無い環境のため。
+- 書き込みは Claude Code が Supabase MCP の `execute_sql` で行う（§4.1。DELETE/DROP/TRUNCATE を含む SQL だけはユーザーが実行する）。`.env` の service key が無い環境のため。
   実行したSQLの全文と件数をPR本文に報告する。
 
 ## 4. 品質ゲート
