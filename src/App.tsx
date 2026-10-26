@@ -40,7 +40,7 @@ import QuestionCard from './features/questions/QuestionCard'
 import FilterBar from './features/questions/FilterBar'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
-import ItemSolver from './features/license/ItemSolver'
+import AnyItemSolver from './features/license/AnyItemSolver'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
 import LawReviewButton from './features/license/LawReviewButton'
@@ -1334,7 +1334,7 @@ export default function App() {
       )}
       {/* 社労士（allText）は肢モード（licensehub-expansion.md §6.1）。記録は電験と同じ updateStatus の経路。 */}
       {viewerQ && exam.features.allText && (
-        <ItemSolver
+        <AnyItemSolver
           itemId={viewerQ.id}
           title={viewerQ.title}
           userId={user.id}
