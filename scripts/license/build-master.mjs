@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // マスター索引（本文なし）を DB の lic_items から生成する（licensehub-expansion.md §4.5・PR-J1a）。
-// 出力: src/data/sharoushi/subjects/<学習科目>.ts（Chapter[]、章 = 論点グループ）と、
+// 出力: src/data/sharoushi/subjects/<学習科目>.ts（Chapter[]、章 = 論点グループ。選択式の空欄は章「選択式」）と、
 //       registry（subjects/index.ts）末尾への import・1行の追記（初回のみ）。手書きしない。
 //
 // 使い方:
@@ -22,7 +22,6 @@ import { createSupabase, fail, parseArgs, readJson, resolveUserId, selectAll } f
 import { FIXTURE_YEARS, isFixtureId, toRows, validateTranscription } from '../../src/lib/license/ingest/schema.ts'
 import { addToRegistry, buildSubjectChapters, renderSubjectFile } from '../../src/lib/license/ingest/master.ts'
 import { SHAROUSHI_SUBJECTS } from '../../src/data/sharoushi/index.ts'
-import { parseItemId } from '../../src/domain/license.ts'
 import { filterLawCleared } from '../../src/lib/license/lawStatus.ts'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -58,10 +57,9 @@ async function loadItems() {
   if (opts.items) {
     const rows = readJson(opts.items)
     if (!Array.isArray(rows)) fail(`${opts.items} は肢の行の配列ではありません`)
-    const taku = rows.filter(r => parseItemId(r.id)?.format === 'taku')
-      .filter(r => !opts.subject || r.study_subject === opts.subject)
-    console.log(`入力: ${opts.items} の択一式 ${taku.length} 肢（DB の代わり）`)
-    return taku
+    const picked = rows.filter(r => !opts.subject || r.study_subject === opts.subject)
+    console.log(`入力: ${opts.items} の ${picked.length} 肢（択一式・選択式。DB の代わり）`)
+    return picked
   }
   const supabase = await createSupabase()
   const userId = await resolveUserId(supabase, opts.user)
@@ -71,9 +69,8 @@ async function loadItems() {
     if (opts.subject) q = q.eq('study_subject', opts.subject)
     return q
   })
-  const taku = rows.filter(r => parseItemId(r.id)?.format === 'taku')
-  console.log(`入力: DB の lic_items 択一式 ${taku.length} 肢`)
-  return taku
+  console.log(`入力: DB の lic_items ${rows.length} 肢（択一式・選択式）`)
+  return rows
 }
 
 // 法改正の確認待ち（unchecked / review）・除外の肢は索引に載せない＝復習キュー・集計に入らない（§9・PR-K）

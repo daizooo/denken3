@@ -37,12 +37,13 @@ import DashboardView from './features/dashboard/DashboardView'
 import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
-import FilterBar, { type ModeKey } from './features/questions/FilterBar'
-import { hasQuestionText } from './lib/questionText'
-import { studyPlaceOf } from './features/shared/status'
+import FilterBar, { type FilterGroup } from './features/questions/FilterBar'
+import SubjectSelect from './features/questions/SubjectSelect'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
-import ItemSolver from './features/license/ItemSolver'
+import AnyItemSolver from './features/license/AnyItemSolver'
+import { FORMAT_LABEL, formatsOf, matchSource, yearChipLabel, yearsOf } from './lib/license/sourceFilter'
+import type { LicFormat } from './domain/license'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
 import LawReviewButton from './features/license/LawReviewButton'
@@ -72,13 +73,13 @@ export default function App() {
   const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
-  // 問題の絞り込み（学習場所 × 理解度）。軸間AND・軸内OR。空集合＝その軸は絞り込みなし。
+  // 問題の絞り込み（理解度）。空集合＝絞り込みなし。
   // セッション内のみの状態（永続化しない）。
-  const [filterModes, setFilterModes] = useState<Set<ModeKey>>(() => new Set())
   const [filterStatuses, setFilterStatuses] = useState<Set<Status>>(() => new Set())
-  // 会社向けテキスト転記がある問題だけに絞る（画像を開けない場面向け）。単独のON/OFF。
-  const [filterTextOnly, setFilterTextOnly] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
+  // 出題年度・出題形式（択一式／選択式）の絞り込み。章の前段の軸で、ID から読める資格（社労士）だけ出る。
+  const [filterYears, setFilterYears] = useState<Set<string>>(() => new Set())
+  const [filterFormats, setFilterFormats] = useState<Set<LicFormat>>(() => new Set())
   // 採用中の FSRS パラメータ w[]（Phase D）。null＝既定パラメータ（版0）。
   // 記録時にこの版を履歴へ書き残すので、あとで別の版を採用しても過去の予定日は動かない。
   const [fsrsParams, setFsrsParams] = useState<FsrsParamsRow | null>(null)
@@ -376,6 +377,8 @@ export default function App() {
   useEffect(() => {
     setSubject(subjectNamesOf(examId)[0])
     setChapterCode('ALL')
+    setFilterYears(new Set())
+    setFilterFormats(new Set())
     setReviews({})
     setPlans({})
   }, [examId])
@@ -520,14 +523,7 @@ export default function App() {
     saveReview({ ...current, due_date: todayStr })
   }, [reviews, saveReview, todayStr])
 
-  // ---- 絞り込み（学習場所 × 理解度）のトグル ----
-  const toggleFilterMode = useCallback((m: ModeKey) => {
-    setFilterModes(prev => {
-      const next = new Set(prev)
-      if (next.has(m)) next.delete(m); else next.add(m)
-      return next
-    })
-  }, [])
+  // ---- 絞り込み（理解度）のトグル ----
   const toggleFilterStatus = useCallback((s: Status) => {
     setFilterStatuses(prev => {
       const next = new Set(prev)
@@ -535,13 +531,16 @@ export default function App() {
       return next
     })
   }, [])
-  const toggleFilterTextOnly = useCallback(() => {
-    setFilterTextOnly(v => !v)
+  const toggleFilterYear = useCallback((y: string) => {
+    setFilterYears(prev => { const next = new Set(prev); if (next.has(y)) next.delete(y); else next.add(y); return next })
+  }, [])
+  const toggleFilterFormat = useCallback((f: LicFormat) => {
+    setFilterFormats(prev => { const next = new Set(prev); if (next.has(f)) next.delete(f); else next.add(f); return next })
   }, [])
   const clearFilters = useCallback(() => {
-    setFilterModes(new Set())
     setFilterStatuses(new Set())
-    setFilterTextOnly(false)
+    setFilterYears(new Set())
+    setFilterFormats(new Set())
   }, [])
 
   // 弱点ランキング・学習曲線（§7.7(2)(3)）。ペース分析は合格ライン目標を使うため後段。
@@ -677,14 +676,18 @@ export default function App() {
   const reminder = applicationReminder(currentPlan, todayStr)
   const daysToExam = currentPlan?.exam_date ? diffDays(todayStr, currentPlan.exam_date) : null
 
+  // 出題年度・形式の絞り込み（空集合は素通し）。章の選択肢の件数もこれに連動させる。
+  const sourceSel = useMemo(() => ({ years: filterYears, formats: filterFormats }), [filterYears, filterFormats])
   const allQuestions = useMemo(() => {
     const chaps = chapterCode === 'ALL'
       ? currentChapters
       : currentChapters.filter(c => c.code === chapterCode)
     return chaps.flatMap(c =>
-      c.questions.map(q => ({ ...q, chapterName: c.name, chapterCode: c.code }))
+      c.questions
+        .filter(q => matchSource(q.id, sourceSel))
+        .map(q => ({ ...q, chapterName: c.name, chapterCode: c.code }))
     )
-  }, [currentChapters, chapterCode])
+  }, [currentChapters, chapterCode, sourceSel])
 
   const reviewSchedule = useMemo(() => {
     const today = todayJST()
@@ -716,7 +719,7 @@ export default function App() {
   }, [allQuestions, reviews])
 
   // 絞り込み前の母数（タブ・日付・復習キューのロジックだけを適用）。
-  // 学習場所×理解度の絞り込みと、そのチップ件数（ファセット）は、この母数から導く。
+  // 理解度の絞り込みと、そのチップ件数は、この母数から導く。
   const baseQuestions = useMemo(() => {
     const today = todayJST()
     const overflowStart = addDaysStr(today, REVIEW_WINDOW_DAYS)
@@ -740,34 +743,18 @@ export default function App() {
     })
   }, [allQuestions, reviews, activeTab, selectedDate, reviewedNowIds])
 
-  // 絞り込み判定（軸内OR・空集合はその軸を素通し）。
-  const matchMode = useCallback(
-    (id: string) => filterModes.size === 0 || filterModes.has(studyPlaceOf(id, exam.features.allText)),
-    [filterModes, exam]
-  )
+  // 絞り込み判定（空集合は素通し）。
   const matchStatus = useCallback(
     (id: string) => filterStatuses.size === 0 || filterStatuses.has(reviews[id]?.status ?? '未着手'),
     [filterStatuses, reviews]
   )
-  const matchText = useCallback(
-    (id: string) => !filterTextOnly || hasQuestionText(id),
-    [filterTextOnly]
-  )
 
-  // チップの件数（ファセット）。各軸の件数は「他方の軸の選択」を尊重して数える。
-  const filterCounts = useMemo(() => {
-    const modeCounts = { home: 0, company: 0 } as Record<ModeKey, number>
-    const statusCounts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
-    let textOnlyCount = 0
-    for (const q of baseQuestions) {
-      const mk: ModeKey = studyPlaceOf(q.id, exam.features.allText)
-      const st: Status = reviews[q.id]?.status ?? '未着手'
-      if (matchStatus(q.id) && matchText(q.id)) modeCounts[mk]++
-      if (matchMode(q.id) && matchText(q.id)) statusCounts[st]++
-      if (matchMode(q.id) && matchStatus(q.id) && hasQuestionText(q.id)) textOnlyCount++
-    }
-    return { modeCounts, statusCounts, textOnlyCount }
-  }, [baseQuestions, reviews, matchMode, matchStatus, matchText, exam])
+  // チップの件数。母数（絞り込み前）の理解度ごとの件数。
+  const statusCounts = useMemo(() => {
+    const counts = { S: 0, A: 0, B: 0, C: 0, 未着手: 0 } as Record<Status, number>
+    for (const q of baseQuestions) counts[reviews[q.id]?.status ?? '未着手']++
+    return counts
+  }, [baseQuestions, reviews])
 
   // 今日のライン（planToday.ts・Phase B-1）。
   //
@@ -831,7 +818,7 @@ export default function App() {
   }, [allQuestions, reviews, policy, timeStats, todayStr, currentPlan])
 
   const filteredQuestions = useMemo(() => {
-    const filtered = baseQuestions.filter(q => matchMode(q.id) && matchStatus(q.id) && matchText(q.id))
+    const filtered = baseQuestions.filter(q => matchStatus(q.id))
     if (activeTab !== 'review') return filtered
     // 復習タブの並び順は「点数影響 ÷ 所要時間」の降順ただ1つ（planToday.orderByDensity）。
     //
@@ -859,7 +846,7 @@ export default function App() {
     return [...filtered].sort(
       (a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
     )
-  }, [baseQuestions, reviews, activeTab, matchMode, matchStatus, matchText, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
+  }, [baseQuestions, reviews, activeTab, matchStatus, todayStr, selectedDate, todayPlan, policy, timeStats, currentPlan])
 
   // 今日の一手サマリ（課題9）。復習タブの最上部に出す1行ぶんの値を束ねる。
   // 分析タブを開かなくても「今日いくらやれば良いか・いまどこにいるか」が分かるようにする。
@@ -946,16 +933,51 @@ export default function App() {
   const isTodayView = selectedDate === todayStr
   // 章セレクトの選択肢（Phase H。旧: 本文上のチップ10個）。件数の意味はタブで変わる
   // （復習タブ＝表示中の日付の件数 / 全問題タブ＝収録数）ので、そこは従来どおり。
+  // 年度・形式を絞っているときは、章の件数もその範囲で数え、該当の無い章は選べなくする（選択中の章を除く）。
+  const sourceActive = filterYears.size > 0 || filterFormats.size > 0
   const chapterOptions = [
     { code: 'ALL', label: `全章（${activeTab === 'review' ? reviewDueCount(allQuestions) : totalQ}問）` },
-    ...inputChapters.map(c => ({
-      code: c.code,
-      label: `${c.name}（${activeTab === 'review' ? reviewDueCount(c.questions) : c.questions.length}）`,
-    })),
+    ...inputChapters.map(c => {
+      const qs = sourceActive ? c.questions.filter(q => matchSource(q.id, sourceSel)) : c.questions
+      return {
+        code: c.code,
+        label: `${c.name}（${activeTab === 'review' ? reviewDueCount(qs) : qs.length}）`,
+        ...(sourceActive && qs.length === 0 && c.code !== chapterCode ? { disabled: true } : {}),
+      }
+    }),
     ...currentChapters.filter(c => c.questions.length === 0).map(c => ({
       code: c.code, label: `${c.name}（未入力）`, disabled: true,
     })),
   ]
+
+  // 科目（法律）の選択肢。問題の絞り込みなので、ヘッダ（資格の切り替え）ではなく絞り込みバーに置く。
+  const subjectOptions = subjects.map(sub => {
+    const count = chapters.filter(c => c.subject === sub).reduce((sum, c) => sum + c.questions.length, 0)
+    return { value: sub, label: `${sub}${count > 0 ? `（${count}）` : ''}` }
+  })
+
+  // 出題年度・出題形式の軸。ID から読める問が無い資格（電験）や、選べる値が1つしかない軸は出さない。
+  const filterGroups: FilterGroup[] = (() => {
+    const ids = currentChapters.flatMap(c => c.questions.map(q => q.id))
+    const years = yearsOf(ids)
+    const formats = formatsOf(ids)
+    const groups: FilterGroup[] = []
+    if (years.length > 1) {
+      groups.push({
+        key: 'year', label: '出題年度',
+        options: years.map(y => ({ value: y, label: yearChipLabel(y) })),
+        selected: filterYears, onToggle: toggleFilterYear,
+      })
+    }
+    if (formats.length > 1) {
+      groups.push({
+        key: 'format', label: '出題形式',
+        options: formats.map(f => ({ value: f, label: FORMAT_LABEL[f] })),
+        selected: filterFormats, onToggle: f => toggleFilterFormat(f as LicFormat),
+      })
+    }
+    return groups
+  })()
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
@@ -981,26 +1003,10 @@ export default function App() {
               ) : (
                 <span className="flex items-baseline gap-1.5">
                   <span className="font-bold text-gray-800 text-base whitespace-nowrap">{APP_NAME}</span>
-                  {/* 資格名は狭い画面では出さない（科目セレクトが文脈を持つため）。 */}
+                  {/* 資格名は狭い画面では出さない。 */}
                   <span className="hidden sm:inline text-xs font-medium text-gray-500 whitespace-nowrap">{exam.name}</span>
                 </span>
               )}
-              {/* 科目（Phase H）。旧: 全幅4分割のタブ1行。切り替え頻度が低く、常時1行を
-                  占有する必要がないため、資格名の隣のセレクトに畳んだ。 */}
-              <select
-                value={subject}
-                onChange={e => { setSubject(e.target.value as Subject); setChapterCode('ALL') }}
-                title="科目の切り替え"
-                className="text-xs font-medium text-gray-700 bg-gray-100 border-none rounded-md px-1.5 py-1 cursor-pointer focus:outline-none"
-              >
-                {subjects.map(sub => {
-                  const count = chapters.filter(c => c.subject === sub)
-                    .reduce((sum, c) => sum + c.questions.length, 0)
-                  return (
-                    <option key={sub} value={sub}>{sub}{count > 0 ? `（${count}）` : ''}</option>
-                  )
-                })}
-              </select>
               {daysToExam !== null && daysToExam >= 0 && (
                 <span
                   className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap"
@@ -1097,6 +1103,17 @@ export default function App() {
             }`}
           >
             {reminder.message}
+          </div>
+        )}
+
+        {/* 復習・一覧以外は絞り込みバーが無いので、科目の切り替えだけをここに置く。 */}
+        {activeTab !== 'review' && activeTab !== 'list' && subjectOptions.length > 1 && (
+          <div className="bg-white rounded-xl border border-gray-100 px-3 py-2">
+            <SubjectSelect
+              subject={subject}
+              onChange={sub => { setSubject(sub as Subject); setChapterCode('ALL') }}
+              options={subjectOptions}
+            />
           </div>
         )}
 
@@ -1204,29 +1221,27 @@ export default function App() {
             )}
             {activeTab === 'review' && exam.features.allText && <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />}
 
-            {/* ===== 絞り込み（学習場所 × 理解度）: 復習・一覧の両タブ ===== */}
+            {/* ===== 絞り込み（章・理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar
-              modes={filterModes}
               statuses={filterStatuses}
-              onToggleMode={toggleFilterMode}
               onToggleStatus={toggleFilterStatus}
               onClear={clearFilters}
-              modeCounts={filterCounts.modeCounts}
-              statusCounts={filterCounts.statusCounts}
+              statusCounts={statusCounts}
               open={filterOpen}
               onToggleOpen={() => setFilterOpen(o => !o)}
               chapterCode={chapterCode}
               onChangeChapter={setChapterCode}
               chapterOptions={chapterOptions}
-              textOnly={filterTextOnly}
-              onToggleTextOnly={toggleFilterTextOnly}
-              textOnlyCount={filterCounts.textOnlyCount}
+              subject={subject}
+              onChangeSubject={sub => { setSubject(sub as Subject); setChapterCode('ALL') }}
+              subjectOptions={subjectOptions}
+              groups={filterGroups}
             />
 
             {/* ===== QUESTION LIST ===== */}
             {filteredQuestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                {(filterModes.size > 0 || filterStatuses.size > 0 || filterTextOnly) && baseQuestions.length > 0 ? (
+                {(filterStatuses.size > 0 && baseQuestions.length > 0) || sourceActive ? (
                   <>
                     <p className="text-gray-400 text-sm">絞り込み条件に一致する問題がありません</p>
                     <button
@@ -1259,9 +1274,8 @@ export default function App() {
                     activeTab === 'review' &&
                     isTodayView &&
                     chapterCode === 'ALL' &&
-                    filterModes.size === 0 &&
                     filterStatuses.size === 0 &&
-                    !filterTextOnly &&
+                    !sourceActive &&
                     idx === todayPlan.recommendedCount &&
                     todayPlan.recommendedCount < filteredQuestions.length
 
@@ -1375,7 +1389,7 @@ export default function App() {
       )}
       {/* 社労士（allText）は肢モード（licensehub-expansion.md §6.1）。記録は電験と同じ updateStatus の経路。 */}
       {viewerQ && exam.features.allText && (
-        <ItemSolver
+        <AnyItemSolver
           itemId={viewerQ.id}
           title={viewerQ.title}
           userId={user.id}

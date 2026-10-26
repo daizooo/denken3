@@ -63,9 +63,13 @@ export function itemIdLabelJa(id: string, short = false): string {
   return `${questionLabel(c, short)} ${c.format === 'taku' ? '肢' : '空欄'}${c.label}`
 }
 
-// 索引の表題の末尾「（R06 問1 A）」を「（令和6年度 問1 肢A）」に直す（画面表示用。索引は変えない）。
+// 索引の表題の末尾「（R06 問1 A）」を「（令和6年度 問1 肢A）」に、選択式の「（R06 RK 空欄A）」を
+// 「（令和6年度 労基・安衛 空欄A）」に直す（画面表示用。索引は変えない）。
 // 電験など別形式の表題（'抵抗直列回路（H10-A5）'）には当てはまらず、そのまま返す。
 const TITLE_COORD_RE = /（([HR]\d{2}) 問(\d+) ([A-E])）$/
+const TITLE_SENTAKU_RE = /（([HR]\d{2}) ([A-Z]{2}) 空欄([A-E])）$/
 export function titleJa(title: string): string {
-  return title.replace(TITLE_COORD_RE, (_, y: string, q: string, l: string) => `（${yearLabelJa(y)} 問${q} 肢${l}）`)
+  return title
+    .replace(TITLE_COORD_RE, (_, y: string, q: string, l: string) => `（${yearLabelJa(y)} 問${q} 肢${l}）`)
+    .replace(TITLE_SENTAKU_RE, (_, y: string, s: string, l: string) => `（${yearLabelJa(y)} ${subjectNameJa(s, true)} 空欄${l}）`)
 }

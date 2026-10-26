@@ -33,6 +33,37 @@ describe('buildSubjectChapters', () => {
   })
 })
 
+describe('buildSubjectChapters（選択式）', () => {
+  const mixed = [
+    it_('R98_S_RK_B', null),
+    it_('R98_T_RK_01_A', '2 架空の契約'),
+    it_('R98_S_RK_A', null),
+    it_('R99_S_RK_A', null),
+  ]
+
+  it('空欄は択一式の章の後ろに1つの章「選択式」としてまとめ、空欄ID順に並べる', () => {
+    const chapters = buildSubjectChapters(mixed, ROUKI)
+    expect(chapters.map(c => [c.code, c.name, c.totalCount])).toEqual([
+      ['rouki_01', '2 架空の契約', 1],
+      ['rouki_sentaku', '選択式', 3],
+    ])
+    expect(chapters[1].questions).toEqual([
+      { id: 'R98_S_RK_A', number: 1, title: '選択式（R98 RK 空欄A）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R98_S_RK_B', number: 2, title: '選択式（R98 RK 空欄B）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R99_S_RK_A', number: 3, title: '選択式（R99 RK 空欄A）', difficulty: 2, studyMode: 'memory' },
+    ])
+  })
+
+  it('選択式だけの科目は「選択式」の章だけになる。択一式だけなら章は増えない', () => {
+    expect(buildSubjectChapters(mixed.filter(i => i.id.includes('_S_')), ROUKI).map(c => c.code)).toEqual(['rouki_sentaku'])
+    expect(buildSubjectChapters(mixed.filter(i => i.id.includes('_T_')), ROUKI).map(c => c.code)).toEqual(['rouki_01'])
+  })
+
+  it('入力の順序に依らず同じ結果になる', () => {
+    expect(buildSubjectChapters([...mixed].reverse(), ROUKI)).toEqual(buildSubjectChapters(mixed, ROUKI))
+  })
+})
+
 describe('renderSubjectFile', () => {
   it('本文を含まない Chapter[] の TS を出力する', () => {
     const src = renderSubjectFile(ROUKI, buildSubjectChapters([it_('R98_T_RK_01_A', "架空の'引用'", 'A')], ROUKI))

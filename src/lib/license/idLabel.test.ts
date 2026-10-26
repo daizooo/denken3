@@ -47,10 +47,12 @@ describe('subjectNameJa', () => {
 })
 
 describe('titleJa', () => {
-  it('索引の表題の座標を和暦の年度と「肢」に直す', () => {
+  it('索引の表題の座標を和暦の年度と「肢」「空欄」に直す', () => {
     expect(titleJa('01 総則（R06 問1 A）')).toBe('01 総則（令和6年度 問1 肢A）')
     expect(titleJa('論点未設定（R01 問10 E）')).toBe('論点未設定（令和元年度 問10 肢E）')
     expect(titleJa('02 適用事業（H29 問2 C）')).toBe('02 適用事業（平成29年度 問2 肢C）')
+    expect(titleJa('選択式（R06 RK 空欄A）')).toBe('選択式（令和6年度 労基・安衛 空欄A）')
+    expect(titleJa('選択式（R01 RS 空欄E）')).toBe('選択式（令和元年度 労災 空欄E）')
   })
   it('別形式の表題（電験など）はそのまま返す', () => {
     expect(titleJa('抵抗直列回路（H10-A5）')).toBe('抵抗直列回路（H10-A5）')

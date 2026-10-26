@@ -17,9 +17,9 @@ export type Subject = '理論' | '電力' | '機械' | '法規' | (string & {})
 // S = 完璧に理解した（復習不要）。復習キューから外すが、いつでも復習に戻せる（due_date を再設定するだけ）。
 export type Status = 'S' | 'A' | 'B' | 'C' | '未着手'
 
-// 学習場所の振り分け軸（会社=暗記・概念 / 自宅=計算）。出典（電験王）の問題区分に対応する。
-//   'calc'   … 計算問題（立式が必要。回路図の精読・紙での式展開が要る）→ 自宅向け
-//   'memory' … 暗記・概念問題（論説・空欄穴埋・選択。立式せず頭で解ける）→ 会社向け
+// 問題の学習形態（所要時間の推定に使う）。出典（電験王）の問題区分に対応する。
+//   'calc'   … 計算問題（立式が必要。回路図の精読・紙での式展開が要る）
+//   'memory' … 暗記・概念問題（論説・空欄穴埋・選択。立式せず頭で解ける）
 // 未設定は「未分類」として扱う。
 export type StudyMode = 'calc' | 'memory'
 
@@ -56,7 +56,7 @@ export interface ExamFeatures {
   twoStage: boolean     // 一次/二次の二段階（電験2種: true）
   // 科目別の配点・足切り（licensehub-expansion.md §4.3）。未指定（電験）は passingScore の従来経路。
   scoring?: ScoringModel
-  // 全問がテキストを持つ資格（社労士）。学習場所を常に「会社」とする（studyPlaceOf）。
+  // 全問がテキストを持つ資格（社労士）。問題を見る／解くを画像の有無に依らず出す。
   allText?: boolean
 }
 
@@ -165,7 +165,7 @@ export interface PaperQuestion {
   selectable?: boolean               // B問題の選択問題（問17/18 の択一等）。同一paper内の selectable 群から1問を選ぶ
   parts: PaperQuestionPart[]         // A問題は1要素。B問題は (a)(b) の2要素
   topic?: string                     // 'RLC共振' 等（分野集計用）
-  studyMode?: StudyMode              // 会社/自宅の振り分け（計算 / 暗記・概念）。電験王の問題区分に対応（§MasterQuestion 参照）
+  studyMode?: StudyMode              // 学習形態（計算 / 暗記・概念）。電験王の問題区分に対応（§MasterQuestion 参照）
   sourceQuestionId?: string          // 分野別の既存問題ID（例 'ac1_54'）任意。誤答の復習前倒しに使う
 }
 

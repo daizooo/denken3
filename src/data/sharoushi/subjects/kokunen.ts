@@ -158,4 +158,21 @@ export const KOKUNEN_CHAPTERS: Chapter[] = [
       { id: 'R08_T_KN_10_E', number: 149, title: '論点未設定（R08 問10 E）', difficulty: 2, studyMode: 'memory' },
     ],
   },
+  {
+    code: 'kokunen_sentaku', name: '選択式', subject: '国年', totalCount: 12,
+    questions: [
+      { id: 'R06_S_KN_D', number: 1, title: '選択式（R06 KN 空欄D）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R06_S_KN_E', number: 2, title: '選択式（R06 KN 空欄E）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R07_S_KN_A', number: 3, title: '選択式（R07 KN 空欄A）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R07_S_KN_B', number: 4, title: '選択式（R07 KN 空欄B）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R07_S_KN_C', number: 5, title: '選択式（R07 KN 空欄C）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R07_S_KN_D', number: 6, title: '選択式（R07 KN 空欄D）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R07_S_KN_E', number: 7, title: '選択式（R07 KN 空欄E）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R08_S_KN_A', number: 8, title: '選択式（R08 KN 空欄A）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R08_S_KN_B', number: 9, title: '選択式（R08 KN 空欄B）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R08_S_KN_C', number: 10, title: '選択式（R08 KN 空欄C）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R08_S_KN_D', number: 11, title: '選択式（R08 KN 空欄D）', difficulty: 2, studyMode: 'memory' },
+      { id: 'R08_S_KN_E', number: 12, title: '選択式（R08 KN 空欄E）', difficulty: 2, studyMode: 'memory' },
+    ],
+  },
 ]

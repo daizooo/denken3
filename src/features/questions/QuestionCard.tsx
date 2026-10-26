@@ -8,7 +8,7 @@ import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
 import { formatSelected } from '../../lib/attempt'
 import { titleJa } from '../../lib/license/idLabel'
-import { STATUS_BG, STATUS_LABEL, STUDYMODE_BADGE, studyPlaceOf } from '../shared/status'
+import { STATUS_BG, STATUS_LABEL } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
   chapterName: string
@@ -46,8 +46,9 @@ export default function QuestionCard({
   onDateChange: (v: string) => void
   onResetDate: () => void
   onDeleteEntry: (index: number) => void
-  // 全問がテキストを持つ資格（社労士。exam.features.allText）。学習場所は常に「会社」、
+  // 全問がテキストを持つ資格（社労士。exam.features.allText）。
   // 「問題を見る／解く」は画像の有無に依らず出し、App 側で肢モード（ItemSolver）を開く。
+  // 難易度は index 側が固定値（★★）の仮置きなので、この資格では表示しない。
   allText?: boolean
 }) {
   // コピー直後だけアイコンを切り替えて「コピーした」ことを示す（会社では音も出せないため視覚のみ）。
@@ -71,20 +72,13 @@ export default function QuestionCard({
       <div className="p-3.5">
         {/* Meta */}
         <div className="flex items-center gap-2 mb-1">
-          {/* 学習場所（会社=テキストコピー可／自宅=それ以外）を見出しの先頭に表示。絞り込みを開かなくても一目で分かる。 */}
-          <span
-            className={`text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].cls}`}
-            title={STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].title}
-          >
-            {STUDYMODE_BADGE[studyPlaceOf(q.id, allText)].label}
-          </span>
           <span className="text-xs text-gray-400">{q.chapterName} 問{q.number}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_BG[review.status]}`}>
             {review.status}
           </span>
           {/* 難易度・重要度を「どちらか分からない」を防ぐため、ラベル付きで2つ並べる（問題画像と同じ）。
               分野別（MasterQuestion）は難易度・重要度をどちらも示す。尺度は現行の3段階のまま。 */}
-          {'difficulty' in q && (
+          {!allText && 'difficulty' in q && (
             <span className="text-xs text-gray-400 inline-flex items-center gap-0.5" title={`難易度 ${q.difficulty}/3`}>
               難<span className="text-amber-400">{'★'.repeat(q.difficulty as number)}</span>
             </span>
@@ -100,9 +94,7 @@ export default function QuestionCard({
         <p className="text-sm font-medium text-gray-800 leading-snug">{titleJa(q.title)}</p>
 
         {/* 日付ステータス（ラベル付き） */}
-        {review.status === '未着手' ? (
-          <p className="text-xs text-gray-300 mt-1.5">未学習 · A / B / C で今日の理解度を記録</p>
-        ) : review.status === 'S' ? (
+        {review.status === '未着手' ? null : review.status === 'S' ? (
           <p className="text-xs text-purple-400 mt-1.5">完璧に理解済み · 復習キューから除外中</p>
         ) : (
           <div className="flex items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs flex-wrap">
