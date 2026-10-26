@@ -38,6 +38,7 @@ import SettingsView from './features/settings/SettingsView'
 import MockExamView from './features/mock-exam/MockExamView'
 import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type FilterGroup } from './features/questions/FilterBar'
+import SubjectSelect from './features/questions/SubjectSelect'
 import TodayPanel from './features/questions/TodayPanel'
 import { APP_NAME } from './config/app'
 import AnyItemSolver from './features/license/AnyItemSolver'
@@ -949,6 +950,12 @@ export default function App() {
     })),
   ]
 
+  // 科目（法律）の選択肢。問題の絞り込みなので、ヘッダ（資格の切り替え）ではなく絞り込みバーに置く。
+  const subjectOptions = subjects.map(sub => {
+    const count = chapters.filter(c => c.subject === sub).reduce((sum, c) => sum + c.questions.length, 0)
+    return { value: sub, label: `${sub}${count > 0 ? `（${count}）` : ''}` }
+  })
+
   // 出題年度・出題形式の軸。ID から読める問が無い資格（電験）や、選べる値が1つしかない軸は出さない。
   const filterGroups: FilterGroup[] = (() => {
     const ids = currentChapters.flatMap(c => c.questions.map(q => q.id))
@@ -996,26 +1003,10 @@ export default function App() {
               ) : (
                 <span className="flex items-baseline gap-1.5">
                   <span className="font-bold text-gray-800 text-base whitespace-nowrap">{APP_NAME}</span>
-                  {/* 資格名は狭い画面では出さない（科目セレクトが文脈を持つため）。 */}
+                  {/* 資格名は狭い画面では出さない。 */}
                   <span className="hidden sm:inline text-xs font-medium text-gray-500 whitespace-nowrap">{exam.name}</span>
                 </span>
               )}
-              {/* 科目（Phase H）。旧: 全幅4分割のタブ1行。切り替え頻度が低く、常時1行を
-                  占有する必要がないため、資格名の隣のセレクトに畳んだ。 */}
-              <select
-                value={subject}
-                onChange={e => { setSubject(e.target.value as Subject); setChapterCode('ALL') }}
-                title="科目の切り替え"
-                className="text-xs font-medium text-gray-700 bg-gray-100 border-none rounded-md px-1.5 py-1 cursor-pointer focus:outline-none"
-              >
-                {subjects.map(sub => {
-                  const count = chapters.filter(c => c.subject === sub)
-                    .reduce((sum, c) => sum + c.questions.length, 0)
-                  return (
-                    <option key={sub} value={sub}>{sub}{count > 0 ? `（${count}）` : ''}</option>
-                  )
-                })}
-              </select>
               {daysToExam !== null && daysToExam >= 0 && (
                 <span
                   className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap"
@@ -1112,6 +1103,17 @@ export default function App() {
             }`}
           >
             {reminder.message}
+          </div>
+        )}
+
+        {/* 復習・一覧以外は絞り込みバーが無いので、科目の切り替えだけをここに置く。 */}
+        {activeTab !== 'review' && activeTab !== 'list' && subjectOptions.length > 1 && (
+          <div className="bg-white rounded-xl border border-gray-100 px-3 py-2">
+            <SubjectSelect
+              subject={subject}
+              onChange={sub => { setSubject(sub as Subject); setChapterCode('ALL') }}
+              options={subjectOptions}
+            />
           </div>
         )}
 
@@ -1230,6 +1232,9 @@ export default function App() {
               chapterCode={chapterCode}
               onChangeChapter={setChapterCode}
               chapterOptions={chapterOptions}
+              subject={subject}
+              onChangeSubject={sub => { setSubject(sub as Subject); setChapterCode('ALL') }}
+              subjectOptions={subjectOptions}
               groups={filterGroups}
             />
 

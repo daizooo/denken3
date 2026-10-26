@@ -1,6 +1,7 @@
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react'
 import type { Status } from '../../domain/types'
 import { STATUS_BG, STATUS_LABEL } from '../shared/status'
+import SubjectSelect from './SubjectSelect'
 
 const STATUS_OPTIONS: Status[] = ['S', 'A', 'B', 'C', '未着手']
 
@@ -37,6 +38,7 @@ export default function FilterBar({
   statuses, onToggleStatus, onClear,
   statusCounts, open, onToggleOpen,
   chapterCode, onChangeChapter, chapterOptions, groups = [],
+  subject, onChangeSubject, subjectOptions,
 }: {
   statuses: Set<Status>
   onToggleStatus: (s: Status) => void
@@ -50,14 +52,21 @@ export default function FilterBar({
   chapterOptions: { code: string; label: string; disabled?: boolean }[]
   /** 章・理解度のほかの絞り込み軸（出題年度・出題形式など）。選択肢が無い軸は渡さない。 */
   groups?: FilterGroup[]
+  /** 科目（法律）。ヘッダは資格の切り替えだけにして、問題の絞り込みはここに置く。 */
+  subject: string
+  onChangeSubject: (subject: string) => void
+  subjectOptions: { value: string; label: string }[]
 }) {
   const activeCount = statuses.size + groups.reduce((n, g) => n + g.selected.size, 0)
   const summary = summarize(statuses, groups)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100">
-      {/* ヘッダ（章セレクト ＋ 絞り込みトグル） */}
-      <div className="flex items-center gap-2 px-3 py-2">
+      {/* ヘッダ（科目・章セレクト ＋ 絞り込みトグル） */}
+      <div className="flex items-center gap-2 px-3 py-2 flex-wrap">
+        {/* 科目（法律）。科目を変えると章は「全章」に戻る（App 側）。 */}
+        <SubjectSelect subject={subject} onChange={onChangeSubject} options={subjectOptions} />
+
         {/* 章。常時見える1個のセレクトに畳んでいる（旧: チップ10個の折り返し2行）。 */}
         <select
           value={chapterCode}
