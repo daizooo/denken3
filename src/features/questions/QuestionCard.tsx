@@ -7,6 +7,7 @@ import { formatMD } from '../../lib/date'
 import { formatDuration } from '../../lib/timer'
 import { reviewValue, bandMeta } from '../../lib/reviewPlan'
 import { formatSelected } from '../../lib/attempt'
+import { titleJa } from '../../lib/license/idLabel'
 import { STATUS_BG, STATUS_LABEL, STUDYMODE_BADGE, studyPlaceOf } from '../shared/status'
 
 export interface QuestionWithChapter extends MasterQuestion {
@@ -55,7 +56,7 @@ export default function QuestionCard({
 
   const onCopyText = async () => {
     if (!questionText) return
-    const title = `${q.chapterName} 問${q.number}　${q.title}`
+    const title = `${q.chapterName} 問${q.number}　${titleJa(q.title)}`
     try {
       await navigator.clipboard.writeText(formatForClipboard(title, questionText))
       setCopied(true)
@@ -96,7 +97,7 @@ export default function QuestionCard({
         </div>
 
         {/* Title */}
-        <p className="text-sm font-medium text-gray-800 leading-snug">{q.title}</p>
+        <p className="text-sm font-medium text-gray-800 leading-snug">{titleJa(q.title)}</p>
 
         {/* 日付ステータス（ラベル付き） */}
         {review.status === '未着手' ? (
