@@ -40,7 +40,7 @@ import { FORMAT_LABEL, formatsOf, matchSource, yearChipLabel, yearsOf } from './
 import type { LicFormat } from './domain/license'
 import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
-import LawReviewButton from './features/license/LawReviewButton'
+import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
@@ -1132,25 +1132,24 @@ export default function App() {
                 }}
               />
             )}
-            {/* 社労士（allText）の要確認一覧（法改正。licensehub-expansion.md §9）。 */}
-            {activeTab === 'review' && exam.features.allText && <LawReviewButton userId={user.id} />}
+            {/* 社労士（allText）の低頻度の入口を1つに畳む: 要確認一覧（法改正。§9）・本番形式模試（§7）・進級判定（§8.2）・足切り（§10.2）。 */}
             {activeTab === 'review' && exam.features.allText && (
-              <TextMockButton userId={user.id} onRecord={(id, s, attempt) => { void updateStatus(id, s, attempt) }} />
+              <AnalysisMenu userId={user.id}>
+                <TextMockButton userId={user.id} onRecord={(id, s, attempt) => { void updateStatus(id, s, attempt) }} />
+                <ProgressionButton
+                  userId={user.id}
+                  exam={exam}
+                  historyOf={id => reviews[id]?.review_history ?? []}
+                  onRecord={(id, s, attempt) => {
+                    const date = dateFor(id)
+                    void updateStatus(id, s, attempt)
+                    return date
+                  }}
+                  onDeleteEntry={(id, i) => { void deleteEntry(id, i) }}
+                />
+                <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />
+              </AnalysisMenu>
             )}
-            {activeTab === 'review' && exam.features.allText && (
-              <ProgressionButton
-                userId={user.id}
-                exam={exam}
-                historyOf={id => reviews[id]?.review_history ?? []}
-                onRecord={(id, s, attempt) => {
-                  const date = dateFor(id)
-                  void updateStatus(id, s, attempt)
-                  return date
-                }}
-                onDeleteEntry={(id, i) => { void deleteEntry(id, i) }}
-              />
-            )}
-            {activeTab === 'review' && exam.features.allText && <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />}
 
             {/* ===== 絞り込み（章・理解度）: 復習・一覧の両タブ ===== */}
             <FilterBar
