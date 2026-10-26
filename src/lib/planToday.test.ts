@@ -38,10 +38,8 @@ function reviewFrom(id: string, history: { date: string; status: Status }[]): Re
 function stats(measuredMinutes: Record<string, number>): TimeStats {
   const measured: Record<string, number> = {}
   for (const [id, m] of Object.entries(measuredMinutes)) measured[id] = m * 60
-  const empty = { calc: null, memory: null, unset: null }
   return {
-    byModeBand: { 1: { ...empty }, 2: { ...empty }, 3: { ...empty } },
-    byBand: { 1: null, 2: null, 3: null },
+    byKind: { taku: null, sentaku: null },
     measured,
     measuredN: Object.keys(measured).length,
   }

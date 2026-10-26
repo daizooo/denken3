@@ -2,17 +2,18 @@
 // 「問題を解く」（ProblemViewer を開く）で計測開始、A/B/C 押下で終了。
 // - タブ非表示中は加算しない（visibilitychange で pause/resume）
 // - 上限クリップ・日跨ぎは無効（duration_seconds を付けない＝計測前扱い）
-//   上限は「その難易度帯の中央値の3倍」と MAX_DURATION_SECONDS の小さいほう（課題13）。
-//   30分では中断（画面を消さずに端末を置いた場合は visibilitychange が発火しない）が
-//   解答時間として記録され続け、時間予算の見積もり精度を汚染するため引き下げた。
+//   上限は「その問題群の中央値の3倍」と MAX_DURATION_SECONDS の小さいほう（課題13）。
+//   上限が長いと中断（画面を消さずに端末を置いた場合は visibilitychange が発火しない）が
+//   解答時間として記録され続け、時間予算の見積もり精度を汚染するため引き下げてきた。
 //
 // 状態は素朴なプレーンオブジェクトで表現し、App 側で useRef 管理する。純ロジックのみここに置く。
 
-// 難易度帯の中央値が未算出（母数不足）のときに使う既定の上限。
-export const MAX_DURATION_SECONDS = 15 * 60
+// 中央値が未算出（母数不足）のときに使う既定の上限。
+// 1問（肢・空欄）に5分以上かかったなら、解いていたのではなく中断していたと見なす。
+export const MAX_DURATION_SECONDS = 5 * 60
 
 // 記録時の上限秒。中央値の3倍と MAX_DURATION_SECONDS の小さいほうを採る。
-// 難易度1（中央値1.9分）なら約5.7分、難易度2（中央値5.3分）なら15分になる。
+// 中央値が90秒なら4.5分（270秒）になる。
 export function durationCapSeconds(medianSeconds: number | null | undefined): number {
   if (medianSeconds == null || medianSeconds <= 0) return MAX_DURATION_SECONDS
   return Math.min(Math.round(medianSeconds * 3), MAX_DURATION_SECONDS)

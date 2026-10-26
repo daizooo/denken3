@@ -1,22 +1,21 @@
-// 本番（CBT）の1問あたりの持ち時間。
+// 本番の1問（択一式の肢・選択式の空欄）あたりの持ち時間。
 // 「速い/遅い」の判定基準に使う（study-time-scarcity.md 課題12）。
 //
 // 従来は「同難易度帯の中央値超え」で遅いと判定していたが、中央値は定義上つねに約半数を
-// 「遅い」側に落とすため、難易度1（中央値1.9分）では4分で解けていても警告が出ていた。
+// 「遅い」側に落とすため、本番の時間に収まっていても警告が出ていた。
 // 表示文言が元々意図していた「本番で失点しやすい」に実装を合わせる。
+//
+// 試験時間からの逆算（licensehub-expansion.md §4.3）。見直しに全体の1割を残して割る:
+//   択一式: 210分・70問（1問5肢）→ 210×0.9÷70÷5 ≒ 32秒 / 肢
+//   選択式:  80分・8科目×5空欄 = 40空欄 → 80×0.9÷40 = 108秒 / 空欄
+// 肢は「問題文を読んで○×を決める」までの時間で、解説を読む時間は含まない
+// （記録は解答の確定時に行うため、計測もそこまで）。
+import { parseItemId } from '../domain/license'
 
-// 理論は90分でA問題14問＋B問題3問（B問題は(a)(b)の2問構成）。
-// 試験時間からの逆算: 見直しに10分を残すと、残り80分を A問題14問＋B問題3問（A の2倍の重み）で
-// 割って 80÷(14＋3×2)＝A 4分・B 8分。旧値（A5分・B10分）は 14×5＋3×10＝100分で、
-// 90分の試験時間そのものを超えていた。
-export const A_LIMIT_SECONDS = 4 * 60
-export const B_LIMIT_SECONDS = 8 * 60
+export const TAKU_ITEM_LIMIT_SECONDS = 32
+export const SENTAKU_BLANK_LIMIT_SECONDS = 108
 
-// タイトル末尾の出典表記（例:「（H17-B15）」「（H16-A4/R6下-A7）」）から B問題を判定する。
-// 出典が未記載の章（静電気・電気計測・三相交流）は A問題として扱う。
-// 本番の出題数もA問題が大半（14/17）であり、既定としてA問題側に倒すのが安全側。
-const B_SOURCE = /-B\d/
-
-export function examTimeLimitSeconds(title: string): number {
-  return B_SOURCE.test(title) ? B_LIMIT_SECONDS : A_LIMIT_SECONDS
+// 問題ID（肢ID・空欄ID）から持ち時間を返す。読めないIDは、数の多い択一式の肢として扱う。
+export function examTimeLimitSeconds(id: string): number {
+  return parseItemId(id)?.format === 'sentaku' ? SENTAKU_BLANK_LIMIT_SECONDS : TAKU_ITEM_LIMIT_SECONDS
 }
