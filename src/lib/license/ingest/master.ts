@@ -4,6 +4,7 @@
 //
 // 章 = 論点グループ（topic_id）。章の並びは論点名の自然順（目次番号を先頭に書けば目次順になる）、
 // 論点の無い肢は末尾の「論点未設定」にまとめる。章内の肢は肢ID順（年度→問→肢）。
+// 選択式の空欄は論点を持たないので、択一式の章の後ろに1つの章「選択式」（code: <科目>_sentaku）として足す。
 // 生成結果は入力の順序に依らない（同じ DB からは常に同じファイルになる）。
 import type { Importance } from '../../../domain/license.ts'
 import { parseItemId } from '../../../domain/license.ts'
@@ -16,6 +17,7 @@ export interface MasterSourceItem {
 }
 
 export const NO_TOPIC = '論点未設定'
+export const SENTAKU_CHAPTER = '選択式'
 
 const IMPORTANCE_WEIGHT: Record<Importance, 1 | 2 | 3> = { A: 3, B: 2, C: 1 }
 
@@ -26,31 +28,41 @@ export function chapterConstName(subjectId: string): string {
 }
 
 // 肢の索引上の表題: 論点名（年度 問n 肢）。電験の分野別（'抵抗直列回路（H10-A5）'）と同じ形。
+// 選択式の空欄は「選択式（R06 RK 空欄A）」（画面側 titleJa が年度・科目を日本語にする）。
 function titleOf(topic: string, id: string): string {
   const c = parseItemId(id)
-  return c ? `${topic}（${c.year} 問${c.qNo} ${c.label}）` : `${topic}（${id}）`
+  if (!c) return `${topic}（${id}）`
+  return c.format === 'sentaku'
+    ? `${topic}（${c.year} ${c.scoredSubject} 空欄${c.label}）`
+    : `${topic}（${c.year} 問${c.qNo} ${c.label}）`
+}
+
+const isSentaku = (id: string) => parseItemId(id)?.format === 'sentaku'
+const byId = (a: MasterSourceItem, b: MasterSourceItem) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+
+function toQuestions(topic: string, qs: MasterSourceItem[]): MasterQuestion[] {
+  return qs.map((it, j) => ({
+    id: it.id,
+    number: j + 1,
+    title: titleOf(topic, it.id),
+    difficulty: 2,
+    ...(it.importance ? { importance: IMPORTANCE_WEIGHT[it.importance] } : {}),
+    studyMode: 'memory',
+  }))
 }
 
 export function buildSubjectChapters(
   items: MasterSourceItem[], subject: { id: string; name: string },
 ): Chapter[] {
   const groups = new Map<string, MasterSourceItem[]>()
-  for (const it of items) {
+  for (const it of items.filter(i => !isSentaku(i.id))) {
     const topic = it.topic_id?.trim() || NO_TOPIC
     groups.set(topic, [...(groups.get(topic) ?? []), it])
   }
   const topics = [...groups.keys()].sort((a, b) =>
     a === NO_TOPIC ? 1 : b === NO_TOPIC ? -1 : byNatural(a, b))
-  return topics.map((topic, i) => {
-    const qs = [...groups.get(topic)!].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    const questions: MasterQuestion[] = qs.map((it, j) => ({
-      id: it.id,
-      number: j + 1,
-      title: titleOf(topic, it.id),
-      difficulty: 2,
-      ...(it.importance ? { importance: IMPORTANCE_WEIGHT[it.importance] } : {}),
-      studyMode: 'memory',
-    }))
+  const chapters: Chapter[] = topics.map((topic, i) => {
+    const questions = toQuestions(topic, [...groups.get(topic)!].sort(byId))
     return {
       code: `${subject.id}_${String(i + 1).padStart(2, '0')}`,
       name: topic,
@@ -59,6 +71,17 @@ export function buildSubjectChapters(
       questions,
     }
   })
+  const sentaku = items.filter(i => isSentaku(i.id)).sort(byId)
+  if (sentaku.length > 0) {
+    chapters.push({
+      code: `${subject.id}_sentaku`,
+      name: SENTAKU_CHAPTER,
+      subject: subject.name,
+      totalCount: sentaku.length,
+      questions: toQuestions(SENTAKU_CHAPTER, sentaku),
+    })
+  }
+  return chapters
 }
 
 const jsString = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
