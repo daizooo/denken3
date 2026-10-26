@@ -404,7 +404,7 @@ export default function App() {
     const date = dateFor(questionId)
     // 解答時間（分野別・§7.6）: 「問題を解く」で開始した計測があれば秒数を付与する。
     // 無効（日跨ぎ・上限超・未計測）なら duration_seconds を付けない＝計測前扱い。
-    // 上限はその難易度帯の中央値の3倍と15分の小さいほう（課題13）。中断の混入を防ぐ。
+    // 上限は中央値の3倍と MAX_DURATION_SECONDS の小さいほう（課題13）。中断の混入を防ぐ。
     const entry: ReviewHistoryEntry = { date, status }
     // その記録に適用した目標保持率を書き残す（Phase C-1・設計書 §3.4）。
     // これがあるので、ポリシーが明日変わっても deriveFromHistory の再生結果は変わらない。
@@ -526,13 +526,13 @@ export default function App() {
     () => quadrantMatrix(inputChapters, reviews),
     [inputChapters, reviews]
   )
-  // 所要時間の推定に使う実測統計（課題1・提案A）。難易度×studyMode の中央値と問題別の実測。
+  // 所要時間の推定に使う実測統計（課題1・提案A）。形式（択一の肢／選択式の空欄）ごとの中央値と問題別の実測。
   const timeStats = useMemo(
     () => buildTimeStats(inputChapters, reviews),
     [inputChapters, reviews]
   )
 
-  // 記録時の解答時間の上限（課題13）。難易度帯の中央値の3倍と15分の小さいほう。
+  // 記録時の解答時間の上限（課題13）。難易度帯の中央値の3倍と MAX_DURATION_SECONDS の小さいほう。
   // 中断（画面を消さずに端末を置くと visibilitychange が発火しない）が解答時間として
   // 記録されるのを防ぐ。updateStatus からは ref 経由で読む。
   useEffect(() => {

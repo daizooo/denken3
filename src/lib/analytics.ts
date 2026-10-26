@@ -147,7 +147,7 @@ export interface QuadrantItem {
   status: Status           // 直近理解度
   seconds: number          // 直近の計測解答時間
   ratio: number            // seconds / 同難易度帯の中央値（同程度の問題との比較・表示用）
-  limitSeconds: number     // 本番の持ち時間（A問題4分・B問題8分）。これを超えたら「遅い」
+  limitSeconds: number     // 本番の持ち時間（択一の肢32秒・選択式の空欄108秒）。これを超えたら「遅い」
   difficulty: 1 | 2 | 3
 }
 
@@ -210,9 +210,9 @@ export function quadrantMatrix(
     const med = medians[m.q.difficulty]
     const ratio = med && med > 0 ? m.seconds / med : 1
     // 「遅い」は本番の持ち時間超え（課題12）。中央値で切ると定義上つねに約半数が
-    // 「遅い」側に落ち、難易度1（中央値1.9分）では4分でも警告が出てしまう。
+    // 「遅い」側に落ち、本番の時間に収まっていても警告が出てしまう。
     // 中央値比（ratio）は「同程度の問題と比べてどうか」の情報として表示に残す。
-    const limitSeconds = examTimeLimitSeconds(m.q.title)
+    const limitSeconds = examTimeLimitSeconds(m.q.id)
     const slow = m.seconds > limitSeconds
     const correct = m.status === 'A' || m.status === 'S'
     const item: QuadrantItem = {
