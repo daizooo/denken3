@@ -12,10 +12,10 @@
 -- 追加のみ（新規テーブル1つ＋NULL可の列1つ）。既存の制約・データは変更しない。再実行しても結果は同じ。
 --
 -- ■ ロールバック（lic_books のデータは消える）
---   ALTER TABLE lic_questions DROP COLUMN IF EXISTS book_id;
---   DROP TABLE IF EXISTS lic_books;
+--   ALTER TABLE denken3.lic_questions DROP COLUMN IF EXISTS book_id;
+--   DROP TABLE IF EXISTS denken3.lic_books;
 
-CREATE TABLE IF NOT EXISTS lic_books (
+CREATE TABLE IF NOT EXISTS denken3.lic_books (
   user_id         UUID NOT NULL DEFAULT auth.uid(),
   id              TEXT NOT NULL,                       -- 'ippon-1'
   series          TEXT NOT NULL,                       -- 'LEC 出る順社労士 一問一答過去10年問題集'
@@ -33,26 +33,28 @@ CREATE TABLE IF NOT EXISTS lic_books (
   PRIMARY KEY (user_id, id)
 );
 
-ALTER TABLE lic_questions ADD COLUMN IF NOT EXISTS book_id TEXT;   -- 書籍由来の問のみ。本試験は NULL
+ALTER TABLE denken3.lic_questions ADD COLUMN IF NOT EXISTS book_id TEXT;   -- 書籍由来の問のみ。本試験は NULL
 
 CREATE INDEX IF NOT EXISTS lic_questions_book
-  ON lic_questions (user_id, book_id);
+  ON denken3.lic_questions (user_id, book_id);
 
 -- RLS（lic_questions と同形：本人のみ操作可）
-ALTER TABLE lic_books ENABLE ROW LEVEL SECURITY;
+ALTER TABLE denken3.lic_books ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "users_manage_own_lic_books" ON lic_books;
+DROP POLICY IF EXISTS "users_manage_own_lic_books" ON denken3.lic_books;
 CREATE POLICY "users_manage_own_lic_books"
-  ON lic_books
+  ON denken3.lic_books
   FOR ALL
   USING  (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- updated_at 自動更新（001 で定義した関数を再利用）
-DROP TRIGGER IF EXISTS lic_books_updated_at ON lic_books;
+-- updated_at 自動更新（001 で定義し 033 で denken3 へ移した関数を再利用）
+DROP TRIGGER IF EXISTS lic_books_updated_at ON denken3.lic_books;
 CREATE TRIGGER lic_books_updated_at
-  BEFORE UPDATE ON lic_books
-  FOR EACH ROW EXECUTE FUNCTION update_denken_updated_at();
+  BEFORE UPDATE ON denken3.lic_books
+  FOR EACH ROW EXECUTE FUNCTION denken3.update_denken_updated_at();
 
 -- Data API 権限（CLAUDE.md §4・028 参照）。anon は付与しない。
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lic_books TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON denken3.lic_books TO authenticated, service_role;
+-- denken3 の既定権限は authenticated に truncate/references/trigger も付けるため、030 と同じく外す。
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON denken3.lic_books FROM authenticated;
