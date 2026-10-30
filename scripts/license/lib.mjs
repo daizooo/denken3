@@ -73,7 +73,8 @@ function assertSupabaseCredentials() {
 export async function createSupabase() {
   const { url, key } = assertSupabaseCredentials()
   const { createClient } = await import('@supabase/supabase-js')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  // 表は denken3 スキーマ（src/lib/supabaseConfig.ts の SUPABASE_DB_SCHEMA と同じ値）
+  return createClient(url, key, { db: { schema: 'denken3' }, auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

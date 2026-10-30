@@ -7,7 +7,7 @@
 // の2つが同時に成立する。RLS を bypass する強い鍵をサーバへ置く理由がない。
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { SUPABASE_ANON_KEY_DEFAULT, SUPABASE_URL_DEFAULT } from '../../src/lib/supabaseConfig.js'
+import { SUPABASE_ANON_KEY_DEFAULT, SUPABASE_DB_SCHEMA, SUPABASE_URL_DEFAULT } from '../../src/lib/supabaseConfig.js'
 
 // 環境変数が優先。ローカルの `vercel dev` では VITE_ 付きだけがある場合もあるので両方見る。
 // どちらも無ければ公開の既定値（ブラウザ側と同じ定義を共有する）へ落とす ―― 設定漏れで
@@ -37,6 +37,7 @@ export async function authenticate(req: Request): Promise<AuthContext> {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: SUPABASE_DB_SCHEMA },
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
