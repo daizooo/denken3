@@ -6,7 +6,7 @@
 //   ② 以降のクエリは RLS でそのユーザーの行だけに絞られる
 // の2つが同時に成立する。RLS を bypass する強い鍵をサーバへ置く理由がない。
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_ANON_KEY_DEFAULT, SUPABASE_DB_SCHEMA, SUPABASE_URL_DEFAULT } from '../../src/lib/supabaseConfig.js'
 
 // 環境変数が優先。ローカルの `vercel dev` では VITE_ 付きだけがある場合もあるので両方見る。
@@ -17,8 +17,17 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY_DEFAULT
 
+// スキーマ（denken3）を型引数に持つため、型は生成関数から取る（既定の SupabaseClient は "public" 固定）
+function createUserClient(authorization: string) {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: SUPABASE_DB_SCHEMA },
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
 export interface AuthContext {
-  supabase: SupabaseClient
+  supabase: ReturnType<typeof createUserClient>
   userId: string
 }
 
@@ -36,11 +45,7 @@ export async function authenticate(req: Request): Promise<AuthContext> {
     throw new HttpError(401, '認証が必要です')
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    db: { schema: SUPABASE_DB_SCHEMA },
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  const supabase = createUserClient(authorization)
 
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) throw new HttpError(401, 'トークンが無効です')
