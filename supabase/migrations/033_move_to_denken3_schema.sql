@@ -48,6 +48,10 @@ GRANT ALL ON ALL TABLES IN SCHEMA denken3 TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA denken3 TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION denken3.update_denken_updated_at() TO authenticated, service_role;
 
+-- denken3 の既定権限は新規表へ anon 全権を自動付与する設定だった。029 の方針（anon 不要）に揃える。
+-- 今後作る表にだけ効く（既存表の ACL は変えない）。
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA denken3 REVOKE ALL ON TABLES FROM anon;
+
 COMMIT;
 
 -- PostgREST のスキーマキャッシュを即時更新
