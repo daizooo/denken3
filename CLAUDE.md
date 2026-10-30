@@ -8,6 +8,12 @@
 - `supabase start` / `supabase db reset` / `vercel dev` などローカル環境を前提にした手順を、提案や新規ドキュメントに書かない。
 - 本番 DB への SQL のうち **DELETE / DROP / TRUNCATE を含むものだけは、ユーザーが実行する**（Claude は実行しない）。全文を PR 本文とチャットに出し、戻し SQL を添える。詳細は `docs/design/licensehub-expansion.md` §4.1。
 
+## DB スキーマ方針（denken3 専任・事故防止）
+
+- このプロジェクトは denken3 スキーマ専任です。同一プロジェクト内の他スキーマ（sukusuku/fittrack/public）に対するテーブル作成・変更・データ削除は禁止します。
+- マイグレーションやSQL実行時は、必ず denken3.テーブル名 の形式を使用してください。
+- Supabase プロジェクト（Persol）は他アプリと共用。クライアントは `db: { schema: 'denken3' }`（`src/lib/supabaseConfig.ts` の `SUPABASE_DB_SCHEMA`）で denken3 だけを読み書きする。移動の経緯は `supabase/migrations/033_move_to_denken3_schema.sql`。
+
 ## コンフリクト最小化方針（最優先で遵守）
 
 このリポジトリでは、複数の Claude Code セッション（並行実行・別ブランチでの作業）が
@@ -51,7 +57,7 @@
   他PRで既に使われていないか確認してから採番する（連番の奪い合いがコンフリクトの典型例）。
 - 既存カラム・既存制約の変更・削除は避け、追加（`ADD COLUMN`、新規テーブル）で表現する
   （`docs/design/expansion-design.md` の migration 008 の方針を標準とする）。
-- `public` に新規テーブルを作るマイグレーションには、同じファイル内に **明示的な GRANT**
+- `denken3` に新規テーブルを作るマイグレーションには、同じファイル内に **明示的な GRANT**
   （`authenticated` / `service_role` へ select・insert・update・delete。anon は未ログイン経路が無い限り付与しない）
   を書く。Supabase は 2026-10-30 以降、新規テーブルへ Data API 権限を自動付与しない
   （`supabase/migrations/028_data_api_grants.sql` 参照）。
