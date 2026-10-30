@@ -12,7 +12,7 @@
 
 - このプロジェクトは denken3 スキーマ専任です。同一プロジェクト内の他スキーマ（sukusuku/fittrack/public）に対するテーブル作成・変更・データ削除は禁止します。
 - マイグレーションやSQL実行時は、必ず denken3.テーブル名 の形式を使用してください。
-- Supabase プロジェクト（Persol）は他アプリと共用。クライアントは `db: { schema: 'denken3' }`（`src/lib/supabaseConfig.ts` の `SUPABASE_DB_SCHEMA`）で denken3 だけを読み書きする。移動の経緯は `supabase/migrations/032_move_to_denken3_schema.sql`。
+- Supabase プロジェクト（Persol）は他アプリと共用。クライアントは `db: { schema: 'denken3' }`（`src/lib/supabaseConfig.ts` の `SUPABASE_DB_SCHEMA`）で denken3 だけを読み書きする。移動の経緯は `supabase/migrations/033_move_to_denken3_schema.sql`。
 
 ## コンフリクト最小化方針（最優先で遵守）
 
