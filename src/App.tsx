@@ -997,7 +997,7 @@ export default function App() {
                 <Settings size={13} />
               </button>
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={() => supabase.auth.signOut({ scope: 'local' })}
                 title="ログアウト"
                 className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
