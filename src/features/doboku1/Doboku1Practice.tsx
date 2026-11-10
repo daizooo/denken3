@@ -1,8 +1,7 @@
 // 1級土木 第一次検定の演習画面（docs/design/doboku1-ichiji.md）。dbk_questions を読み、記録は
 // denken_reviews（exam_id='doboku1'）。社労士の状態・集計とは独立に読み書きする（App の reviews には混ぜない）。
 // 送信失敗・オフライン時は既存の送信待ち（offlineStore）に積み、App の flushOutbox が復帰時に送る。
-import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { DbkQuestionRow } from '../../lib/doboku1/types'
 import type { Review } from '../../domain/types'
@@ -17,7 +16,7 @@ import Doboku1Solver from './Doboku1Solver'
 const COLS = 'id, year, paper, q_no, group_label, required, category, topic, kind, direction, stem, statements, choice_header, choices, correct, has_figure, figure_path, explain, explain_verified'
 const DUE = '__due'
 
-export default function Doboku1Practice({ userId, onClose }: { userId: string; onClose: () => void }) {
+export default function Doboku1Practice({ userId, switcher }: { userId: string; switcher: ReactNode }) {
   const [questions, setQuestions] = useState<DbkQuestionRow[]>([])
   const [reviews, setReviews] = useState<Record<string, Review>>({})
   const [loading, setLoading] = useState(true)
@@ -79,10 +78,11 @@ export default function Doboku1Practice({ userId, onClose }: { userId: string; o
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50">
       <div className="mx-auto max-w-3xl space-y-4 p-4">
         <div className="flex items-center gap-2">
-          <h2 className="font-bold text-gray-800">1級土木 第一次検定</h2>
+          {/* 資格の切り替え口は App と同じ ExamSwitcher（ここから社労士へ戻る）。 */}
+          {switcher}
+          <h2 className="font-bold text-gray-800">第一次検定</h2>
           {queue && <span className="text-xs text-gray-500">{pos + 1} / {queue.length}</span>}
           {queue && <button onClick={() => setQueue(null)} className="ml-auto text-xs text-gray-600 underline">一覧へ</button>}
-          <button onClick={onClose} title="閉じる" className={`${queue ? '' : 'ml-auto '}rounded p-1 text-gray-500 hover:bg-gray-200`}><X size={18} /></button>
         </div>
 
         {loading ? <p className="text-sm text-gray-500">読み込み中…</p>
