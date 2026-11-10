@@ -9,6 +9,7 @@ import { choiceAttempt, statusOfAttempt } from '../../lib/doboku1/record'
 import { STATUS_BG } from '../shared/status'
 import ExplainView from './ExplainView'
 import Doboku1Figure from './Doboku1Figure'
+import Doboku1CopyButton from './Doboku1CopyButton'
 
 export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, hasNext }: {
   userId: string
@@ -45,6 +46,7 @@ export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, has
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span className="font-bold text-gray-700">{q.year} 試験問題{q.paper} No.{q.q_no}</span>
         <span>{q.group_label}</span>
+        <Doboku1CopyButton q={q} />
       </div>
 
       <p className="whitespace-pre-wrap leading-relaxed text-gray-900">{q.stem}</p>

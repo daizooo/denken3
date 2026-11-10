@@ -13,6 +13,8 @@ import { toDateStr, todayJST } from '../../lib/date'
 import { queueWrite } from '../../lib/offlineStore'
 import { STATUS_BG } from '../shared/status'
 import Doboku1Solver from './Doboku1Solver'
+import Doboku1BatchCopy from './Doboku1BatchCopy'
+import Doboku1BatchGrade from './Doboku1BatchGrade'
 
 const COLS = 'id, year, paper, q_no, group_label, required, category, topic, kind, direction, stem, statements, choice_header, choices, correct, has_figure, figure_path, explain, explain_verified'
 const DUE = '__due'
@@ -25,6 +27,7 @@ export default function Doboku1Practice({ userId, onClose }: { userId: string; o
   const [category, setCategory] = useState<string>(DOBOKU1_CATEGORIES[0].id)
   const [queue, setQueue] = useState<string[] | null>(null)   // 解いている列（id）
   const [pos, setPos] = useState(0)
+  const [batch, setBatch] = useState<'copy' | 'grade' | null>(null)   // 会社学習用（一括コピー・一括記録）
   const today = todayJST()
 
   useEffect(() => {
@@ -117,6 +120,11 @@ export default function Doboku1Practice({ userId, onClose }: { userId: string; o
                 {category === DUE ? '復習を始める' : 'この分野を順に解く'}（{list.length}問）
               </button>
 
+              <div className="flex gap-2">
+                <button onClick={() => setBatch('copy')} className="flex-1 rounded-lg border bg-white py-2 text-sm text-gray-700">一括コピー</button>
+                <button onClick={() => setBatch('grade')} className="flex-1 rounded-lg border bg-white py-2 text-sm text-gray-700">一括記録</button>
+              </div>
+
               <ul className="divide-y rounded-2xl border bg-white">
                 {list.length === 0 && <li className="px-3 py-3 text-sm text-gray-500">該当する問題はありません。</li>}
                 {list.map((q, i) => {
@@ -137,6 +145,14 @@ export default function Doboku1Practice({ userId, onClose }: { userId: string; o
             </>
           )}
       </div>
+      {batch === 'copy' && (
+        <Doboku1BatchCopy userId={userId} label={category === DUE ? '復習' : DOBOKU1_CATEGORIES.find(c => c.id === category)?.name ?? ''}
+          list={list} onClose={() => setBatch(null)} onGoGrade={() => setBatch('grade')} />
+      )}
+      {batch === 'grade' && (
+        <Doboku1BatchGrade userId={userId} byId={byId} onRecord={record} onUndo={undo}
+          onClose={() => setBatch(null)} onGoCopy={() => setBatch('copy')} />
+      )}
     </div>
   )
 }
