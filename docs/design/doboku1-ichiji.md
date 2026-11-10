@@ -99,7 +99,7 @@ LicenseHub に 2 つ目の資格として「1級土木施工管理技士 第一�
   - 描画: `src/features/doboku1/ExplainView.tsx`（論点→図→肢チェック→根拠。未確認は「AI作成・根拠確認中」）、`ExplainFigureView.tsx`（rule / flow / compare / svg）。
   - 検証: `src/lib/doboku1/explain.ts` の `explainProblems`（肢チェックと正答の一致。statements は「組合せ」と「数」の両形式、長さ・図の枚数の上限、SVG の安全性）。`build.ts` と下記スクリプトの両方で使う。
   - 解説データ: `src/data/doboku1/explains/r{年度}_{分野}.ts`（分野ごとの新規ファイル。本文は含めない）。`scripts/doboku1/explain-sql.mjs` が DB 行と照合し、通ったものだけ UPDATE SQL を書き出す（本文・正答は更新しない）。
-  - 問題の図（2026-11-10 利用者判断：アプリから登録）: `denken3.dbk_figures`（migration 036。本人のみ RLS）に base64 で保存。Storage はバケットが無く（031 で削除）、新設は共用の `storage.objects` にポリシーを足すため使わない。演習画面の図あり問で利用者がスクリーンショットを登録（ブラウザで長辺1280px の JPEG に縮小）。`dbk_questions.figure_path` は使わない。
+  - 問題の図（2026-11-10 利用者判断：アプリから登録）: `denken3.dbk_figures`（migration 036。本人のみ RLS）に base64 で保存。Storage はバケットが無く（031 で削除）、新設は共用の `storage.objects` にポリシーを足すため使わない。R08 の9問は Claude が公式PDF（www.jctc.jp の試験問題A/B）から図の部分だけを切り出して登録済み（グレー4色の PNG・SQL で投入後に md5 照合）。演習画面からも登録・差し替えできる（ブラウザで長辺1280px の JPEG に縮小）。`dbk_questions.figure_path` は使わない。
 
 ## 7. 利用者にお願いすること
 
