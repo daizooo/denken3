@@ -56,6 +56,8 @@ export function buildYear(
       const text = [q.stem, ...q.statements, ...q.choices.flat()].join('\n')
       if (GARBLED.test(text)) errors.push(`${k}: 文字化けの疑い`)
       if (q.choices.some(c => c.join('').trim() === '')) errors.push(`${k}: 空の選択肢`)
+      // 問いの文末（〜はどれか。）が欠けると向き（適当／適当でない）を取り違える（R08 B10 で確認）
+      if (!/どれか/.test(q.stem)) errors.push(`${k}: 問題文に「どれか」がない（文末の欠落の疑い）`)
       // 式の上付き・添字・√が抜けると選択肢が同じになる（R08 A03・A05 で確認）
       const norm = q.choices.map(c => c.join('|').replace(/[\s　]/g, ''))
       if (new Set(norm).size !== norm.length) errors.push(`${k}: 同じ内容の選択肢がある（式の崩れの疑い）`)

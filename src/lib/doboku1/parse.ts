@@ -11,7 +11,6 @@ const BLANK_LABELS = ['イ', 'ロ', 'ハ', 'ニ', 'ホ'] as const
 function isNoise(line: string): boolean {
   const t = line.trim()
   return t === '' || /^=== page \d+/.test(t) || /^―\s*\d+\s*―$/.test(t) || t.startsWith('※')
-    || /^(て|ください。)/.test(t) && t.length < 12
 }
 
 /** 折り返しで分かれた行を連結する。箇条書き（・）と「ただし」「また，」は段落を分ける。 */
@@ -29,7 +28,12 @@ export function joinWrapped(lines: string[]): string {
 /** 空欄（全角空白＋記号）を ［イ］ に正規化する。空欄を説明する「　　 の」は ［ ］ にする。 */
 export function normalizeBlanks(s: string): string {
   let t = s
-  for (const b of BLANK_LABELS) t = t.replace(new RegExp(`[\\s　]+${b}[\\s　]+`, 'g'), `［${b}］`)
+  // 空欄は「空白＋記号＋空白」。抽出で片側の空白が1つに縮む・消えることがある（R08 B23「ハ　  を」・B29「 　ハを」）。
+  // カタカナ語の一部（「ハンマ」等）を誤変換しないよう、前後がカタカナのものは除く。
+  for (const b of BLANK_LABELS) {
+    const K = '[ァ-ヶー]'
+    t = t.replace(new RegExp(`(?<!${K})(?:[\\s　]+${b}[\\s　]+|${b}[\\s　]{2,}|[\\s　]{2,}${b})(?!${K})`, 'g'), `［${b}］`)
+  }
   return t.replace(/文章中の[\s　]+の/g, '文章中の［　］の')
 }
 
@@ -52,11 +56,14 @@ function detectKind(stem: string, statements: string[], choices: string[][]): Qu
 
 /** 問題冊子のテキスト全体 → 問の配列。 */
 export function parseQuestions(text: string, paper: Paper): ParsedQuestion[] {
-  const parts = text.split(/【No\.\s*(\d+)】/)
+  // 特殊な空白（U+2002 など。R08 の「JIS A 5308」で確認）は通常の空白にそろえる
+  const parts = text.replace(/[\u00A0\u2000-\u200B]/g, ' ').split(/【No\.\s*(\d+)】/)
   const out: ParsedQuestion[] = []
   for (let i = 1; i < parts.length; i += 2) {
     const no = Number(parts[i])
-    const lines = parts[i + 1].split('\n').filter(l => !isNoise(l))
+    // 注意書き（※）が2行に折り返すと、続きの行（「全問題を解答してください。」）が残る（R08 B20）
+    const raw = parts[i + 1].split('\n')
+    const lines = raw.filter((l, j) => !isNoise(l) && !(j > 0 && raw[j - 1].trim().startsWith('※') && /解答してください。$/.test(l.trim())))
     const stemLines: string[] = []
     const statements: string[][] = []
     const choices: string[][] = []   // 行のまま。最後に連結・列分割する
