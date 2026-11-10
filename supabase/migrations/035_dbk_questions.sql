@@ -48,15 +48,21 @@ CREATE INDEX IF NOT EXISTS dbk_questions_category
 -- RLS（既存と同形：本人のみ操作可）
 ALTER TABLE denken3.dbk_questions ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "users_manage_own_dbk_questions" ON denken3.dbk_questions;
-CREATE POLICY "users_manage_own_dbk_questions"
-  ON denken3.dbk_questions
-  FOR ALL
-  USING  (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+-- DROP を含めない（CLAUDE.md: DROP を含む SQL は利用者が実行する）。存在しないときだけ作って冪等にする。
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'denken3' AND tablename = 'dbk_questions'
+                   AND policyname = 'users_manage_own_dbk_questions') THEN
+    CREATE POLICY "users_manage_own_dbk_questions"
+      ON denken3.dbk_questions
+      FOR ALL
+      USING  (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
-DROP TRIGGER IF EXISTS dbk_questions_updated_at ON denken3.dbk_questions;
-CREATE TRIGGER dbk_questions_updated_at
+CREATE OR REPLACE TRIGGER dbk_questions_updated_at
   BEFORE UPDATE ON denken3.dbk_questions
   FOR EACH ROW EXECUTE FUNCTION denken3.update_denken_updated_at();
 
