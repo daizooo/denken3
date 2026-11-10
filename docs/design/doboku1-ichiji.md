@@ -95,6 +95,10 @@ LicenseHub に 2 つ目の資格として「1級土木施工管理技士 第一�
 - 保存先（案）: `lic_questions` に `explain jsonb` を ADD COLUMN（新規 migration、番号はコミット直前に採番、追加のみ）。SVG は `<img src="data:image/svg+xml,…">` で表示し、スクリプトを実行させない。
 - 品質: 正答は必ず公式の正答肢と一致させる（不一致は保存しない）。根拠（示方書・約款・準則の条番号）を確認するまで `explanation_verified=false`。
 - 問題文中の図（擁壁の配筋図など）は試験問題の一部。リポジトリや公開フォルダには置かず、非公開ストレージ（`denken-problems` と同形のRLS）に置く。
+- 実装（2026-11-10）: 保存先は `denken3.dbk_questions.explain`（migration 035）。
+  - 描画: `src/features/doboku1/ExplainView.tsx`（論点→図→肢チェック→根拠。未確認は「AI作成・根拠確認中」）、`ExplainFigureView.tsx`（rule / flow / compare / svg）。
+  - 検証: `src/lib/doboku1/explain.ts` の `explainProblems`（肢チェックと正答の一致。statements は「組合せ」と「数」の両形式、長さ・図の枚数の上限、SVG の安全性）。`build.ts` と下記スクリプトの両方で使う。
+  - 解説データ: `src/data/doboku1/explains/r{年度}_{分野}.ts`（分野ごとの新規ファイル。本文は含めない）。`scripts/doboku1/explain-sql.mjs` が DB 行と照合し、通ったものだけ UPDATE SQL を書き出す（本文・正答は更新しない）。
 
 ## 7. 利用者にお願いすること
 
