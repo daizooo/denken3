@@ -34,7 +34,6 @@ import QuestionCard from './features/questions/QuestionCard'
 import FilterBar, { type FilterGroup } from './features/questions/FilterBar'
 import SubjectSelect from './features/questions/SubjectSelect'
 import TodayPanel from './features/questions/TodayPanel'
-import { APP_NAME } from './config/app'
 import AnyItemSolver from './features/license/AnyItemSolver'
 import { FORMAT_LABEL, formatsOf, matchSource, yearChipLabel, yearsOf } from './lib/license/sourceFilter'
 import type { LicFormat } from './domain/license'
@@ -44,7 +43,8 @@ import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
-import Doboku1Button from './features/doboku1/Doboku1Button'
+import Doboku1Practice from './features/doboku1/Doboku1Practice'
+import ExamSwitcher, { DOBOKU1_SWITCH_ID, readStoredExam, storeExam } from './features/shared/ExamSwitcher'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -65,7 +65,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'review' | 'list' | 'dashboard' | 'settings'>('review')
   const [selectedDate, setSelectedDate] = useState<string>(() => todayJST())
   // 対象資格（registry駆動・§7.8）。登録が1つの間は DEFAULT_EXAM_ID で固定。
-  const [examId, setExamId]       = useState<ExamId>(DEFAULT_EXAM_ID)
+  const [examId, setExamId]       = useState<ExamId>(() => {
+    const saved = readStoredExam()
+    return EXAMS.find(e => e.id === saved)?.id ?? DEFAULT_EXAM_ID
+  })
+  // 1級土木は EXAMS 外。選ぶと土木の演習画面に切り替わり、社労士は休止（並行学習はしない）。
+  const [dobokuOn, setDobokuOn]   = useState(() => readStoredExam() === DOBOKU1_SWITCH_ID)
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
   // 問題の絞り込み（理解度）。空集合＝絞り込みなし。
@@ -930,8 +935,27 @@ export default function App() {
     return groups
   })()
 
+  // 資格切替の選択肢（EXAMS＋EXAMS外の1級土木）。選択は端末に記憶する。
+  const switcherOptions = [
+    ...EXAMS.map(e => ({ id: e.id as string, name: e.name })),
+    { id: DOBOKU1_SWITCH_ID, name: '1級土木' },
+  ]
+  const switcherValue = dobokuOn ? DOBOKU1_SWITCH_ID : examId
+  const switchExam = (id: string) => {
+    storeExam(id)
+    if (id === DOBOKU1_SWITCH_ID) { setDobokuOn(true); return }
+    setDobokuOn(false)
+    setExamId(id as ExamId)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+      {dobokuOn && (
+        <Doboku1Practice
+          userId={user.id}
+          switcher={<ExamSwitcher value={switcherValue} options={switcherOptions} onChange={switchExam} />}
+        />
+      )}
       <div className="max-w-3xl mx-auto p-4 space-y-4">
 
         {/* ===== HEADER ===== */}
@@ -939,25 +963,12 @@ export default function App() {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               <BookOpen size={18} className="text-blue-600 shrink-0" />
-              {/* 資格切替（§7.8）。登録が2つ以上になったらセレクタを表示、1つの間は名称のみ。 */}
-              {EXAMS.length >= 2 ? (
-                <select
-                  value={examId}
-                  onChange={e => setExamId(e.target.value)}
-                  className="font-bold text-gray-800 text-base bg-transparent border-none focus:outline-none cursor-pointer"
-                  title="資格の切り替え"
-                >
-                  {EXAMS.map(ex => (
-                    <option key={ex.id} value={ex.id}>{ex.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <span className="flex items-baseline gap-1.5">
-                  <span className="font-bold text-gray-800 text-base whitespace-nowrap">{APP_NAME}</span>
-                  {/* 資格名は狭い画面では出さない。 */}
-                  <span className="hidden sm:inline text-xs font-medium text-gray-500 whitespace-nowrap">{exam.name}</span>
-                </span>
-              )}
+              {/* 資格切替（1か所に統一）。選んだ資格だけ稼働し、もう一方は休止。 */}
+              <ExamSwitcher
+                value={switcherValue}
+                options={switcherOptions}
+                onChange={switchExam}
+              />
               {daysToExam !== null && daysToExam >= 0 && (
                 <span
                   className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap"
@@ -988,7 +999,6 @@ export default function App() {
                   保存中...
                 </span>
               )}
-              <Doboku1Button userId={user.id} />
               <button
                 onClick={() => setActiveTab('settings')}
                 title="試験日程の設定"
