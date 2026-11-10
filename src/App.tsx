@@ -44,6 +44,7 @@ import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
+import Doboku1Button from './features/doboku1/Doboku1Button'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -987,6 +988,7 @@ export default function App() {
                   保存中...
                 </span>
               )}
+              <Doboku1Button userId={user.id} />
               <button
                 onClick={() => setActiveTab('settings')}
                 title="試験日程の設定"
