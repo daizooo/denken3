@@ -36,3 +36,16 @@ export function toCheckSql(year: string, userId: string): string {
 FROM denken3.dbk_questions WHERE user_id = ${lit(userId)}::uuid AND year = ${lit(year)}
 GROUP BY paper ORDER BY paper;`
 }
+
+/** 解説だけを更新する SQL（本文・正答には触れない）。rows は検証済みのものだけ渡す。 */
+export function toExplainUpdateSql(items: { id: string; explain: DbkQuestionRow['explain']; verified: boolean }[], userId: string): string {
+  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new Error(`user_id が UUID ではない: ${userId}`)
+  if (items.length === 0) throw new Error('更新する解説がない')
+  const values = items.map(r => `(${lit(r.id)}, ${lit(r.explain)}, ${lit(r.verified)})`)
+  return `UPDATE denken3.dbk_questions AS q SET explain = v.explain, explain_verified = v.verified
+FROM (VALUES
+${values.join(',\n')}
+) AS v(id, explain, verified)
+WHERE q.user_id = ${lit(userId)}::uuid AND q.id = v.id
+RETURNING q.id;`
+}

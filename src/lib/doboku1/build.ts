@@ -1,6 +1,7 @@
 // 構造化した問 + 正答 + 索引 → DB 行。検証ゲートを通らない年度は保存しない（docs/design/doboku1-ichiji.md §6 T2）。
 import type { DbkQuestionRow, Explain, Paper, ParsedQuestion } from './types.ts'
 import { categoryOf, dbkId, groupOf, type YearIndex } from '../../data/doboku1/categories.ts'
+import { explainProblems } from './explain.ts'
 
 /** 書き起こしの補正（式・図を含む問）。キーは 'A01' の形。指定した項目だけ上書きする。 */
 export type Overrides = Record<string, Partial<Pick<ParsedQuestion, 'stem' | 'statements' | 'choiceHeader' | 'choices' | 'kind' | 'direction' | 'hasFigure'>>>
@@ -62,10 +63,8 @@ export function buildYear(
       const norm = q.choices.map(c => c.join('|').replace(/[\s　]/g, ''))
       if (new Set(norm).size !== norm.length) errors.push(`${k}: 同じ内容の選択肢がある（式の崩れの疑い）`)
       const ex = explains[k]
-      if (ex) {
-        const bad = ex.explain.checks.length === 4 && q.kind !== 'statements'
-          && !ex.explain.checks.every((c, i) => c.ok === ((i + 1 === correct) === (q.direction === 'right')))
-        if (bad) errors.push(`${k}: 解説の肢チェックが正答（${correct}）と食い違う`)
+      if (ex && correct) {
+        for (const e of explainProblems(ex.explain, { ...q, correct })) errors.push(`${k}: 解説 ${e}`)
       }
       if (q.hasFigure) warnings.push(`${k}: 図あり（図の登録が必要）`)
       rows.push({
