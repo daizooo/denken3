@@ -89,7 +89,7 @@ export default function Doboku1Practice({ userId, onClose }: { userId: string; o
           : error ? <p className="text-sm text-red-700">読み込めませんでした: {error}</p>
           : current ? (
             <div className="rounded-2xl border bg-white p-4">
-              <Doboku1Solver key={current.id + pos} q={current} hasNext={!!queue && pos + 1 < queue.length}
+              <Doboku1Solver key={current.id + pos} userId={userId} q={current} hasNext={!!queue && pos + 1 < queue.length}
                 onRecord={a => record(current.id, a)} onUndo={() => undo(current.id)} onNext={next} />
             </div>
           ) : (

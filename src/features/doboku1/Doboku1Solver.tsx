@@ -8,8 +8,10 @@ import { CHOICE_LABELS, STATEMENT_LABELS } from '../../lib/doboku1/explain'
 import { choiceAttempt, statusOfAttempt } from '../../lib/doboku1/record'
 import { STATUS_BG } from '../shared/status'
 import ExplainView from './ExplainView'
+import Doboku1Figure from './Doboku1Figure'
 
-export default function Doboku1Solver({ q, onRecord, onUndo, onNext, hasNext }: {
+export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, hasNext }: {
+  userId: string
   q: DbkQuestionRow
   onRecord: (attempt: Attempt) => void
   onUndo: () => void
@@ -46,11 +48,7 @@ export default function Doboku1Solver({ q, onRecord, onUndo, onNext, hasNext }: 
       </div>
 
       <p className="whitespace-pre-wrap leading-relaxed text-gray-900">{q.stem}</p>
-      {q.has_figure && (
-        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          この問題は図を使います。図は公式の試験問題PDFで確認してください（アプリへの図の登録は準備中）。
-        </p>
-      )}
+      {q.has_figure && <Doboku1Figure userId={userId} questionId={q.id} />}
 
       {q.statements.length > 0 && (
         <ol className="space-y-1">
