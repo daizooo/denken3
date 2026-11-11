@@ -15,7 +15,7 @@ export interface QuestionWithChapter extends MasterQuestion {
 export default function QuestionCard({
   q, review, activeTab, todayStr, examDate,
   isEditing, editMemo, onEditMemoChange, onToggleEdit, onSaveMemo,
-  onRecordStatus, onReactivate, onViewProblem, onSolveProblem,
+  onRecordStatus, onViewProblem, onSolveProblem,
   dateValue, dateOpen, onOpenDate, onDateChange, onResetDate,
   onDeleteEntry,
 }: {
@@ -31,8 +31,6 @@ export default function QuestionCard({
   onToggleEdit: () => void
   onSaveMemo: () => void
   onRecordStatus: (status: Status) => void
-  // S（復習不要）にした問題を復習キューへ戻す（次回復習日を今日に設定）
-  onReactivate: () => void
   // 問題を確認するだけ（タイマー計測なし）
   onViewProblem: () => void
   // 問題を解く（解答時間の計測を開始する）
@@ -65,9 +63,7 @@ export default function QuestionCard({
         <p className="text-sm font-medium text-gray-800 leading-snug">{titleJa(q.title)}</p>
 
         {/* 日付ステータス（ラベル付き） */}
-        {review.status === '未着手' ? null : review.status === 'S' ? (
-          <p className="text-xs text-purple-400 mt-1.5">完璧に理解済み · 復習キューから除外中</p>
-        ) : (
+        {review.status === '未着手' ? null : (
           <div className="flex items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs flex-wrap">
             {review.last_reviewed && (
               <span className="text-gray-400">
@@ -120,14 +116,6 @@ export default function QuestionCard({
               className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600 transition-all"
             >{s}</button>
           ))}
-          {/* S にした問題を復習に戻す（復習不要を解除） */}
-          {review.status === 'S' && (
-            <button
-              onClick={onReactivate}
-              title="この問題を復習キューに戻します"
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all"
-            >復習に戻す</button>
-          )}
           {/* 確認のみ。タイマーは動かさない（解答時間に混ぜない）。 */}
           <button
             onClick={onViewProblem}

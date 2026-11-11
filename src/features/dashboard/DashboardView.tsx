@@ -262,7 +262,7 @@ function CurrentStandingCard({
             )}
             {est.actual != null && (
               <span className="text-gray-500">
-                ／直近CBT実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
+                ／直近の模試実測 <b>{est.actual}点</b>（推定との差 {est.gap! >= 0 ? '+' : ''}{est.gap}）
               </span>
             )}
           </p>

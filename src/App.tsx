@@ -43,8 +43,7 @@ import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
-import Doboku1Practice from './features/doboku1/Doboku1Practice'
-import ExamSwitcher, { DOBOKU1_SWITCH_ID, readStoredExam, storeExam } from './features/shared/ExamSwitcher'
+import ExamSwitcher, { readStoredExam, storeExam } from './features/shared/ExamSwitcher'
 
 // ==============================
 // MAIN APP （ルーティング・認証・データ取得のオーケストレーション）
@@ -69,8 +68,6 @@ export default function App() {
     const saved = readStoredExam()
     return EXAMS.find(e => e.id === saved)?.id ?? DEFAULT_EXAM_ID
   })
-  // 1級土木は EXAMS 外。選ぶと土木の演習画面に切り替わり、社労士は休止（並行学習はしない）。
-  const [dobokuOn, setDobokuOn]   = useState(() => readStoredExam() === DOBOKU1_SWITCH_ID)
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
   // 問題の絞り込み（理解度）。空集合＝絞り込みなし。
@@ -488,15 +485,6 @@ export default function App() {
   )
 
   const currentPlan = plans[subjectIdOf(examId, subject)] ?? null
-
-  // S（復習不要）にした問題を、いつでも復習に戻す。
-  // 学習履歴・FSRS状態はそのままに、次回復習日を今日へ設定して復習キューへ戻すだけ。
-  // 再び A・B・C で採点すれば、温存された stability からスケジューリングが再開する。
-  const reactivateReview = useCallback((questionId: string) => {
-    const current = reviews[questionId]
-    if (!current) return
-    saveReview({ ...current, due_date: todayStr })
-  }, [reviews, saveReview, todayStr])
 
   // ---- 絞り込み（理解度）のトグル ----
   const toggleFilterStatus = useCallback((s: Status) => {
@@ -935,27 +923,16 @@ export default function App() {
     return groups
   })()
 
-  // 資格切替の選択肢（EXAMS＋EXAMS外の1級土木）。選択は端末に記憶する。
-  const switcherOptions = [
-    ...EXAMS.map(e => ({ id: e.id as string, name: e.name })),
-    { id: DOBOKU1_SWITCH_ID, name: '1級土木' },
-  ]
-  const switcherValue = dobokuOn ? DOBOKU1_SWITCH_ID : examId
+  // 資格切替の選択肢（EXAMS）。選択は端末に記憶する。
+  const switcherOptions = EXAMS.map(e => ({ id: e.id as string, name: e.name }))
+  const switcherValue = examId
   const switchExam = (id: string) => {
     storeExam(id)
-    if (id === DOBOKU1_SWITCH_ID) { setDobokuOn(true); return }
-    setDobokuOn(false)
     setExamId(id as ExamId)
   }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
-      {dobokuOn && (
-        <Doboku1Practice
-          userId={user.id}
-          switcher={<ExamSwitcher value={switcherValue} options={switcherOptions} onChange={switchExam} />}
-        />
-      )}
       <div className="max-w-3xl mx-auto p-4 space-y-4">
 
         {/* ===== HEADER ===== */}
@@ -1251,7 +1228,6 @@ export default function App() {
                       }}
                       onSaveMemo={() => saveDetails(q.id)}
                       onRecordStatus={s => updateStatus(q.id, s)}
-                      onReactivate={() => reactivateReview(q.id)}
                       onViewProblem={() => {
                         // 「問題を見る」= 確認のみ。タイマーは動かさない。
                         // 計測中の状態が残っていると解答時間に混ざるので破棄する。

@@ -14,9 +14,9 @@ export const STATUS_COLOR: Record<Status, string> = {
 }
 
 export const STATUS_LABEL: Record<Status, string> = {
-  'S': 'S（完璧に理解した・復習不要）',
-  'A': 'A（答えを見ずに解けた）',
-  'B': 'B（方向性OK・計算ミス）',
-  'C': 'C（答えを見た）',
+  'S': 'S（廃止。A として扱う）',
+  'A': 'A（正解・確信あり）',
+  'B': 'B（正解・迷いあり）',
+  'C': 'C（不正解・分からない）',
   '未着手': '未着手',
 }

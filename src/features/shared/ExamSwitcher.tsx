@@ -1,9 +1,8 @@
 // 資格の切り替え口（ヘッダー1か所）。並行学習はしない前提で、選んだ資格だけを稼働・もう一方は休止として扱う。
-// 1級土木は資格レジストリ EXAMS に載せない（社労士の画面・集計に混ぜない）ため、選択肢に加えるだけで中身は App 側が出し分ける。
+// 選択肢は資格レジストリ EXAMS（社労士・1級土木）。どちらも同じメイン画面で、データは exam_id で分かれる。
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-export const DOBOKU1_SWITCH_ID = 'doboku1'
 const STORAGE_KEY = 'licensehub.activeExam'
 
 export function readStoredExam(): string | null {
