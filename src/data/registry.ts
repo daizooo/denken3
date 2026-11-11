@@ -3,10 +3,12 @@
 // UI はこの registry を起点に描画する（資格・科目のハードコードをしない・§7.8）。
 import type { Chapter, ExamDefinition, ExamId, Subject, SubjectDefinition } from '../domain/types'
 import { SHAROUSHI_EXAM } from './sharoushi'
+import { DOBOKU1_EXAM } from './doboku1'
 
 // 全資格。別の資格を配列の末尾に追加すれば UI に現れる（2つ以上でセレクタが出る）。
 export const EXAMS: ExamDefinition[] = [
   SHAROUSHI_EXAM,
+  DOBOKU1_EXAM,
 ]
 
 // 既定の資格。アプリ起動時に選択される資格（登録が1つの間はこれで固定）。
