@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   DBK_ANSWER_GAP_LINES, DBK_BATCH_SESSION_KEY, clampDbkBatchSize, formatDbkBatch, formatDbkForClipboard,
-  loadDbkBatch, pickDbkBatch, saveDbkBatch,
+  loadDbkBatch, pickDbkBatch, saveDbkBatch, DBK_BATCH_DONE_KEY, loadDbkDone, saveDbkDone,
 } from './copyText.ts'
 import { BATCH_SESSION_KEY, newBatchSession } from '../license/batchSession.ts'
 
 const q = {
   year: 'R08', paper: 'A' as const, q_no: 3, stem: '次の記述のうち、適当でないものはどれか。',
   statements: [], choice_header: [], choices: [['ア'], ['イ'], ['ウ'], ['エ']], has_figure: false,
-  correct: 3, explain: { point: '論点', figures: [], checks: [{ label: '⑶', ok: false, note: '誤り' }], basis: '示方書' },
+  correct: 3, explain_verified: true, explain: { point: '論点', figures: [], checks: [{ label: '⑶', ok: false, note: '誤り' }], basis: '示方書' },
 }
 
 function memStorage() {
@@ -73,5 +73,24 @@ describe('組の保持', () => {
     const st = memStorage()
     st.setItem(DBK_BATCH_SESSION_KEY, '{')
     expect(loadDbkBatch(st, 'u1')).toBeNull()
+  })
+})
+
+describe('改善: 今日の記録を飛ばす・記録済みの行の保持・AI注記', () => {
+  it('skip にある問は選ばない', () => {
+    const list = [{ id: 'a', has_figure: false }, { id: 'b', has_figure: false }, { id: 'c', has_figure: false }]
+    expect(pickDbkBatch(list, 2, new Set(['a']))).toEqual(['b', 'c'])
+  })
+  it('記録済みの行は組ごとに保持し、別の組では空', () => {
+    const st = memStorage()
+    saveDbkDone(st, '2026-11-10T00:00:00.000Z', { x: { selected: [1], correct: true } })
+    expect(loadDbkDone(st, '2026-11-10T00:00:00.000Z')).toEqual({ x: { selected: [1], correct: true } })
+    expect(loadDbkDone(st, '2026-11-11T00:00:00.000Z')).toEqual({})
+    st.setItem(DBK_BATCH_DONE_KEY, '{')
+    expect(loadDbkDone(st, '2026-11-10T00:00:00.000Z')).toEqual({})
+  })
+  it('根拠未確認の解説には注記を付ける', () => {
+    expect(formatDbkForClipboard({ ...q, explain_verified: false })).toContain('AI作成・根拠確認中')
+    expect(formatDbkForClipboard({ ...q, explain_verified: true })).not.toContain('AI作成')
   })
 })

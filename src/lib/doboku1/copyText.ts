@@ -3,6 +3,7 @@
 //   - 一括コピー: 番号付きで N 問。**正答・解説は含めない**（答え合わせは一括記録で番号だけ入力）
 // 図は文字にできないため、図のある問は単体コピーに注記し、一括コピーからは外す（pickDbkBatch）。
 import type { DbkQuestionRow } from './types.ts'
+import type { Attempt } from '../attempt.ts'
 import { CHOICE_LABELS, STATEMENT_LABELS } from './explain.ts'
 import { parseBatchSession, type BatchSession, type StorageLike } from '../license/batchSession.ts'
 
@@ -41,7 +42,7 @@ export function formatDbkBody(q: DbkTextQuestion): string[] {
 }
 
 /** 単体コピー。貼り付け直後は問題だけが見え、スクロールしない限り答えが目に入らない。 */
-export function formatDbkForClipboard(q: DbkTextQuestion & Pick<DbkQuestionRow, 'correct' | 'explain'>): string {
+export function formatDbkForClipboard(q: DbkTextQuestion & Pick<DbkQuestionRow, 'correct' | 'explain' | 'explain_verified'>): string {
   const ex = q.explain
   const explain = ex
     ? [ex.point, ...ex.checks.map(c => `${c.label} ${c.ok ? '○' : '×'} ${c.note}`), ...(ex.basis ? [`根拠: ${ex.basis}`] : [])].join('\n')
@@ -55,6 +56,7 @@ export function formatDbkForClipboard(q: DbkTextQuestion & Pick<DbkQuestionRow, 
     '\n'.repeat(DBK_ANSWER_GAP_LINES),
     `【正答】${CHOICE_LABELS[q.correct - 1] ?? '（未確定）'}`,
     `【解説】${explain}`,
+    ...(ex && !q.explain_verified ? ['（AI作成・根拠確認中）'] : []),
   ].join('\n')
 }
 
@@ -69,13 +71,16 @@ export function formatDbkBatch(qs: DbkTextQuestion[], createdAt: string): string
   return lines.join('\n')
 }
 
-/** 一覧（表示順）から、図の無い問を先頭から n 件選ぶ。 */
-export function pickDbkBatch(list: Pick<DbkQuestionRow, 'id' | 'has_figure'>[], n: number): string[] {
+/**
+ * 一覧（表示順）から、図の無い問を先頭から n 件選ぶ。
+ * skip（今日すでに記録した問）は飛ばす ―― 続けてコピーしたとき、同じ問が先頭に残り続けないように。
+ */
+export function pickDbkBatch(list: Pick<DbkQuestionRow, 'id' | 'has_figure'>[], n: number, skip: ReadonlySet<string> = new Set()): string[] {
   const out: string[] = []
   const seen = new Set<string>()
   for (const q of list) {
     if (out.length >= n) break
-    if (q.has_figure || seen.has(q.id)) continue
+    if (q.has_figure || seen.has(q.id) || skip.has(q.id)) continue
     seen.add(q.id)
     out.push(q.id)
   }
@@ -103,4 +108,25 @@ export function loadDbkBatch(storage: StorageLike | null, userId: string): Batch
     return null
   }
   return s
+}
+
+// ---- 記録済みの行（組ごと）。「修正」後に閉じて開き直しても、記録済みの行を二重に記録しない ----
+
+export const DBK_BATCH_DONE_KEY = 'licensehub.dbkBatchDone.v1'
+
+/** 組（createdAt）ごとの記録済みの行。別の組の値は無いものとして扱う。 */
+export function loadDbkDone(storage: StorageLike | null, createdAt: string): Record<string, Attempt> {
+  if (!storage) return {}
+  try {
+    const o = JSON.parse(storage.getItem(DBK_BATCH_DONE_KEY) ?? 'null') as { createdAt?: unknown; done?: unknown } | null
+    if (!o || o.createdAt !== createdAt || !o.done || typeof o.done !== 'object' || Array.isArray(o.done)) return {}
+    return o.done as Record<string, Attempt>
+  } catch {
+    return {}
+  }
+}
+
+export function saveDbkDone(storage: StorageLike | null, createdAt: string, done: Record<string, Attempt>): void {
+  if (!storage) return
+  try { storage.setItem(DBK_BATCH_DONE_KEY, JSON.stringify({ createdAt, done })) } catch { /* 保存できなくても記録自体は済んでいる */ }
 }

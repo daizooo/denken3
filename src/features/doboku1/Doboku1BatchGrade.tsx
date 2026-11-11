@@ -11,7 +11,7 @@ import { CHOICE_LABELS } from '../../lib/doboku1/explain'
 import { choiceAttempt, statusOfAttempt } from '../../lib/doboku1/record'
 import { browserStorage } from '../../lib/license/batchSession'
 import { formatBatchCreatedAt } from '../../lib/license/batchText'
-import { dbkTitle, formatDbkBody, loadDbkBatch, saveDbkBatch } from '../../lib/doboku1/copyText'
+import { dbkTitle, formatDbkBody, loadDbkBatch, loadDbkDone, saveDbkDone } from '../../lib/doboku1/copyText'
 import { STATUS_BG } from '../shared/status'
 import ExplainView from './ExplainView'
 
@@ -27,24 +27,20 @@ export default function Doboku1BatchGrade({ userId, byId, onRecord, onUndo, onCl
   onClose: () => void
   onGoCopy: () => void
 }) {
-  const [session, setSession] = useState(() => loadDbkBatch(browserStorage(), userId))
+  const [session] = useState(() => loadDbkBatch(browserStorage(), userId))
   const ids = (session?.ids ?? []).filter(id => byId.has(id))
   const [rows, setRows] = useState<Record<string, Row>>({})
-  const [recorded, setRecorded] = useState<Record<string, Attempt>>({})
-  const graded = !!session?.gradedAt
+  // 記録済みの行は組ごとに端末へ保存する（開き直しても結果を出し、二重に記録しない）。
+  const [recorded, setRecordedState] = useState<Record<string, Attempt>>(() => session ? loadDbkDone(browserStorage(), session.createdAt) : {})
+  const setRecorded = (f: (p: Record<string, Attempt>) => Record<string, Attempt>) => setRecordedState(p => {
+    const n = f(p)
+    if (session) saveDbkDone(browserStorage(), session.createdAt, n)
+    return n
+  })
   const pending = ids.filter(id => !recorded[id])
-  const canSubmit = !graded && pending.length > 0 && pending.every(id => filled(rows[id]))
+  const canSubmit = pending.length > 0 && pending.every(id => filled(rows[id]))
 
   const setRow = (id: string, patch: Partial<Row>) => setRows(p => ({ ...p, [id]: { ...(p[id] ?? EMPTY), ...patch } }))
-  const mark = (gradedAt: string | undefined) => {
-    if (!session) return
-    const { gradedAt: _g, ...rest } = session
-    void _g
-    const next = gradedAt ? { ...rest, gradedAt } : rest
-    saveDbkBatch(browserStorage(), next)
-    setSession(next)
-  }
-
   const submit = () => {
     if (!canSubmit) return
     const add: Record<string, Attempt> = {}
@@ -55,13 +51,11 @@ export default function Doboku1BatchGrade({ userId, byId, onRecord, onUndo, onCl
       add[id] = a
     }
     setRecorded(p => ({ ...p, ...add }))
-    mark(new Date().toISOString())
   }
   const fix = (id: string) => {
     onUndo(id)
     setRecorded(p => { const n = { ...p }; delete n[id]; return n })
     setRows(p => ({ ...p, [id]: EMPTY }))
-    mark(undefined)
   }
 
   return (
@@ -77,11 +71,6 @@ export default function Doboku1BatchGrade({ userId, byId, onRecord, onUndo, onCl
         {!session || ids.length === 0 ? (
           <div className="space-y-3 text-sm text-gray-600">
             <p>記録できる組がありません。先に「一括コピー」で問題をコピーしてください。</p>
-            <button onClick={onGoCopy} className="w-full rounded-lg border border-blue-700 py-2 font-bold text-blue-800">一括コピーへ</button>
-          </div>
-        ) : graded && Object.keys(recorded).length === 0 ? (
-          <div className="space-y-3 text-sm text-gray-600">
-            <p>この組は記録済みです。新しく解くときは「一括コピー」で組を作り直してください。</p>
             <button onClick={onGoCopy} className="w-full rounded-lg border border-blue-700 py-2 font-bold text-blue-800">一括コピーへ</button>
           </div>
         ) : (
@@ -151,6 +140,9 @@ export default function Doboku1BatchGrade({ userId, byId, onRecord, onUndo, onCl
               </button>
             )}
             {pending.length > 0 && !canSubmit && <p className="text-xs text-gray-500">すべての番号を入力すると送信できます。</p>}
+            {pending.length === 0 && (
+              <button onClick={onGoCopy} className="w-full rounded-lg border border-blue-700 py-2 font-bold text-blue-800">次の組をコピー</button>
+            )}
           </>
         )}
       </div>

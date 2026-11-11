@@ -147,7 +147,7 @@ export default function Doboku1Practice({ userId, switcher }: { userId: string; 
       </div>
       {batch === 'copy' && (
         <Doboku1BatchCopy userId={userId} label={category === DUE ? '復習' : DOBOKU1_CATEGORIES.find(c => c.id === category)?.name ?? ''}
-          list={list} onClose={() => setBatch(null)} onGoGrade={() => setBatch('grade')} />
+          list={list} doneToday={new Set(questions.filter(q => reviews[q.id]?.last_reviewed === today).map(q => q.id))} onClose={() => setBatch(null)} onGoGrade={() => setBatch('grade')} />
       )}
       {batch === 'grade' && (
         <Doboku1BatchGrade userId={userId} byId={byId} onRecord={record} onUndo={undo}

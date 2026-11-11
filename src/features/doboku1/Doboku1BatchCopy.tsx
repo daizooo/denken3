@@ -11,17 +11,19 @@ import {
   DBK_BATCH_DEFAULT, DBK_BATCH_MAX, DBK_BATCH_MIN, clampDbkBatchSize, formatDbkBatch, pickDbkBatch, saveDbkBatch,
 } from '../../lib/doboku1/copyText'
 
-export default function Doboku1BatchCopy({ userId, label, list, onClose, onGoGrade }: {
+export default function Doboku1BatchCopy({ userId, label, list, doneToday, onClose, onGoGrade }: {
   userId: string
   label: string                 // 例: '復習' '土工'
   list: DbkQuestionRow[]        // 今の一覧（表示順）
+  doneToday: ReadonlySet<string> // 今日すでに記録した問（飛ばす）
   onClose: () => void
   onGoGrade: () => void
 }) {
   const [candidates] = useState(list)   // 開いた時点で固定
+  const [skip] = useState(doneToday)
   const [size, setSize] = useState(DBK_BATCH_DEFAULT)
   const [done, setDone] = useState<{ count: number; text: string; copied: boolean } | null>(null)
-  const picked = useMemo(() => pickDbkBatch(candidates, size), [candidates, size])
+  const picked = useMemo(() => pickDbkBatch(candidates, size, skip), [candidates, size, skip])
   const figureN = candidates.filter(q => q.has_figure).length
 
   const copy = async () => {
@@ -51,7 +53,7 @@ export default function Doboku1BatchCopy({ userId, label, list, onClose, onGoGra
               <span className="w-10 text-right font-bold">{size}</span>
             </label>
             {picked.length === 0 ? (
-              <p className="text-sm text-gray-600">コピーできる問題がありません（一覧が空、または図のある問だけ）。</p>
+              <p className="text-sm text-gray-600">コピーできる問題がありません（一覧が空、図のある問だけ、または今日すべて記録済み）。</p>
             ) : (
               <p className="text-sm text-gray-700">
                 {picked.length < size ? `コピーできる問題が ${picked.length} 問だけでした。` : `${picked.length} 問をコピーします。`}
