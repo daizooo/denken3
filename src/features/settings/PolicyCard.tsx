@@ -54,7 +54,7 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
         {row(
           '想定得点',
           `${policy.estimate}点`,
-          'CBT実測で未検証（保守側の仮定による推定値）',
+          '模試の実測で未検証（保守側の仮定による推定値）',
         )}
         {row(
           '目標得点',
@@ -65,8 +65,8 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
           '安全マージン',
           `${policy.passMargin}点`,
           policy.estimateValidated
-            ? 'CBT実測とのズレから自動算出'
-            : 'CBT実測が無いため最大側。実測で較正できたら自動で下がる',
+            ? '模試の実測とのズレから自動算出'
+            : '模試の実測が無いため最大側。実測で較正できたら自動で下がる',
         )}
       </section>
 
@@ -74,8 +74,8 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
       {!policy.estimateValidated && (
         <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
           <AlertTriangle size={11} className="inline-block mr-1 -mt-0.5" />
-          想定得点は<strong>CBT実測で未検証</strong>です。理解度A/Bは解答を見た後の自己申告で、
-          本番の正誤と突き合わせた実績が1件もありません。そのため未着手は0点、A・Sも0.75として
+          想定得点は<strong>模試の実測で未検証</strong>です。理解度は過去問の正誤と確信から付けていますが、
+          本番形式の模試と突き合わせた実績が1件もありません。そのため未着手は0点、Aも0.75として
           <strong>保守側だけ</strong>で計算しています（楽観側の値は表示しません）。
           この状態では「合格に必要な最小集合だけをやる」モードは無効で、ゴールは全範囲完走です。
         </p>
@@ -92,7 +92,7 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
         {row(
           '維持',
           `${policy.coreMaintainQ}問`,
-          '既に A・S の問題。放置すれば忘れて想定得点が下がる',
+          '既に A の問題。放置すれば忘れて想定得点が下がる',
         )}
         {row(
           '必要ペース',
@@ -153,7 +153,7 @@ export default function PolicyCard({ policy }: { policy: Policy }) {
             <strong>約半分（-47〜-49%）</strong>になり、維持の復習量が約2倍になります。
             増えるのは「既にAの問題を再復習する時間」で、その分が未着手の範囲から奪われるため、
             合格を確実にする方向ではないと判断しました。
-            CBT実測2回で較正できればコアが最小集合へ絞られ、相殺が成立して自動で有効になります。
+            模試の実測2回で較正できればコアが最小集合へ絞られ、相殺が成立して自動で有効になります。
           </p>
         )}
         <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">

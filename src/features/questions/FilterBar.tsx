@@ -3,7 +3,8 @@ import type { Status } from '../../domain/types'
 import { STATUS_BG, STATUS_LABEL } from '../shared/status'
 import SubjectSelect from './SubjectSelect'
 
-const STATUS_OPTIONS: Status[] = ['S', 'A', 'B', 'C', '未着手']
+// S（復習不要）は廃止済み（fsrs.ts で A に読み替える）ため選択肢に出さない。
+const STATUS_OPTIONS: Status[] = ['A', 'B', 'C', '未着手']
 
 // 理解度のほかに足せる絞り込みの軸（例: 出題年度・出題形式）。軸内は OR、軸間は AND。
 export interface FilterGroup {

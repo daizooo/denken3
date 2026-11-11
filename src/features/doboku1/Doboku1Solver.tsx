@@ -105,7 +105,7 @@ export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, has
           </div>
           <ExplainView explain={q.explain} verified={q.explain_verified} correctLabel={q.kind === 'statements' ? undefined : CHOICE_LABELS[q.correct - 1]} />
           <button onClick={onNext} className="w-full rounded-lg bg-gray-800 py-2.5 text-sm font-bold text-white">
-            {hasNext ? '次の問題へ' : '一覧に戻る'}
+            {hasNext ? '次の問題へ' : '閉じる'}
           </button>
         </div>
       )}

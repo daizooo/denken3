@@ -486,15 +486,6 @@ export default function App() {
 
   const currentPlan = plans[subjectIdOf(examId, subject)] ?? null
 
-  // S（復習不要）にした問題を、いつでも復習に戻す。
-  // 学習履歴・FSRS状態はそのままに、次回復習日を今日へ設定して復習キューへ戻すだけ。
-  // 再び A・B・C で採点すれば、温存された stability からスケジューリングが再開する。
-  const reactivateReview = useCallback((questionId: string) => {
-    const current = reviews[questionId]
-    if (!current) return
-    saveReview({ ...current, due_date: todayStr })
-  }, [reviews, saveReview, todayStr])
-
   // ---- 絞り込み（理解度）のトグル ----
   const toggleFilterStatus = useCallback((s: Status) => {
     setFilterStatuses(prev => {
@@ -1237,7 +1228,6 @@ export default function App() {
                       }}
                       onSaveMemo={() => saveDetails(q.id)}
                       onRecordStatus={s => updateStatus(q.id, s)}
-                      onReactivate={() => reactivateReview(q.id)}
                       onViewProblem={() => {
                         // 「問題を見る」= 確認のみ。タイマーは動かさない。
                         // 計測中の状態が残っていると解答時間に混ざるので破棄する。

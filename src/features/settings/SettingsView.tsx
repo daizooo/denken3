@@ -108,20 +108,20 @@ export default function SettingsView({
             type="text"
             value={label}
             onChange={e => setLabel(e.target.value)}
-            placeholder="例: 2027年2月 下期CBT"
+            placeholder="例: 令和9年度 本試験"
             className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:border-blue-300 bg-white"
           />
         </div>
 
-        {field('試験日 *', examDate, setExamDate, 'CBTの受験日。カウントダウン・復習の試験日クリップに使います')}
+        {field('試験日 *', examDate, setExamDate, '本試験の受験日。カウントダウン・復習の試験日クリップに使います')}
 
         <div className="grid grid-cols-2 gap-3">
           {field('申込開始', appStart, setAppStart, '例: 2026-11-09')}
           {field('申込締切', appEnd, setAppEnd, '締切前にリマインド表示（例: 2026-11-26）')}
         </div>
 
-        {field('分野別 全問A以上 目標日', bunyaTarget, setBunyaTarget, '分野別の全問をA以上にする目標日。未設定なら試験日の90日前を目標として自動計算')}
-        {field('年度別演習 開始予定日', nendoStart, setNendoStart, '年度別（CBT模試）を始める予定日')}
+        {field('全問A以上 目標日', bunyaTarget, setBunyaTarget, '過去問の全問をA以上にする目標日。未設定なら試験日の90日前を目標として自動計算')}
+        {field('本番形式模試 開始予定日', nendoStart, setNendoStart, '本番形式の模試（年度ごとの通し演習）を始める予定日')}
 
         <div className="flex items-center gap-3 pt-1">
           <button
