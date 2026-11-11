@@ -57,6 +57,16 @@ describe('parseQuestions', () => {
     expect(q.statements).toEqual(['記述A。', '記述B。', '記述C。', '記述D。'])
     expect(q.choices[0]).toEqual(['①②'])
   })
+  it('表の点線（…）でも列に分ける（R01・R02・R07）', () => {
+    const text = `【No. 3】 架空の組合せとして，適当なものはどれか。
+［甲欄］ ［乙欄］
+⑴ 甲一………………乙一
+⑵ 甲二… 乙二
+⑶ 甲三   乙三
+⑷ 甲四……乙四`
+    const [q] = parseQuestions(text, 'A')
+    expect(q.choices).toEqual([['甲一', '乙一'], ['甲二', '乙二'], ['甲三', '乙三'], ['甲四', '乙四']])
+  })
 })
 
 describe('parseAnswerKey', () => {

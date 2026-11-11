@@ -37,9 +37,9 @@ export function normalizeBlanks(s: string): string {
   return t.replace(/文章中の[\s　]+の/g, '文章中の［　］の')
 }
 
-/** 表形式の選択肢を列に分ける（3つ以上の空白で区切る）。 */
+/** 表形式の選択肢を列に分ける（3つ以上の空白、または点線「…」で区切る。R01・R02・R07 は点線が文字で入る）。 */
 function splitColumns(s: string): string[] {
-  const cols = s.trim().split(/\s{3,}|　{2,}/).map(c => c.trim()).filter(Boolean)
+  const cols = s.trim().split(/\s{3,}|　{2,}|\s*…+\s*/).map(c => c.trim()).filter(Boolean)
   return cols.length ? cols : [s.trim()]
 }
 
