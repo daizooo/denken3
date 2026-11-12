@@ -5,14 +5,14 @@ import type { Explains } from '../../../lib/doboku1/build.ts'
 export const R06_SUIDOU: Explains = {
   A50: {
     explain: {
-      point: '下層が乾かないうちに塗り重ねると、下層の溶剤が蒸発して上層に「あわ」や「しわ」が生じる。「にじみ」は下層の色が上層に溶け出す現象。',
+      point: '下層が乾かないうちに塗り重ねると、下層の溶剤が蒸発して上層に「あわ」や「ふくれ」が生じる。「にじみ」は下層の色が上層に溶け出す現象。',
       figures: [{
         type: 'compare',
         title: '塗膜の主な欠陥と原因',
         columns: ['主な原因'],
         rows: [
           { label: 'あわ', cells: ['下層の溶剤の蒸発（乾燥不十分で塗り重ね）'] },
-          { label: 'しわ', cells: ['下層の乾燥不十分・厚塗り'] },
+          { label: 'ふくれ', cells: ['下層の溶剤の蒸発・塗装間隔が短すぎる'] },
           { label: 'にじみ', cells: ['上層の溶剤が下層を溶かし色が出る'] },
           { label: '乾きむら', cells: ['攪拌不足で塗料が不均一'] },
         ],
@@ -21,7 +21,7 @@ export const R06_SUIDOU: Explains = {
         { label: '⑴', ok: true, note: '長期保管で変質するので、開缶時に固化等を確認。' },
         { label: '⑵', ok: true, note: '多液形・高粘度塗料は攪拌機で均一にする。' },
         { label: '⑶', ok: true, note: '塗装間隔は塗料ごとに定められている。' },
-        { label: '⑷', ok: false, note: '下層の溶剤蒸発で生じるのは、にじみではなくあわ・しわ。' },
+        { label: '⑷', ok: false, note: '下層の溶剤蒸発で生じるのは、にじみではなくあわ・ふくれ。' },
       ],
       basis: '鋼道路橋防食便覧（日本道路協会）',
     },
