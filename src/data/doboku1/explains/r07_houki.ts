@@ -251,7 +251,7 @@ export const R07_HOUKI: Explains = {
         rows: [
           { label: '特定港への入港・出港（4条）', value: '届出', trap: '許可' },
           { label: '危険物の積込・積替・荷卸（22条）', value: '許可', trap: '届出' },
-          { label: '私設信号の設定（29条）', value: '許可', trap: '届出' },
+          { label: '私設信号の設定（28条）', value: '許可', trap: '届出' },
           { label: '竹木材の水上への卸し（34条）', value: '許可' },
         ],
       }],
@@ -261,7 +261,7 @@ export const R07_HOUKI: Explains = {
         { label: '⑶', ok: false, note: '私設信号を定めるには港長の許可が要る。' },
         { label: '⑷', ok: false, note: '入港・出港は届出。許可ではない。' },
       ],
-      basis: '港則法4条・22条・29条・34条',
+      basis: '港則法4条・22条・28条・34条',
     },
   },
 }
