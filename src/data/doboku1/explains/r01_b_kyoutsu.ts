@@ -51,25 +51,26 @@ export const R01_B_KYOUTSU: Explains = {
   },
   B03: {
     explain: {
-      point: '配筋図では、頂版の内側主鉄筋は D19、側壁の主鉄筋は D13 で太さが違う。土かぶり2.0m、主鉄筋の間隔250mm、部材厚400mm は図のとおり。',
+      point: '頂版の内側主鉄筋は S1 D19。側壁の内側（E-E）には頂版からの S1 D19 と底版からの F1 D22 が入り、同じ太さとはいえない。土かぶり2.0m・間隔250mm・部材厚400mm は図のとおり。',
       figures: [{
         type: 'rule',
         title: '図から読み取る値',
         rows: [
           { label: '頂版の内側主鉄筋', value: 'S1 D19' },
-          { label: '側壁の主鉄筋', value: 'W1 D13', trap: '頂版と同じ太さではない' },
+          { label: '側壁の内側（E-E）', value: 'S1 D19 と F1 D22', trap: '頂版内側と同じ太さではない' },
+          { label: '側壁の外側（D-D）', value: 'W1 D13' },
           { label: '土かぶり', value: '2,000mm（2.0m）' },
-          { label: '主鉄筋の間隔', value: '10×250＝2,500（250mm 間隔）' },
+          { label: '主鉄筋の間隔', value: '延長方向に250mm（4×250＝1,000）' },
           { label: '部材厚（頂版・側壁・底版）', value: 'いずれも400mm（ハンチを除く）' },
         ],
       }],
       checks: [
-        { label: '⑴', ok: false, note: '頂版の内側主鉄筋は D19、側壁は D13 で太さが違う。' },
+        { label: '⑴', ok: false, note: '側壁の内側には D22（F1）も入り、頂版内側の D19 と同じ太さではない。' },
         { label: '⑵', ok: true, note: '一般図の土かぶりは2,000mm。' },
         { label: '⑶', ok: true, note: '主鉄筋は延長方向に250mm 間隔。' },
         { label: '⑷', ok: true, note: '頂版・側壁・底版とも厚さ400mm。' },
       ],
-      basis: '問題の一般図・配筋図',
+      basis: '問題の一般図・配筋図（側壁 D-D・E-E、頂版 A-A・B-B）',
     },
   },
   B04: {
