@@ -13,8 +13,16 @@ export const EXAMS: ExamDefinition[] = [
   KENKEI2_EXAM,
 ]
 
-// 既定の資格。アプリ起動時に選択される資格（登録が1つの間はこれで固定）。
-export const DEFAULT_EXAM_ID: ExamId = EXAMS[0].id
+// 画面に出さない資格（データ・DB・記録はそのまま残す。戻すときはここから外すだけ）。
+export const HIDDEN_EXAM_IDS: ReadonlySet<ExamId> = new Set<ExamId>([
+  'sharoushi',
+])
+
+// 資格切替に出す資格（EXAMS から HIDDEN_EXAM_IDS を除いたもの）。
+export const VISIBLE_EXAMS: ExamDefinition[] = EXAMS.filter(e => !HIDDEN_EXAM_IDS.has(e.id))
+
+// 既定の資格。アプリ起動時に選択される資格（表示中の先頭）。
+export const DEFAULT_EXAM_ID: ExamId = (VISIBLE_EXAMS[0] ?? EXAMS[0]).id
 
 // 資格IDから定義を引く。未知IDは既定資格にフォールバックする（データ不整合で落とさない）。
 export function getExam(id: ExamId): ExamDefinition {
