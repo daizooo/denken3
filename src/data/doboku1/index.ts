@@ -7,6 +7,7 @@ import type { Paper } from '../../lib/doboku1/types.ts'
 import { DOBOKU1_CATEGORIES, categoryOf, yearIndexOf } from './categories.ts'
 import { DOBOKU1_MASTERS } from './masters/index.ts'
 import type { DbkMaster } from './masters/types.ts'
+import { DOBOKU1_PRIMER_SUBJECT } from './primer/index.ts'
 
 /** 科目（タブ）と、含む学習分野。並び＝学習順の既定。 */
 const DOBOKU1_SUBJECT_GROUPS: { id: string; name: string; categories: string[] }[] = [
@@ -51,5 +52,6 @@ export const DOBOKU1_EXAM: ExamDefinition = {
   // 合格基準は原則60%（応用能力の基準点は年度で確認。doboku1-ichiji.md §4）。
   passingScore: 60,
   features: {},
-  subjects: buildDoboku1Subjects(DOBOKU1_MASTERS),
+  // 先頭は「入門」（前提知識のノート＋○×一問一答。docs/design/doboku1-primer.md）。初学者が最初に開くタブにする。
+  subjects: [DOBOKU1_PRIMER_SUBJECT, ...buildDoboku1Subjects(DOBOKU1_MASTERS)],
 }
