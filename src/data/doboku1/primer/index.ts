@@ -17,7 +17,9 @@ import { HOUKI } from './topics/houki.ts'
 import { KANKYOU } from './topics/kankyou.ts'
 import { KYOUTSU } from './topics/kyoutsu.ts'
 import { DOURO } from './topics/douro.ts'
+import { KOUZOU } from './topics/kouzou.ts'
 import { DAMTUNNEL } from './topics/damtunnel.ts'
+import { TETSUDOU } from './topics/tetsudou.ts'
 
 /** 分野の並び ＝ 着手順（設計 §3）。 */
 export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
@@ -33,7 +35,9 @@ export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
   KANKYOU,
   KYOUTSU,
   DOURO,
+  KOUZOU,
   DAMTUNNEL,
+  TETSUDOU,
 ]
 
 export const D1_PRIMER_SUBJECT_NAME = '入門'
