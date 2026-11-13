@@ -7,6 +7,23 @@ export const CONCRETE: D1PrimerTopic = {
   sections: [
     {
       heading: '材料と配合',
+      figures: [
+        {
+          kind: 'flow',
+          caption: '水セメント比の求め方',
+          steps: [
+            { label: '水の質量 W', next: '÷' },
+            { label: 'セメントの質量 C', next: '＝' },
+            { label: '水セメント比 W/C' },
+          ],
+        },
+        {
+          kind: 'sides',
+          caption: '水が少ないか、多いか',
+          left: { title: '水セメント比が小さい（水が少ない）', items: ['強度が高い', '耐久性が高い（水密性・中性化への抵抗）'] },
+          right: { title: '単位水量が多い', items: ['乾燥収縮が増える', 'ひび割れが増える', 'ブリーディングが増える'] },
+        },
+      ],
       body: [
         'コンクリート ＝ セメント＋水＋細骨材（砂）＋粗骨材（砂利）＋混和材料。セメントと水が反応（水和）して固まる。',
         '水セメント比（W/C）＝ 水の質量 ÷ セメントの質量。小さいほど強度・耐久性（水密性・中性化への抵抗）が高い。',
@@ -15,6 +32,29 @@ export const CONCRETE: D1PrimerTopic = {
     },
     {
       heading: 'まだ固まらないコンクリートの用語',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '打込み後のブリーディングとレイタンス（イメージ）',
+          width: 400,
+          height: 200,
+          shapes: [
+            { t: 'rect', x: 120, y: 60, w: 160, h: 12, fill: 'water' },
+            { t: 'rect', x: 120, y: 72, w: 160, h: 10, fill: 'white', stroke: 'gray' },
+            { t: 'rect', x: 120, y: 82, w: 160, h: 98, fill: 'concrete', stroke: 'gray' },
+            { t: 'line', x1: 120, y1: 40, x2: 120, y2: 180, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 280, y1: 40, x2: 280, y2: 180, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 160, y1: 150, x2: 160, y2: 95, stroke: 'accent', arrow: true },
+            { t: 'line', x1: 200, y1: 150, x2: 200, y2: 95, stroke: 'accent', arrow: true },
+            { t: 'line', x1: 240, y1: 150, x2: 240, y2: 95, stroke: 'accent', arrow: true },
+            { t: 'text', x: 200, y: 170, s: '重い材料が沈む', anchor: 'middle' },
+            { t: 'text', x: 110, y: 68, s: 'ブリーディング水', anchor: 'end' },
+            { t: 'text', x: 110, y: 88, s: 'レイタンス', anchor: 'end', bold: true },
+            { t: 'text', x: 110, y: 101, s: '（弱い膜）', anchor: 'end' },
+            { t: 'text', x: 290, y: 90, s: '← 打継ぎ前に除去', anchor: 'start' },
+          ],
+        },
+      ],
       body: [],
       table: {
         columns: ['用語', '意味'],
@@ -29,6 +69,47 @@ export const CONCRETE: D1PrimerTopic = {
     },
     {
       heading: '施工の「時間」と「高さ」',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '打込みの高さと振動機（縮尺なし）',
+          width: 400,
+          height: 210,
+          shapes: [
+            { t: 'rect', x: 120, y: 110, w: 160, h: 40, fill: 'concrete', stroke: 'gray' },
+            { t: 'rect', x: 120, y: 150, w: 160, h: 50, fill: 'concrete', stroke: 'gray' },
+            { t: 'line', x1: 120, y1: 150, x2: 280, y2: 150, stroke: 'gray', dash: true },
+            { t: 'line', x1: 120, y1: 60, x2: 120, y2: 200, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 280, y1: 60, x2: 280, y2: 200, stroke: 'steel', width: 3 },
+            { t: 'rect', x: 150, y: 12, w: 14, h: 28, fill: 'steel' },
+            { t: 'line', x1: 157, y1: 42, x2: 157, y2: 105, stroke: 'accent', arrow: true },
+            { t: 'text', x: 172, y: 28, s: 'シュート等の吐出口', anchor: 'start' },
+            { t: 'line', x1: 105, y1: 40, x2: 105, y2: 110, stroke: 'accent', both: true },
+            { t: 'text', x: 98, y: 70, s: '1.5m以下', anchor: 'end', bold: true },
+            { t: 'rect', x: 218, y: 55, w: 8, h: 105, fill: 'steel' },
+            { t: 'text', x: 222, y: 46, s: '内部振動機', anchor: 'middle' },
+            { t: 'line', x1: 296, y1: 110, x2: 296, y2: 150, stroke: 'accent', both: true },
+            { t: 'text', x: 304, y: 126, s: '1層の高さ', anchor: 'start', bold: true },
+            { t: 'text', x: 304, y: 142, s: '40〜50cm以下', anchor: 'start', bold: true },
+            { t: 'text', x: 304, y: 172, s: '下層に10cm', anchor: 'start' },
+            { t: 'text', x: 304, y: 187, s: '程度差し込む', anchor: 'start' },
+            { t: 'text', x: 130, y: 176, s: '下層', anchor: 'start' },
+            { t: 'text', x: 130, y: 132, s: '新しい層', anchor: 'start' },
+          ],
+        },
+        {
+          kind: 'grid',
+          caption: '時間の標準（外気温で変わる）',
+          groups: [
+            { title: '', cols: ['区間'] },
+            { title: '外気温', cols: ['25℃以下', '25℃超'] },
+          ],
+          rows: [
+            ['練混ぜ〜打終わり', '2時間以内', '1.5時間以内'],
+            ['打重ねまで', '2.5時間', '2.0時間'],
+          ],
+        },
+      ],
       body: [
         '練り混ぜてから打ち終わるまで：外気温25℃以下で2時間以内、25℃を超えるときは1.5時間以内。',
         '打重ね（下層の上に次の層を打つ）までの許容時間：外気温25℃以下で2.5時間、25℃超で2.0時間が標準。',
@@ -38,6 +119,25 @@ export const CONCRETE: D1PrimerTopic = {
     },
     {
       heading: '養生と、気温による特別な配慮',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '湿潤養生期間の標準（日平均気温15℃以上）',
+          width: 400,
+          height: 130,
+          shapes: [
+            { t: 'text', x: 10, y: 28, s: '早強ポルトランドセメント', anchor: 'start' },
+            { t: 'rect', x: 190, y: 14, w: 60, h: 20, fill: 'water' },
+            { t: 'text', x: 258, y: 29, s: '3日', anchor: 'start', bold: true },
+            { t: 'text', x: 10, y: 68, s: '普通ポルトランドセメント', anchor: 'start' },
+            { t: 'rect', x: 190, y: 54, w: 100, h: 20, fill: 'water' },
+            { t: 'text', x: 298, y: 69, s: '5日', anchor: 'start', bold: true },
+            { t: 'text', x: 10, y: 108, s: '混合セメントB種', anchor: 'start' },
+            { t: 'rect', x: 190, y: 94, w: 140, h: 20, fill: 'water' },
+            { t: 'text', x: 338, y: 109, s: '7日', anchor: 'start', bold: true },
+          ],
+        },
+      ],
       body: [
         '打込み後は湿潤に保ち、急な乾燥・温度変化・振動から守る。湿潤養生期間の標準（日平均気温15℃以上）：普通ポルトランドセメント5日、早強ポルトランドセメント3日、混合セメントB種7日。',
         '暑中コンクリート：日平均気温25℃を超えるとき。寒中コンクリート：日平均気温4℃以下になるおそれがあるとき。',
