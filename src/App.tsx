@@ -41,6 +41,7 @@ import { usePrefetchItemBodies } from './features/license/useItemBodies'
 import BatchButtons from './features/license/BatchButtons'
 import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
+import Kenkei2MockButton from './features/kenkei2/Kenkei2MockButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
 import ExamSwitcher, { readStoredExam, storeExam } from './features/shared/ExamSwitcher'
@@ -1138,6 +1139,11 @@ export default function App() {
                 />
                 <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />
               </AnalysisMenu>
+            )}
+
+            {/* 2級建設経理: 本番形式模試（90分・100点。docs/design/kenkei2.md §7 K6） */}
+            {activeTab === 'review' && exam.id === 'kenkei2' && (
+              <Kenkei2MockButton userId={user.id} onRecord={(id, s, attempt) => { void updateStatus(id, s, attempt) }} />
             )}
 
             {/* ===== 絞り込み（章・理解度）: 復習・一覧の両タブ ===== */}

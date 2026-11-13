@@ -1,19 +1,11 @@
 // 解答の下書き（ブラウザの localStorage）。精算表のように解くのに時間がかかる設問を、閉じても失わないための保存。
 // 採点して記録するまでサーバーには送らない。記録したら消す。
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { JournalInput } from '../../lib/kenkei2/types'
+import { emptyCardDraft, type CardDraft } from '../../lib/kenkei2/mock'
 
-export interface Draft {
-  answers: Record<string, string>
-  journal: JournalInput
-  memo: string
-}
-
-export const emptyDraft = (): Draft => ({
-  answers: {},
-  journal: { debit: [{ symbol: '', amount: '' }, { symbol: '', amount: '' }], credit: [{ symbol: '', amount: '' }, { symbol: '', amount: '' }] },
-  memo: '',
-})
+/** 解答の下書き。模試（MockAnswers）と同じ形。 */
+export type Draft = CardDraft
+export const emptyDraft = emptyCardDraft
 
 const keyOf = (userId: string, itemId: string) => `kk2:draft:${userId}:${itemId}`
 
