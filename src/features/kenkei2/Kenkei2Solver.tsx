@@ -53,6 +53,7 @@ export default function Kenkei2Solver({ userId, row, heading, explain, onRecord,
           <button onClick={() => commit('sure')} className="rounded-lg bg-blue-700 px-2 py-2.5 text-sm font-bold text-white">自信ありで採点</button>
           <button onClick={() => commit('unsure')} className="rounded-lg border border-blue-700 px-2 py-2.5 text-sm font-bold text-blue-800">迷いありで採点</button>
           <button onClick={() => commit(undefined, true)} className="rounded-lg border border-gray-300 px-2 py-2.5 text-sm text-gray-700">分からない</button>
+          <p className="col-span-3 text-xs text-gray-500">正解なら 自信あり＝A・迷いあり＝B。不正解・分からない＝C。A ほど次の復習が先になります。</p>
         </div>
       ) : (
         <div className="space-y-3">
