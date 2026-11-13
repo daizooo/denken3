@@ -45,7 +45,7 @@ export default function CardAnswerForm({ row, draft, setDraft, result }: {
         )}
         {row.form_kind === 'amount' && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">答え ¥</span>
+            <span className="text-sm text-gray-700">答え{row.frame.unit === '円' ? ' ¥' : ''}</span>
             {!cellMap ? (
               <input data-kk2="1" value={draft.answers.v ?? ''} inputMode="numeric" aria-label="答え"
                 onChange={e => setAnswer('v', e.target.value)}
