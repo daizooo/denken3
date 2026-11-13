@@ -18,6 +18,7 @@ import { KANKYOU } from './topics/kankyou.ts'
 import { KYOUTSU } from './topics/kyoutsu.ts'
 import { DOURO } from './topics/douro.ts'
 import { KASEN } from './topics/kasen.ts'
+import { KOUZOU } from './topics/kouzou.ts'
 import { TETSUDOU } from './topics/tetsudou.ts'
 
 /** 分野の並び ＝ 着手順（設計 §3）。 */
@@ -35,6 +36,7 @@ export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
   KYOUTSU,
   DOURO,
   KASEN,
+  KOUZOU,
   TETSUDOU,
 ]
 
