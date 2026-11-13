@@ -1,6 +1,6 @@
 // 入門ノートの図解（src/data/kenkei2/primer/types.ts の PrimerFigure）を描く。宣言的なデータから HTML/CSS で描くので、
 // 画面幅が狭いときは縦に並べ替わる（スマホ可）。
-import type { FigBox, PrimerFigure } from '../../data/kenkei2/primer/types'
+import type { DrawColor, DrawShape, FigBox, PrimerFigure } from '../../data/kenkei2/primer/types'
 
 const box = 'rounded-lg border border-amber-300 bg-white px-3 py-2 text-center'
 
@@ -114,6 +114,36 @@ function Grid({ fig }: { fig: Extract<PrimerFigure, { kind: 'grid' }> }) {
   )
 }
 
+const COLOR: Record<DrawColor, string> = {
+  soil: '#d6b98c', water: '#bfdbfe', concrete: '#d1d5db', steel: '#64748b',
+  accent: '#d97706', warn: '#dc2626', gray: '#374151', white: '#ffffff', none: 'none',
+}
+
+function Shape({ sh }: { sh: DrawShape }) {
+  if (sh.t === 'rect') return <rect x={sh.x} y={sh.y} width={sh.w} height={sh.h} fill={COLOR[sh.fill ?? 'none']} stroke={COLOR[sh.stroke ?? 'gray']} strokeWidth={1} strokeDasharray={sh.dash ? '4 3' : undefined} />
+  if (sh.t === 'circle') return <circle cx={sh.cx} cy={sh.cy} r={sh.r} fill={COLOR[sh.fill ?? 'none']} stroke={COLOR[sh.stroke ?? 'gray']} strokeWidth={1} />
+  if (sh.t === 'poly') return <polygon points={sh.points.map(p => p.join(',')).join(' ')} fill={COLOR[sh.fill ?? 'none']} stroke={COLOR[sh.stroke ?? 'gray']} strokeWidth={1} strokeDasharray={sh.dash ? '4 3' : undefined} />
+  if (sh.t === 'line') {
+    const c = COLOR[sh.stroke ?? 'gray']
+    return <line x1={sh.x1} y1={sh.y1} x2={sh.x2} y2={sh.y2} stroke={c} strokeWidth={sh.width ?? 1.2} strokeDasharray={sh.dash ? '4 3' : undefined}
+      markerEnd={sh.arrow || sh.both ? 'url(#pf-arrow)' : undefined} markerStart={sh.both ? 'url(#pf-arrow-start)' : undefined} />
+  }
+  return <text x={sh.x} y={sh.y} fontSize={sh.size ?? 11} textAnchor={sh.anchor ?? 'middle'} fontWeight={sh.bold ? 700 : 400} fill={COLOR[sh.color ?? 'gray']}>{sh.s}</text>
+}
+
+function Draw({ fig }: { fig: Extract<PrimerFigure, { kind: 'draw' }> }) {
+  return (
+    <svg viewBox={`0 0 ${fig.width} ${fig.height}`} className="mx-auto h-auto w-full max-w-2xl" role="img" aria-label={fig.caption ?? '図'}>
+      <defs>
+        <marker id="pf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151" /></marker>
+        <marker id="pf-arrow-start" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151" /></marker>
+      </defs>
+      <rect x="0" y="0" width={fig.width} height={fig.height} fill="white" />
+      {fig.shapes.map((sh, i) => <Shape key={i} sh={sh} />)}
+    </svg>
+  )
+}
+
 export default function PrimerFigureView({ fig }: { fig: PrimerFigure }) {
   return (
     <figure className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
@@ -121,6 +151,7 @@ export default function PrimerFigureView({ fig }: { fig: PrimerFigure }) {
         : fig.kind === 'funnel' ? <Funnel fig={fig} />
         : fig.kind === 'sides' ? <Sides fig={fig} />
         : fig.kind === 'taccount' ? <TAccounts fig={fig} />
+        : fig.kind === 'draw' ? <Draw fig={fig} />
         : <Grid fig={fig} />}
       {fig.caption && <figcaption className="mt-2 text-center text-[11px] text-gray-600">{fig.caption}</figcaption>}
     </figure>
