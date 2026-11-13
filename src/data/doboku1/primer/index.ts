@@ -9,6 +9,10 @@ import { DOKOU } from './topics/dokou.ts'
 import { CONCRETE } from './topics/concrete.ts'
 import { HINSHITSU } from './topics/hinshitsu.ts'
 import { ANZEN } from './topics/anzen.ts'
+import { KOUTEI } from './topics/koutei.ts'
+import { KEIKAKU } from './topics/keikaku.ts'
+import { KISOKOU } from './topics/kisokou.ts'
+import { KISO } from './topics/kiso.ts'
 
 /** 分野の並び ＝ 着手順（設計 §3）。 */
 export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
@@ -16,6 +20,10 @@ export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
   CONCRETE,
   HINSHITSU,
   ANZEN,
+  KOUTEI,
+  KEIKAKU,
+  KISOKOU,
+  KISO,
 ]
 
 export const D1_PRIMER_SUBJECT_NAME = '入門'
