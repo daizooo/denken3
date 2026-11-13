@@ -34,35 +34,45 @@ def is_gray(r):
         return False
     return bool(r.get('fill')) and 0.5 < v < 0.95
 
+def _area(b):
+    return max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+
+def _inter(a, b):
+    return _area((max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])))
+
 def shaded_cells(page):
-    """網掛けの矩形をつなげて1マス1つの bbox（x0, top, x1, bottom）にする。凡例の見本（小さな単独矩形）は呼び側で除く。"""
-    boxes = [[r['x0'], r['top'], r['x1'], r['bottom']] for r in page.rects if is_gray(r)]
-    merged = []
-    for b in boxes:
-        hit = None
-        for m in merged:
-            if b[0] <= m[2] + 0.5 and b[2] >= m[0] - 0.5 and b[1] <= m[3] + 0.5 and b[3] >= m[1] - 0.5:
-                hit = m
+    """網掛けの矩形を1マス1つの bbox（x0, top, x1, bottom）にする。
+    同じマスの外枠と内側（入れ子・大きく重なる矩形）はまとめる。隣り合うマスは、接していても別のマスのまま。
+    ただし括弧や1桁ずつの枠（幅 25pt 未満）でつながった同じ高さの矩形は1つのマスにまとめる。"""
+    boxes = [(r['x0'], r['top'], r['x1'], r['bottom']) for r in page.rects if is_gray(r)]
+    out = []
+    for b in sorted(boxes, key=lambda b: -_area(b)):
+        for m in out:
+            if _inter(b, m) >= 0.5 * min(_area(b), _area(m)):
+                m[0], m[1], m[2], m[3] = min(m[0], b[0]), min(m[1], b[1]), max(m[2], b[2]), max(m[3], b[3])
                 break
-        if hit:
-            hit[0], hit[1], hit[2], hit[3] = min(hit[0], b[0]), min(hit[1], b[1]), max(hit[2], b[2]), max(hit[3], b[3])
         else:
-            merged.append(b)
-    # 併合で新たに重なったものを繰り返しまとめる
-    changed = True
-    while changed:
-        changed = False
-        out = []
-        for b in merged:
-            for m in out:
-                if b[0] <= m[2] + 0.5 and b[2] >= m[0] - 0.5 and b[1] <= m[3] + 0.5 and b[3] >= m[1] - 0.5:
-                    m[0], m[1], m[2], m[3] = min(m[0], b[0]), min(m[1], b[1]), max(m[2], b[2]), max(m[3], b[3])
-                    changed = True
-                    break
-            else:
-                out.append(list(b))
-        merged = out
-    return [tuple(b) for b in merged]
+            out.append(list(b))
+    # 括弧・1桁ずつの枠（幅 25pt 未満）でつながった同じ高さの矩形は1つのマス（例: 「( 2,738,300 )」「J ( 10,611,500 )」）。
+    # 幅は併合前の値で判定する（つなぎ役の細い枠が両隣をまとめる）
+    parent = list(range(len(out)))
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i in range(len(out)):
+        for j in range(i + 1, len(out)):
+            a, b = out[i], out[j]
+            narrow = (a[2] - a[0]) < 25 or (b[2] - b[0]) < 25
+            same_row = abs(a[1] - b[1]) < 3 and abs(a[3] - b[3]) < 3
+            if narrow and same_row and a[0] <= b[2] + 1.5 and a[2] >= b[0] - 1.5:
+                parent[find(i)] = find(j)
+    groups = {}
+    for i, b in enumerate(out):
+        groups.setdefault(find(i), []).append(b)
+    out = [[min(x[0] for x in g), min(x[1] for x in g), max(x[2] for x in g), max(x[3] for x in g)] for g in groups.values()]
+    return [tuple(b) for b in out]
 
 def words_in(page, box, pad=1.0):
     """bbox の中に収まる単語（中心で判定）。"""
