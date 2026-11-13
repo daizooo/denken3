@@ -22,6 +22,7 @@ import { KOUZOU } from './topics/kouzou.ts'
 import { DAMTUNNEL } from './topics/damtunnel.ts'
 import { TETSUDOU } from './topics/tetsudou.ts'
 import { KAIGAN } from './topics/kaigan.ts'
+import { SUIDOU } from './topics/suidou.ts'
 
 /** 分野の並び ＝ 着手順（設計 §3）。 */
 export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
@@ -42,6 +43,7 @@ export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
   DAMTUNNEL,
   TETSUDOU,
   KAIGAN,
+  SUIDOU,
 ]
 
 export const D1_PRIMER_SUBJECT_NAME = '入門'
