@@ -20,9 +20,9 @@ describe('資格定義', () => {
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids.every(id => parseKk2Id(id) !== undefined)).toBe(true)
   })
-  it('1回は12枚（仕訳5・金額4・原価計算2・精算表1）。第34〜39回の6回分＋入門24問', () => {
+  it('1回は12枚（仕訳5・金額4・原価計算2・精算表1）。第34〜39回の6回分＋入門30問', () => {
     const by = Object.fromEntries(KENKEI2_EXAM.subjects.map(s => [s.id, s.chapters.flatMap(c => c.questions).length]))
-    expect(by).toEqual({ nyumon: 24, shiwake: 30, kingaku: 24, genka: 12, seisan: 6 })
+    expect(by).toEqual({ nyumon: 30, shiwake: 30, kingaku: 24, genka: 12, seisan: 6 })
     for (const s of KENKEI2_EXAM.subjects) expect(s.chapters.every(c => c.questions.length > 0)).toBe(true)
   })
   it('科目の並びは 入門・仕訳・金額・原価計算・精算表、章は回（新しい回が先）', () => {

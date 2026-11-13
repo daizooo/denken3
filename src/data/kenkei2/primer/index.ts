@@ -14,6 +14,7 @@ import { ZAIRYOU } from './topics/zairyou.ts'
 import { HAIFU } from './topics/haifu.ts'
 import { SHUEKI } from './topics/shueki.ts'
 import { SEISAN } from './topics/seisan.ts'
+import { DAI2 } from './topics/dai2.ts'
 
 /** テーマの並び ＝ 学習順。 */
 export const PRIMER_TOPICS: PrimerTopic[] = [
@@ -25,6 +26,7 @@ export const PRIMER_TOPICS: PrimerTopic[] = [
   HAIFU,
   SHUEKI,
   SEISAN,
+  DAI2,
 ]
 
 export const PRIMER_SUBJECT_NAME = '入門'
