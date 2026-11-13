@@ -11,25 +11,27 @@ FIXES = [('茜', '・')]                       # 中黒が別の字形（茜）�
 
 CIRCLED = {chr(0x2460 + i): f'\ue000{i}\ue001' for i in range(20)}   # ①〜⑳ は NFKC で 1〜20 になるので退避する
 
-def clean(s):
+def clean(s, blanks_on=False):
     s = DECOR.sub('', s)
     for a, b in FIXES:
         s = s.replace(a, b)
     for a, b in CIRCLED.items():
         s = s.replace(a, b)
+    if blanks_on:
+        s = re.sub('\u3000{3,}', '\ue002', s)   # 全角空白が3つ以上続く所は空欄（NFKC・空白の整理で消えないよう退避）。第1・2問の設問本文だけ
     s = nfkc(s)
     s = re.sub('\ue000(\\d+)\ue001', lambda m: chr(0x2460 + int(m.group(1))), s)
     s = re.sub(r' {2,}', ' ', s)
-    return s
+    return s.replace('\ue002', '＿＿＿＿')
 
 def page_lines(prob):
     out = []
     for pi, page in enumerate(prob['pages']):
         for l in page:
             t = l['text']
-            if 'indd' in t or re.search(r'i+n+d+d+', t) or '問問題題' in t or re.fullmatch(r'[-－ ]*\d[-－ ]*', clean(t)):
+            if 'indd' in t or re.search(r'i+n+d+d+', t) or '問問題題' in t or '問題.smd' in t or re.search(r'v\d\.\d\d$', t) or re.fullmatch(r'[-－−–— ]*\d[-－−–— ]*', clean(t)):
                 continue   # フッタ（ページ番号・印刷情報）
-            out.append({'page': pi, 'top': l['top'], 'x0': l['x0'], 'raw': t, 'text': clean(t)})
+            out.append({'page': pi, 'top': l['top'], 'x0': l['x0'], 'raw': t, 'text': clean(t), 'itext': clean(t, True)})
     return out
 
 def heading_rest(text):
@@ -47,7 +49,7 @@ def split_items(lines, count):
     items, cur, expect = [], None, 1
     for l in lines:
         raw = l['raw']
-        t = l['text']
+        t = l['itext']
         has_marker = bool(DECOR.match(raw)) or bool(re.match(r'^\(\d\)', t))
         m = re.match(r'^\(?(\d)\)?\s*', t)
         if has_marker and m and int(m.group(1)) == expect and expect <= count:
@@ -56,7 +58,7 @@ def split_items(lines, count):
             expect += 1
         elif cur is not None:
             cur.append(t)
-    return [join_lines(it) for it in items]
+    return [re.sub(r'＿＿＿＿(?:\s*＿＿＿＿)+', '＿＿＿＿', join_lines(it)) for it in items]
 
 def join_lines(parts):
     """折り返しの行をつなぐ。前後がどちらも英数字のときだけ空白を入れる（日本語の途中に空白を入れない）。"""
@@ -70,6 +72,7 @@ def join_lines(parts):
 def blanks(s, keep_tabs=False):
     s = re.sub(r'[　]{3,}', '＿＿＿＿', s)
     s = re.sub(r'(?<=¥)\t+', '＿＿＿＿', s)
+    s = re.sub(r'＿＿＿＿(?:[\s\t]*＿＿＿＿)+', '＿＿＿＿', s)   # 空白・枠・タブで二重に印が付いたものを1つにする
     return s if keep_tabs else s.replace('\t', ' ')
 
 def symbols_of(lines):
@@ -82,17 +85,29 @@ def region(lines, a, b):
 
 AMOUNT = re.compile(r'^\d{1,3}(,\d{3})+$')
 
+def stem_numbers(stem):
+    """問題文に出てくる数値の集合（カンマなしの整数）。"""
+    return {int(x.replace(',', '')) for x in re.findall(r'\d[\d,]*', stem)}
+
 def hint_words(words, stem):
-    """部門費振替表の「採点対象外の途中の数値」（解答用紙では空欄だった可能性が高く、見せるとヒントになる）の添字。
-    表の最初の金額の行（工事直接費など、問題に与えられている行）は残し、それより下の金額を採点前は隠す。
-    工事別原価計算表などの与件の数値は隠さない（部門費振替表の回だけ適用）。"""
-    if '部門費振替表' not in stem:
-        return []
+    """解答用紙の「採点対象外の、計算で求める数値」（本番の解答用紙では空欄だった可能性が高く、見せるとヒントになる）の添字。
+    - 部門費振替表: 表の最初の金額の行（問題に与えられた「工事直接費」などの行）は残し、それより下の金額を隠す。
+    - 工事別原価計算表・工事原価明細表: **問題文に出てこない数値**を隠す（与件は問題文の資料にある。解答用紙にだけある数値は、計算して求めるもの）。
+    - それ以外（T勘定など）: 隠さない（勘定口座の数値は解答用紙に与件として印字されている）。
+    採点前だけ隠し、採点後は見せる。"""
     ys = sorted({w[2] for w in words if AMOUNT.match(w[0])})
-    if not ys:
-        return []
-    first = ys[0]
-    return [i for i, w in enumerate(words) if AMOUNT.match(w[0]) and w[2] > first + 5]
+    num = lambda t: int(t.replace(',', ''))
+    isamt = lambda t: bool(AMOUNT.match(t) or re.fullmatch(r'\d+', t))
+    if '部門費振替表' in stem:
+        if not ys:
+            return []
+        first = ys[0]
+        # 1桁ずつの枠の金額（第34回。数字が1字ずつ別の語、またはカンマ無しの数字列）も、最初の金額の行より下なら隠す
+        return [i for i, w in enumerate(words) if isamt(w[0]) and w[2] > first + 5]
+    if not re.search(r'工事別原価計算表|工事原価明細表', stem):
+        return []   # T勘定（第34・37回の第3問）などは、勘定口座の数値が解答用紙に与件として印字されている。隠さない
+    given = stem_numbers(stem)
+    return [i for i, w in enumerate(words) if isamt(w[0]) and len(w[0].replace(',', '')) >= 3 and num(w[0]) not in given]
 
 
 def build(work, kai):
@@ -165,6 +180,8 @@ def build(work, kai):
     for c in cards:
         if not c['stem'].strip():
             problems.append(f"{c['id']}: 問題文が空")
+        if c['part'] == 2 and c['stem'].count('＿＿＿＿') != 1:
+            problems.append(f"{c['id']}: 空欄の印（＿＿＿＿）が {c['stem'].count('＿＿＿＿')} 個（1個のはず）")
         if '〔?' in c['stem'] or re.search(r'[\x00-\x08]', c['stem']):
             problems.append(f"{c['id']}: 復元できない字形が残っている")
     if sum(c['points'] for c in cards) != 100:

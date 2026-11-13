@@ -50,6 +50,24 @@ def repaired_chars(pg, maps):
         out.append({**c, 'text': t})
     return out
 
+def blank_boxes(pg, chars):
+    """第2問の空欄（罫線で描かれた枠）→ 印（\ue002）の疑似文字。空欄が文字（空白）ではなく枠で表されている回があるため。
+    第2問の見出しより下にある、空欄の大きさの枠だけを対象にする（第1問・資料の表の枠は含めない）。"""
+    text = ''.join(c['text'] for c in chars)
+    m = re.search(r'〔第[2２]問〕', text)
+    if not m:
+        return []
+    top2 = chars[m.start()]['top'] - 4
+    out = []
+    for r in pg.rects:
+        w, h = r['x1'] - r['x0'], r['bottom'] - r['top']
+        if 30 < w < 140 and 12.5 < h < 26 and r['top'] >= top2:   # 高さ 10 の小さな枠は空欄ではない（取り消し線・囲み）
+            cy = (r['top'] + r['bottom']) / 2
+            out.append({'text': '\ue002', 'x0': r['x0'], 'x1': r['x1'], 'top': cy - 5.3, 'bottom': cy + 5.3,
+                        'size': 10.6, 'fontname': 'blank'})
+    return out
+
+
 def lines_of(chars, y_gap=3.0, col_gap=14.0):
     """文字 → 行。行内で col_gap 以上離れたところは \\t（表の列の区切り）。"""
     rows = []
@@ -69,9 +87,15 @@ def lines_of(chars, y_gap=3.0, col_gap=14.0):
                     s += '\t'
                 elif gap > 1.5 and re.match(r'[A-Za-z0-9]', c['text']) and re.search(r'[A-Za-z0-9]$', s):
                     s += ' '
+                elif gap > 0.4 * c['size'] and not s.endswith((' ', '\u3000')):
+                    s += ' '   # 空白の字形が無い PDF（第34〜36回）の項目の間。通常の字間はほぼ 0 なので 0.4em 以上離れていれば区切り
             s += c['text']
             prev = c
-        out.append({'top': round(r['top'], 1), 'x0': round(cs[0]['x0'], 1), 'text': s.strip()})
+        # 前後の空白は落とすが、全角空白が3つ以上続く所は空欄なので残す（空欄が行をまたぐことがある）
+        s = s.strip(' \t')
+        s = re.sub(r'^\u3000{1,2}(?!\u3000)', '', s)
+        s = re.sub(r'(?<!\u3000)\u3000{1,2}$', '', s)
+        out.append({'top': round(r['top'], 1), 'x0': round(cs[0]['x0'], 1), 'text': s})
     return [l for l in out if l['text']]
 
 def main(src, dst):
@@ -79,7 +103,8 @@ def main(src, dst):
     pdf = pdfplumber.open(src)
     pages = []
     for pg in pdf.pages:
-        pages.append(lines_of(repaired_chars(pg, maps)))
+        chars = repaired_chars(pg, maps)
+        pages.append(lines_of(chars + blank_boxes(pg, chars)))
     json.dump({'source': src.split('/')[-1], 'pages': pages}, open(dst, 'w'), ensure_ascii=False, indent=1)
 
 if __name__ == '__main__':

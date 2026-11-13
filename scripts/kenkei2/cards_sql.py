@@ -1,12 +1,15 @@
 # カード JSON（build_cards.py の出力）→ INSERT … ON CONFLICT DO UPDATE の SQL（docs/kenkei2-ingest.md）。
 # 追加と更新（upsert）のみ。DELETE・DROP・TRUNCATE は出さない。再実行しても同じ結果になる。
-# usage: python3 cards_sql.py cards39.json <user_id(uuid)> > insert39.sql   （出力はリポジトリの外に置く）
+# usage: python3 cards_sql.py cards39.json <user_id(uuid)> [大問の絞り込み 例: 1,2] > insert39.sql   （出力はリポジトリの外に置く）
+# 大問を絞ると SQL を小さく分けて流せる（転記の取り違えの切り分けがしやすい）。
 import json, re, sys
 
-def main(path, user_id):
+def main(path, user_id, parts=None):
     if not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', user_id):
         raise SystemExit('user_id が UUID でない')
     cards = json.load(open(path))
+    if parts:
+        cards = [c for c in cards if c['part'] in parts]
     rows = []
     for c in cards:
         m = re.fullmatch(r'K2_(\d+)_(\d)_(\d)', c['id'])
@@ -23,4 +26,4 @@ def main(path, user_id):
     print('ON CONFLICT (user_id,id) DO UPDATE SET exam_no=EXCLUDED.exam_no,part=EXCLUDED.part,sub=EXCLUDED.sub,form_kind=EXCLUDED.form_kind,points=EXCLUDED.points,stem=EXCLUDED.stem,frame=EXCLUDED.frame,key=EXCLUDED.key;')
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], [int(x) for x in sys.argv[3].split(',')] if len(sys.argv) > 3 else None)
