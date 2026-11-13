@@ -7,6 +7,32 @@ export const KYOUTSU: D1PrimerTopic = {
   sections: [
     {
       heading: '測量',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '水準測量：レベルを据え、後視と前視の視準距離を等しくする',
+          width: 400,
+          height: 235,
+          shapes: [
+            { t: 'poly', points: [[10, 152], [390, 128], [390, 190], [10, 190]], fill: 'soil' },
+            { t: 'rect', x: 56, y: 60, w: 8, h: 89, fill: 'concrete' },
+            { t: 'rect', x: 336, y: 60, w: 8, h: 71, fill: 'concrete' },
+            { t: 'line', x1: 200, y1: 90, x2: 184, y2: 140, stroke: 'gray' },
+            { t: 'line', x1: 200, y1: 90, x2: 216, y2: 140, stroke: 'gray' },
+            { t: 'rect', x: 190, y: 78, w: 20, h: 12, fill: 'steel' },
+            { t: 'line', x1: 64, y1: 84, x2: 190, y2: 84, stroke: 'accent', dash: true, width: 1.5 },
+            { t: 'line', x1: 210, y1: 84, x2: 336, y2: 84, stroke: 'accent', dash: true, width: 1.5 },
+            { t: 'text', x: 60, y: 48, s: '後視（既知点）', bold: true },
+            { t: 'text', x: 340, y: 48, s: '前視', bold: true },
+            { t: 'text', x: 200, y: 66, s: 'レベル', bold: true },
+            { t: 'line', x1: 60, y1: 205, x2: 200, y2: 205, stroke: 'gray', both: true },
+            { t: 'line', x1: 200, y1: 205, x2: 340, y2: 205, stroke: 'gray', both: true },
+            { t: 'text', x: 130, y: 224, s: '視準距離' },
+            { t: 'text', x: 270, y: 224, s: '視準距離' },
+            { t: 'text', x: 200, y: 224, s: '＝', bold: true },
+          ],
+        },
+      ],
       body: [
         'トータルステーション（TS）：角度と距離を同時に測る。',
         'GNSS測量：人工衛星の電波で位置を求める。観測点どうしが見通せなくてもよいが、上空の視界（衛星が見えること）が必要。',
@@ -15,6 +41,29 @@ export const KYOUTSU: D1PrimerTopic = {
     },
     {
       heading: '公共工事標準請負契約約款のポイント',
+      figures: [
+        {
+          kind: 'funnel',
+          caption: '設計図書に含まれるもの',
+          sources: [
+            { label: '図面' },
+            { label: '仕様書' },
+            { label: '現場説明書' },
+            { label: '現場説明に対する質問回答書' },
+          ],
+          hub: { label: '設計図書' },
+        },
+        {
+          kind: 'flow',
+          caption: '設計図書と現場が合わないとき：自分の判断で進めない',
+          steps: [
+            { label: '不一致・誤り・漏れを発見' },
+            { label: '監督員にただちに通知' },
+            { label: '確認を請求', sub: '（条件変更の手続き）' },
+            { label: '必要なら設計図書の訂正・変更' },
+          ],
+        },
+      ],
       body: [
         '設計図書 ＝ 図面・仕様書・現場説明書・現場説明に対する質問回答書。',
         '品質が設計図書に明示されていない工事材料は、中等の品質のものを使う。',
@@ -24,10 +73,53 @@ export const KYOUTSU: D1PrimerTopic = {
     },
     {
       heading: '設計図の読み方（鉄筋）',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '「D13@250」の意味（スラブを切った断面。○が鉄筋）',
+          width: 400,
+          height: 185,
+          shapes: [
+            { t: 'rect', x: 30, y: 30, w: 340, h: 80, fill: 'concrete' },
+            { t: 'circle', cx: 70, cy: 92, r: 6, fill: 'steel' },
+            { t: 'circle', cx: 150, cy: 92, r: 6, fill: 'steel' },
+            { t: 'circle', cx: 230, cy: 92, r: 6, fill: 'steel' },
+            { t: 'circle', cx: 310, cy: 92, r: 6, fill: 'steel' },
+            { t: 'line', x1: 70, y1: 100, x2: 70, y2: 132, stroke: 'gray', dash: true },
+            { t: 'line', x1: 150, y1: 100, x2: 150, y2: 132, stroke: 'gray', dash: true },
+            { t: 'line', x1: 70, y1: 126, x2: 150, y2: 126, stroke: 'accent', both: true },
+            { t: 'text', x: 110, y: 148, s: '250mm', color: 'accent', bold: true },
+            { t: 'text', x: 200, y: 22, s: '○ ＝ 鉄筋 D13（呼び名13の異形棒鋼）' },
+            { t: 'text', x: 300, y: 148, s: 'D13@250', bold: true },
+            { t: 'text', x: 300, y: 168, s: 'D13 を250mm間隔で配置' },
+          ],
+        },
+      ],
       body: ['D13 ＝ 呼び名13の異形棒鋼（公称直径約13mm）。「D13@250」＝ D13 を250mm間隔で配置。'],
     },
     {
       heading: '建設機械の得意分野',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '掘る位置の違い：バックホウは機械より低い所、ローディングショベルは高い所',
+          width: 400,
+          height: 200,
+          shapes: [
+            { t: 'line', x1: 200, y1: 10, x2: 200, y2: 190, stroke: 'gray', dash: true },
+            { t: 'text', x: 100, y: 26, s: 'バックホウ', bold: true },
+            { t: 'text', x: 100, y: 46, s: '機械より低い所を掘る' },
+            { t: 'poly', points: [[10, 130], [70, 130], [90, 170], [150, 170], [170, 130], [190, 130], [190, 190], [10, 190]], fill: 'soil' },
+            { t: 'rect', x: 20, y: 104, w: 46, h: 22, fill: 'steel' },
+            { t: 'line', x1: 66, y1: 112, x2: 118, y2: 152, stroke: 'warn', arrow: true, width: 3 },
+            { t: 'text', x: 300, y: 26, s: 'ローディングショベル', bold: true },
+            { t: 'text', x: 300, y: 46, s: '機械より高い所を掘る・積込み' },
+            { t: 'poly', points: [[205, 130], [270, 130], [290, 80], [390, 80], [390, 190], [205, 190]], fill: 'soil' },
+            { t: 'rect', x: 212, y: 104, w: 40, h: 22, fill: 'steel' },
+            { t: 'line', x1: 252, y1: 110, x2: 285, y2: 92, stroke: 'warn', arrow: true, width: 3 },
+          ],
+        },
+      ],
       body: [],
       table: {
         columns: ['機械', '得意な作業'],

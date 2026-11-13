@@ -7,6 +7,33 @@ export const DOURO: D1PrimerTopic = {
   sections: [
     {
       heading: 'アスファルト舗装の構成',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '舗装の断面（上ほど大きな荷重を直接受ける）',
+          width: 400,
+          height: 240,
+          shapes: [
+            { t: 'line', x1: 186, y1: 6, x2: 186, y2: 34, stroke: 'warn', arrow: true, width: 2 },
+            { t: 'text', x: 200, y: 24, s: '交通荷重', color: 'warn', anchor: 'start' },
+            { t: 'rect', x: 96, y: 38, w: 180, h: 26, fill: 'gray' },
+            { t: 'rect', x: 96, y: 64, w: 180, h: 26, fill: 'gray' },
+            { t: 'rect', x: 96, y: 90, w: 180, h: 30, fill: 'concrete' },
+            { t: 'rect', x: 96, y: 120, w: 180, h: 30, fill: 'concrete' },
+            { t: 'rect', x: 96, y: 150, w: 180, h: 40, fill: 'soil' },
+            { t: 'rect', x: 96, y: 190, w: 180, h: 40, fill: 'soil', dash: true },
+            { t: 'text', x: 88, y: 56, s: '表層', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 82, s: '基層', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 110, s: '上層路盤', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 140, s: '下層路盤', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 174, s: '路床', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 214, s: '路体', anchor: 'end', bold: true },
+            { t: 'line', x1: 288, y1: 38, x2: 288, y2: 150, stroke: 'accent', both: true },
+            { t: 'text', x: 298, y: 56, s: '舗装', color: 'accent', anchor: 'start', bold: true },
+            { t: 'text', x: 298, y: 74, s: '（表層〜路盤）', color: 'accent', anchor: 'start' },
+          ],
+        },
+      ],
       body: [
         '上から「表層 → 基層 → 路盤（上層路盤・下層路盤）」が舗装。その下の地盤が路床（舗装の土台）、さらに下が路体。',
         '上の層ほど大きな荷重を直接受けるので、上に良い材料（アスファルト混合物）、下に安い材料（砕石など）を使う。',
@@ -31,6 +58,28 @@ export const DOURO: D1PrimerTopic = {
     },
     {
       heading: 'プライムコートとタックコート：どこに撒くかで区別する',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '瀝青材料を撒く位置（プライムコートは路盤の上、タックコートは混合物の層と層の間）',
+          width: 400,
+          height: 150,
+          shapes: [
+            { t: 'rect', x: 96, y: 20, w: 170, h: 26, fill: 'gray' },
+            { t: 'rect', x: 96, y: 46, w: 170, h: 26, fill: 'gray' },
+            { t: 'rect', x: 96, y: 72, w: 170, h: 40, fill: 'concrete' },
+            { t: 'text', x: 88, y: 38, s: '表層', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 64, s: '基層', anchor: 'end', bold: true },
+            { t: 'text', x: 88, y: 96, s: '路盤', anchor: 'end', bold: true },
+            { t: 'line', x1: 96, y1: 46, x2: 266, y2: 46, stroke: 'accent', width: 3 },
+            { t: 'line', x1: 96, y1: 72, x2: 266, y2: 72, stroke: 'warn', width: 3 },
+            { t: 'text', x: 278, y: 42, s: 'タックコート', color: 'accent', anchor: 'start', bold: true },
+            { t: 'text', x: 278, y: 58, s: '（基層の上など）', color: 'accent', anchor: 'start' },
+            { t: 'text', x: 278, y: 80, s: 'プライムコート', color: 'warn', anchor: 'start', bold: true },
+            { t: 'text', x: 278, y: 96, s: '（路盤の上）', color: 'warn', anchor: 'start' },
+          ],
+        },
+      ],
       body: ['どちらもアスファルト乳剤などの瀝青材料を薄く撒く作業。撒く場所と目的が違う。'],
       table: {
         columns: ['名称', '撒く場所', '目的'],
@@ -42,6 +91,19 @@ export const DOURO: D1PrimerTopic = {
     },
     {
       heading: 'アスファルト混合物の舗設（敷均し・締固め）',
+      figures: [
+        {
+          kind: 'flow',
+          caption: '舗設の順序と温度の目安（表の値）',
+          steps: [
+            { label: '敷均し', sub: 'アスファルトフィニッシャ' },
+            { label: '初転圧', sub: 'ロードローラ\n110〜140℃' },
+            { label: '二次転圧', sub: 'タイヤローラ（振動ローラ）\n70〜90℃' },
+            { label: '仕上げ転圧', sub: '転圧跡を消す' },
+            { label: '交通開放', sub: '表面温度が\nおおむね50℃以下' },
+          ],
+        },
+      ],
       body: [
         'アスファルトフィニッシャで敷き均し、冷める前にローラで締め固める。',
         '初転圧はローラの駆動輪をフィニッシャ側に向けて転圧する（案内輪が前だと混合物を押して波打ちやすい）。',
