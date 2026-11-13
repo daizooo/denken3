@@ -60,3 +60,23 @@ describe('入門タブ', () => {
     expect(s.chapters.every(c => c.questions.length > 0 && c.subject === '入門')).toBe(true)
   })
 })
+
+describe('ノートの図解', () => {
+  it('図解は中身があり、表は列数がそろい、強調位置は表の中にある', () => {
+    let count = 0
+    for (const t of PRIMER_TOPICS) for (const sec of t.sections) for (const f of sec.figures ?? []) {
+      count++
+      const where = `${t.id} ${sec.heading} ${f.kind}`
+      if (f.kind === 'flow') expect(f.steps.length, where).toBeGreaterThanOrEqual(2)
+      if (f.kind === 'funnel') { expect(f.sources.length, where).toBeGreaterThan(0); expect(f.hub.label, where).not.toBe('') }
+      if (f.kind === 'sides') { expect(f.left.items.length, where).toBeGreaterThan(0); expect(f.right.items.length, where).toBeGreaterThan(0) }
+      if (f.kind === 'taccount') for (const a of f.accounts) expect(a.debit.length + a.credit.length, where).toBeGreaterThan(0)
+      if (f.kind === 'grid') {
+        const cols = f.groups.reduce((n, g) => n + g.cols.length, 0)
+        for (const r of f.rows) expect(r.length, where).toBe(cols)
+        for (const [r, c] of f.hi ?? []) expect(f.rows[r]?.[c], where).toBeDefined()
+      }
+    }
+    expect(count).toBeGreaterThan(0)
+  })
+})

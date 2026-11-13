@@ -10,7 +10,6 @@ import { statusOfAttempt } from '../../lib/kenkei2/record'
 import { supabase } from '../../lib/supabase'
 import Kenkei2Solver from './Kenkei2Solver'
 import { primerOf, primerRowOf } from '../../data/kenkei2/primer/index'
-import PrimerNoteView from './PrimerNoteView'
 
 const COLS = 'id, exam_no, part, sub, form_kind, points, stem, frame, key'
 
@@ -58,7 +57,6 @@ export default function Kenkei2ItemSolver({ itemId, title, userId, onRecord, onU
           </p>
         ) : (
           <div className="space-y-4">
-            {primer && <PrimerNoteView topic={primer.topic} />}
             <Kenkei2Solver
               userId={userId}
               row={row}
