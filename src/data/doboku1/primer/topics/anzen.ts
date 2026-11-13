@@ -7,6 +7,17 @@ export const ANZEN: D1PrimerTopic = {
   sections: [
     {
       heading: '数値で問われる：まず「2m」を覚える',
+      figures: [
+        {
+          kind: 'flow',
+          caption: '高さ2m以上の作業床の端・開口部の墜落防止',
+          steps: [
+            { label: '高さ2m以上', sub: '作業床の端\n開口部', next: '→' },
+            { label: '囲い・手すり・覆い等を設ける', next: '難しいとき' },
+            { label: '防網を張る', sub: '墜落制止用器具\n（安全帯）を使わせる' },
+          ],
+        },
+      ],
       body: [
         '安全管理の問題は、労働安全衛生規則（安衛則）の数値を入れ替えた誤りが多い。基準になるのは「高さ2m以上」。',
         '高さ2m以上の作業床の端・開口部には囲い・手すり・覆い等を設ける。設けるのが難しいときは防網を張り、墜落制止用器具（安全帯）を使わせる。',
@@ -15,6 +26,30 @@ export const ANZEN: D1PrimerTopic = {
     },
     {
       heading: '足場・昇降の数値',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '足場の作業床と手すり（わく組足場以外）の断面イメージ',
+          width: 400,
+          height: 215,
+          shapes: [
+            { t: 'line', x1: 130, y1: 40, x2: 130, y2: 150, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 270, y1: 40, x2: 270, y2: 150, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 130, y1: 45, x2: 270, y2: 45, stroke: 'steel', width: 3 },
+            { t: 'line', x1: 130, y1: 82, x2: 270, y2: 82, stroke: 'steel', width: 2 },
+            { t: 'rect', x: 120, y: 120, w: 160, h: 8, fill: 'concrete', stroke: 'gray' },
+            { t: 'text', x: 120, y: 49, s: '手すり', anchor: 'end', bold: true },
+            { t: 'text', x: 120, y: 86, s: '中さん等', anchor: 'end', bold: true },
+            { t: 'text', x: 120, y: 142, s: '作業床', anchor: 'end', bold: true },
+            { t: 'line', x1: 320, y1: 45, x2: 320, y2: 120, stroke: 'accent', both: true },
+            { t: 'text', x: 330, y: 78, s: '85cm', color: 'accent', bold: true },
+            { t: 'text', x: 330, y: 93, s: '以上', color: 'accent', bold: true },
+            { t: 'line', x1: 120, y1: 165, x2: 280, y2: 165, stroke: 'accent', both: true },
+            { t: 'text', x: 200, y: 184, s: '作業床の幅 40cm以上', anchor: 'middle', color: 'accent', bold: true },
+            { t: 'text', x: 200, y: 205, s: '床材のすき間は 3cm以下', anchor: 'middle' },
+          ],
+        },
+      ],
       body: [],
       table: {
         columns: ['項目', '基準'],
@@ -29,6 +64,41 @@ export const ANZEN: D1PrimerTopic = {
     },
     {
       heading: '掘削（地山の掘削）',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '地山の掘削の断面イメージ（こう配は水平面となす角度）',
+          width: 400,
+          height: 190,
+          shapes: [
+            { t: 'text', x: 200, y: 22, s: '掘削面の高さ2m以上 → 地山の掘削作業主任者を選任', anchor: 'middle', bold: true },
+            { t: 'poly', points: [[0, 55], [130, 55], [200, 140], [400, 140], [400, 190], [0, 190]], fill: 'soil', stroke: 'gray' },
+            { t: 'text', x: 60, y: 170, s: '地山', bold: true },
+            { t: 'text', x: 300, y: 170, s: '掘削底', bold: true },
+            { t: 'line', x1: 250, y1: 55, x2: 250, y2: 140, stroke: 'accent', both: true },
+            { t: 'line', x1: 130, y1: 55, x2: 250, y2: 55, stroke: 'gray', dash: true },
+            { t: 'text', x: 262, y: 94, s: '掘削面の高さ', color: 'accent', bold: true },
+            { t: 'text', x: 180, y: 80, s: '掘削面', bold: true },
+            { t: 'text', x: 180, y: 96, s: '（こう配）' },
+          ],
+        },
+        {
+          kind: 'grid',
+          caption: '手掘りの掘削面のこう配の上限（例）',
+          groups: [
+            { title: '地山の種類', cols: [''] },
+            { title: '掘削面の高さ', cols: [''] },
+            { title: 'こう配の上限', cols: [''] },
+          ],
+          rows: [
+            ['岩盤・堅い粘土', '5m未満', '90度'],
+            ['それ以外の地山', '2m未満', '90度'],
+            ['それ以外の地山', '2m以上5m未満', '75度'],
+            ['それ以外の地山', '5m以上', '60度'],
+            ['砂からなる地山', '—', '35度以下（または高さ5m未満）'],
+          ],
+        },
+      ],
       body: [
         '掘削面の高さが2m以上の地山の掘削は、地山の掘削作業主任者を選任し、その者に作業を直接指揮させる。',
         '手掘りの掘削面のこう配の上限（例）：岩盤・堅い粘土で高さ5m未満は90度、それ以外の地山で高さ2m未満は90度、2m以上5m未満は75度、5m以上は60度。砂からなる地山は35度以下または高さ5m未満。',
@@ -37,6 +107,17 @@ export const ANZEN: D1PrimerTopic = {
     },
     {
       heading: '車両系建設機械・移動式クレーン',
+      figures: [
+        {
+          kind: 'flow',
+          caption: '車両系建設機械の運転席を離れるとき',
+          steps: [
+            { label: '作業装置を地上に下ろす', sub: 'バケット等', next: '→' },
+            { label: '原動機を止める', next: '→' },
+            { label: 'ブレーキを確実にかける' },
+          ],
+        },
+      ],
       body: [
         '車両系建設機械の運転席を離れるときは、バケット等の作業装置を地上に下ろし、原動機を止め、ブレーキを確実にかける。',
         '車両系建設機械は主たる用途以外（例：バックホウでの荷のつり上げ）に使わない（条件を満たす場合の例外あり）。',
