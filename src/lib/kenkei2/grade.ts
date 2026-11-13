@@ -1,5 +1,5 @@
 // 2級建設業経理士の自動採点（docs/design/kenkei2.md §4.2）。すべて純関数。
-import { isBlank, parseAmount, parseSymbol } from './normalize.ts'
+import { isBlank, parseAmount, parseSymbol, parseText } from './normalize.ts'
 import type { Cell, JournalInput, JournalKey, JournalLine } from './types.ts'
 
 export interface CellResult {
@@ -33,9 +33,10 @@ export function gradeCells(cells: Cell[], answers: Record<string, string | undef
   const ok = new Map<string, boolean>()
   for (const c of cells) {
     const raw = answers[c.id]
-    const v = c.kind === 'amount' ? parseAmount(raw) : parseSymbol(raw)
+    const v = c.kind === 'amount' ? parseAmount(raw) : c.kind === 'symbol' ? parseSymbol(raw) : parseText(raw)
+    const expected = c.kind === 'text' ? parseText(String(c.expected)) : c.expected
     given.set(c.id, v)
-    ok.set(c.id, v !== null && v === c.expected)
+    ok.set(c.id, v !== null && v === expected)
   }
   const groupOk = new Map<string, boolean>()
   for (const c of cells) {

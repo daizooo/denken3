@@ -80,6 +80,21 @@ def symbols_of(lines):
 def region(lines, a, b):
     return [l for l in lines[a:b]]
 
+AMOUNT = re.compile(r'^\d{1,3}(,\d{3})+$')
+
+def hint_words(words, stem):
+    """部門費振替表の「採点対象外の途中の数値」（解答用紙では空欄だった可能性が高く、見せるとヒントになる）の添字。
+    表の最初の金額の行（工事直接費など、問題に与えられている行）は残し、それより下の金額を採点前は隠す。
+    工事別原価計算表などの与件の数値は隠さない（部門費振替表の回だけ適用）。"""
+    if '部門費振替表' not in stem:
+        return []
+    ys = sorted({w[2] for w in words if AMOUNT.match(w[0])})
+    if not ys:
+        return []
+    first = ys[0]
+    return [i for i, w in enumerate(words) if AMOUNT.match(w[0]) and w[2] > first + 5]
+
+
 def build(work, kai):
     A = json.load(open(f'{work}/a{kai}.json'))
     S = json.load(open(f'{work}/s{kai}.json'))
@@ -131,6 +146,9 @@ def build(work, kai):
         frame = {'box': [0, round(sh['top']), 730, round(sh['bottom'])], 'page': sh['page'],
                  'words': [[w['t'], round(w['x']), round(w['y']), round(w['x1']), round(w['y1'])] for w in sh['words']],
                  'rules': [[round(v) for v in r] for r in sh['rules']], 'units': units}
+        hide = hint_words(frame['words'], '\n'.join(stem))
+        if hide:
+            frame['hide'] = hide
         cards.append({'id': f'K2_{kai}_{n}_1', 'part': n, 'sub': 1, 'form_kind': 'sheet', 'points': sum(u['points'] for u in sh['units']),
                       'stem': '\n'.join(stem), 'frame': frame, 'key': key})
 

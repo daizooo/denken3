@@ -96,3 +96,12 @@ describe('gradeCells', () => {
     expect(gradeCells(z, { z: '' }).earned).toBe(0)
   })
 })
+
+describe('gradeCells 文字（当期純利益の見出しなど）', () => {
+  it('全角・空白の揺れを許容し、違えば不正解', () => {
+    const cells: Cell[] = [{ id: 't', kind: 'text', expected: '純利益', points: 2 }]
+    expect(gradeCells(cells, { t: ' 純利益 ' }).earned).toBe(2)
+    expect(gradeCells(cells, { t: '純損失' }).earned).toBe(0)
+    expect(gradeCells(cells, { t: '' }).earned).toBe(0)
+  })
+})

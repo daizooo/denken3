@@ -12,12 +12,12 @@ export interface JournalInputLine { symbol: string; amount: string }
 export interface JournalInput { debit: JournalInputLine[]; credit: JournalInputLine[] }
 
 /**
- * 採点マス1つ。金額（amount）か記号（symbol）。
+ * 採点マス1つ。金額（amount）・記号（symbol）・文字（text。第34回の「当期（純利益）」の見出しなど）。
  * group が同じマスは「全部正解で初めて得点」（差異の「金額＋有利/不利の記号」など）。
  */
 export interface Cell {
   id: string
-  kind: 'amount' | 'symbol'
+  kind: 'amount' | 'symbol' | 'text'
   expected: number | string
   points: number
   group?: string

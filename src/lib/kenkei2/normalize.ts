@@ -33,3 +33,10 @@ export function parseSymbol(raw: string | null | undefined): string | null {
 export function isBlank(raw: string | null | undefined): boolean {
   return raw == null || fold(raw) === ''
 }
+
+/** 文字の解答（全角・半角・空白の揺れをそろえる）。空欄は null。 */
+export function parseText(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const s = fold(raw)
+  return s === '' ? null : s
+}

@@ -20,7 +20,7 @@ export function validateJournalKey(key: JournalKey, symbols?: readonly string[])
   return p
 }
 
-/** 採点マス: id の重複なし・配点は正・金額は有限数・記号は英大文字1字。 */
+/** 採点マス: id の重複なし・配点は正・金額は有限数・記号は英大文字1字・文字は空でない。 */
 export function validateCells(cells: Cell[]): string[] {
   const p: string[] = []
   const seen = new Set<string>()
@@ -33,6 +33,9 @@ export function validateCells(cells: Cell[]): string[] {
     }
     if (c.kind === 'symbol' && !(typeof c.expected === 'string' && /^[A-Z]$/.test(c.expected))) {
       p.push(`記号の正答が不正: ${c.id}`)
+    }
+    if (c.kind === 'text' && !(typeof c.expected === 'string' && c.expected.trim() !== '')) {
+      p.push(`文字の正答が空: ${c.id}`)
     }
   }
   return p
