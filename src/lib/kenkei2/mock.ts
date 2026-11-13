@@ -1,5 +1,5 @@
 // 2級建設業経理士の本番形式模試（docs/design/kenkei2.md §7 K6）。すべて純関数。
-// 1回分（12枚）を90分で通しで解き、100点満点・70点以上で合格（配点は大栄の予想・合格基準は未確認。§2）。
+// 1回分（12枚）を120分で通しで解き、100点満点・70点以上で合格（配点は大栄の予想。試験時間2時間・合格基準70点は予備校等の複数の情報で一致、公式サイトは未確認。§2）。
 // セッションは denken_mock_sessions（exam_id='kenkei2'、subject_id='kk2'、paper_id=回、mode='cbt'）。
 import { gradeCard, passRateOf, type CardResult, type Kk2Row } from './cards.ts'
 import { isBlank } from './normalize.ts'
@@ -8,7 +8,7 @@ import type { JournalInput } from './types.ts'
 export const KK2_MOCK = {
   examId: 'kenkei2',
   subjectId: 'kk2',
-  limitMin: 90,
+  limitMin: 120,
   passScore: 70,
   maxScore: 100,
   cardsPerPaper: 12,

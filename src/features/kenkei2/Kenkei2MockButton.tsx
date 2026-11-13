@@ -18,7 +18,7 @@ export default function Kenkei2MockButton({ userId, onRecord }: {
         onClick={() => setOpen(true)}
         className="w-full flex items-center justify-center gap-1 py-2 rounded-xl border bg-white text-sm text-gray-700"
       >
-        <Timer size={16} /> 本番形式模試（90分）
+        <Timer size={16} /> 本番形式模試（120分）
       </button>
       {open && <Kenkei2MockView userId={userId} onRecord={onRecord} onClose={() => setOpen(false)} />}
     </>
