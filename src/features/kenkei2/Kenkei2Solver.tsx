@@ -9,9 +9,13 @@ import { STATUS_BG } from '../shared/status'
 import CardAnswerForm from './CardAnswerForm'
 import { useDraft } from './useDraft'
 
-export default function Kenkei2Solver({ userId, row, onRecord, onUndo, onClose }: {
+export default function Kenkei2Solver({ userId, row, heading, explain, onRecord, onUndo, onClose }: {
   userId: string
   row: Kk2Row
+  /** 見出しの差し替え（入門ドリル）。無ければ「第○回 第○問」と配点。 */
+  heading?: string
+  /** 採点後に出す解説（入門ドリル）。 */
+  explain?: string
   onRecord: (attempt: Attempt) => void
   onUndo: () => void
   onClose: () => void
@@ -35,8 +39,10 @@ export default function Kenkei2Solver({ userId, row, onRecord, onUndo, onClose }
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        {heading ? <span className="font-bold text-gray-700">{heading}</span> : <>
         <span className="font-bold text-gray-700">第{row.exam_no}回 第{row.part}問{row.part <= 2 ? `(${row.sub})` : ''}</span>
         <span>{row.points}点（配点は資格スクール大栄の予想）</span>
+        </>}
         {passRate < 1 && <span>得点率 {Math.round(passRate * 100)}% 以上で正解扱い</span>}
       </div>
 
@@ -58,6 +64,7 @@ export default function Kenkei2Solver({ userId, row, onRecord, onUndo, onClose }
             <span className={`ml-auto rounded border px-2 py-0.5 text-xs ${STATUS_BG[statusOfAttempt(done)]}`}>{statusOfAttempt(done)} を記録</span>
             <button onClick={undo} className="text-xs text-gray-500 underline">修正</button>
           </div>
+          {explain && <p className="rounded-lg bg-blue-50 p-3 text-sm leading-relaxed text-gray-800"><span className="font-bold">解説 </span>{explain}</p>}
           <button onClick={onClose} className="w-full rounded-lg bg-gray-800 py-2.5 text-sm font-bold text-white">閉じる</button>
         </div>
       )}
