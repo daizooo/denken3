@@ -7,6 +7,36 @@ export const KAIGAN: D1PrimerTopic = {
   sections: [
     {
       heading: '海岸堤防のつくり',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '海岸堤防の断面（灰色の帯が被覆工。左が海）',
+          width: 400,
+          height: 195,
+          shapes: [
+            { t: 'rect', x: 10, y: 150, w: 380, h: 30, fill: 'soil' },
+            { t: 'poly', points: [[10,100],[144,100],[100,150],[10,150]], fill: 'water' },
+            { t: 'poly', points: [[100,150],[170,70],[240,70],[320,150]], fill: 'soil' },
+            { t: 'line', x1: 100, y1: 150, x2: 170, y2: 70, stroke: 'concrete', width: 6 },
+            { t: 'line', x1: 170, y1: 70, x2: 240, y2: 70, stroke: 'concrete', width: 6 },
+            { t: 'line', x1: 240, y1: 70, x2: 320, y2: 150, stroke: 'concrete', width: 6 },
+            { t: 'rect', x: 86, y: 142, w: 26, h: 20, fill: 'concrete', stroke: 'gray' },
+            { t: 'circle', cx: 50, cy: 143, r: 7, fill: 'concrete', stroke: 'gray' },
+            { t: 'circle', cx: 64, cy: 143, r: 7, fill: 'concrete', stroke: 'gray' },
+            { t: 'circle', cx: 78, cy: 143, r: 7, fill: 'concrete', stroke: 'gray' },
+            { t: 'text', x: 14, y: 122, s: '海（表法側）', anchor: 'start' },
+            { t: 'text', x: 388, y: 122, s: '陸（裏法側）', anchor: 'end' },
+            { t: 'text', x: 205, y: 118, s: '堤体（盛土）', bold: true },
+            { t: 'text', x: 142, y: 86, s: '表法', anchor: 'end', bold: true },
+            { t: 'text', x: 270, y: 88, s: '裏法', anchor: 'start', bold: true },
+            { t: 'text', x: 205, y: 52, s: '天端', bold: true },
+            { t: 'text', x: 300, y: 42, s: '被覆工', bold: true },
+            { t: 'line', x1: 285, y1: 48, x2: 232, y2: 66, arrow: true },
+            { t: 'text', x: 108, y: 178, s: '基礎工', bold: true },
+            { t: 'text', x: 52, y: 178, s: '根固工', bold: true },
+          ],
+        },
+      ],
       body: [
         '海岸堤防は、高潮・波の浸入を防ぐ盛土の堤体を、表法（海側）・天端・裏法（陸側）の被覆工で守る構造。表法の下端には基礎工・根固工を置き、足元の洗掘を防ぐ。',
         '堤体の盛土材：適度に粘土を含み、粒度分布がよく締め固めやすい砂質・砂礫質の土を使う。粘土を含まず粒径のそろった砂は締まりにくく、吸い出されやすい。',
@@ -16,6 +46,37 @@ export const KAIGAN: D1PrimerTopic = {
     },
     {
       heading: '離岸堤と潜堤・人工リーフ',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '離岸堤と潜堤・人工リーフ（左が沖、右が岸）',
+          width: 400,
+          height: 180,
+          shapes: [
+            { t: 'rect', x: 10, y: 90, w: 185, h: 60, fill: 'water' },
+            { t: 'rect', x: 205, y: 90, w: 185, h: 60, fill: 'water' },
+            { t: 'rect', x: 10, y: 150, w: 380, h: 25, fill: 'soil' },
+            { t: 'poly', points: [[160,150],[195,115],[195,150]], fill: 'soil' },
+            { t: 'poly', points: [[355,150],[390,115],[390,150]], fill: 'soil' },
+            { t: 'poly', points: [[60,150],[85,70],[125,70],[150,150]], fill: 'concrete', stroke: 'gray' },
+            { t: 'poly', points: [[250,150],[270,115],[330,115],[350,150]], fill: 'concrete', stroke: 'gray' },
+            { t: 'text', x: 100, y: 22, s: '離岸堤', bold: true },
+            { t: 'text', x: 300, y: 22, s: '潜堤・人工リーフ', bold: true },
+            { t: 'text', x: 100, y: 42, s: '天端は海面より上' },
+            { t: 'text', x: 300, y: 42, s: '天端は海面より下' },
+            { t: 'line', x1: 20, y1: 78, x2: 58, y2: 78, arrow: true, stroke: 'accent' },
+            { t: 'text', x: 36, y: 68, s: '波', color: 'accent', bold: true },
+            { t: 'line', x1: 215, y1: 78, x2: 253, y2: 78, arrow: true, stroke: 'accent' },
+            { t: 'text', x: 231, y: 68, s: '波', color: 'accent', bold: true },
+            { t: 'text', x: 188, y: 106, s: '海面', anchor: 'end' },
+            { t: 'text', x: 386, y: 84, s: '海面', anchor: 'end' },
+            { t: 'line', x1: 300, y1: 90, x2: 300, y2: 115, both: true, stroke: 'warn' },
+            { t: 'text', x: 308, y: 106, s: '天端水深', anchor: 'start', color: 'warn' },
+            { t: 'line', x1: 272, y1: 130, x2: 328, y2: 130, both: true, stroke: 'warn' },
+            { t: 'text', x: 300, y: 145, s: '天端幅', color: 'warn' },
+          ],
+        },
+      ],
       body: ['どちらも沖側で波の力を弱め、背後の砂浜を守る（堆砂を促す）施設。違いは天端が海面より上か下か。'],
       table: {
         columns: ['施設', '天端', '特徴'],
@@ -27,6 +88,30 @@ export const KAIGAN: D1PrimerTopic = {
     },
     {
       heading: '防波堤の形式',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '防波堤の3形式（断面）',
+          width: 400,
+          height: 210,
+          shapes: [
+            { t: 'rect', x: 10, y: 100, w: 380, h: 60, fill: 'water' },
+            { t: 'rect', x: 10, y: 160, w: 380, h: 15, fill: 'soil' },
+            { t: 'line', x1: 135, y1: 36, x2: 135, y2: 175, dash: true },
+            { t: 'line', x1: 265, y1: 36, x2: 265, y2: 175, dash: true },
+            { t: 'poly', points: [[20,160],[55,85],[85,85],[120,160]], fill: 'steel', stroke: 'gray' },
+            { t: 'rect', x: 175, y: 80, w: 50, h: 80, fill: 'concrete', stroke: 'gray' },
+            { t: 'poly', points: [[285,160],[305,120],[355,120],[375,160]], fill: 'steel', stroke: 'gray' },
+            { t: 'rect', x: 312, y: 80, w: 36, h: 40, fill: 'concrete', stroke: 'gray' },
+            { t: 'text', x: 70, y: 24, s: '傾斜堤', bold: true },
+            { t: 'text', x: 200, y: 24, s: '直立堤', bold: true },
+            { t: 'text', x: 330, y: 24, s: '混成堤', bold: true },
+            { t: 'text', x: 70, y: 196, s: '捨石・ブロック' },
+            { t: 'text', x: 200, y: 196, s: 'ケーソン式など' },
+            { t: 'text', x: 330, y: 196, s: 'マウンド＋直立部' },
+          ],
+        },
+      ],
       body: [],
       table: {
         columns: ['形式', '長所', '短所'],
@@ -39,6 +124,19 @@ export const KAIGAN: D1PrimerTopic = {
     },
     {
       heading: 'ケーソンの製作・据付け',
+      figures: [
+        {
+          kind: 'flow',
+          caption: 'ケーソン据付けの順序',
+          steps: [
+            { label: '曳航', sub: '据付け位置へ', next: '→' },
+            { label: '均等に注水', sub: '各隔室をほぼ同じ水位で', next: '→' },
+            { label: '着底直前で停止', sub: '位置を確認・修正', next: '→' },
+            { label: '再び注水', sub: '着底させる', next: '→' },
+            { label: '中詰め・蓋', sub: '速やかに施工' },
+          ],
+        },
+      ],
       body: [
         '製作：ドライドック方式は安全で大規模・繰返し製作に向くが、ドックの建設費（初期投資）が大きい。',
         '据付け：曳航して据付け位置で各隔室にほぼ同じ水位で均等に注水する（隔室ごとに順に満水にすると傾き、隔壁に偏った水圧がかかる）。',
