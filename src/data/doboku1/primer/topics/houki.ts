@@ -14,6 +14,20 @@ export const HOUKI: D1PrimerTopic = {
     },
     {
       heading: '労働基準法の数値',
+      figures: [
+        {
+          kind: 'grid',
+          caption: '休憩は「労働時間の途中」に与える',
+          groups: [
+            { title: '1日の労働時間', cols: [''] },
+            { title: '与える休憩', cols: [''] },
+          ],
+          rows: [
+            ['6時間を超えるとき', '45分以上'],
+            ['8時間を超えるとき', '1時間以上'],
+          ],
+        },
+      ],
       body: [],
       table: {
         columns: ['項目', '基準'],
@@ -29,6 +43,20 @@ export const HOUKI: D1PrimerTopic = {
     },
     {
       heading: '建設業法',
+      figures: [
+        {
+          kind: 'sides',
+          caption: '建設業の許可（営業所の置き方で決まる）',
+          left: { title: '2つ以上の都道府県に営業所', items: ['国土交通大臣の許可'] },
+          right: { title: '1つの都道府県だけに営業所', items: ['都道府県知事の許可'] },
+        },
+        {
+          kind: 'sides',
+          caption: '現場に置く技術者',
+          left: { title: '主任技術者', items: ['元請・下請にかかわらず', 'すべての工事現場に置く'] },
+          right: { title: '監理技術者', items: ['発注者から直接請け負い', '一定額以上を下請に出すとき'] },
+        },
+      ],
       body: [
         '建設業の許可：2つ以上の都道府県に営業所 → 国土交通大臣、1つの都道府県だけ → 都道府県知事。',
         '主任技術者：元請・下請にかかわらず、すべての工事現場に置く。発注者から直接請け負い、一定額以上を下請に出すときは監理技術者を置く。',
@@ -37,6 +65,20 @@ export const HOUKI: D1PrimerTopic = {
     },
     {
       heading: '誰の許可・誰への届出か',
+      figures: [
+        {
+          kind: 'sides',
+          caption: '許可と届出の相手（入れ替えが出題される）',
+          left: {
+            title: '許可を受ける',
+            items: ['道路占用 → 道路管理者（道路法）', '道路使用 → 警察署長（道路交通法）', '河川区域の占用など → 河川管理者（河川法）'],
+          },
+          right: {
+            title: '届出をする',
+            items: ['指定地域内の特定建設作業', '作業開始の7日前までに', '市町村長へ'],
+          },
+        },
+      ],
       body: [],
       table: {
         columns: ['行為', '相手'],
@@ -50,6 +92,34 @@ export const HOUKI: D1PrimerTopic = {
     },
     {
       heading: '車両制限令の一般的制限値（覚える数値）',
+      figures: [
+        {
+          kind: 'draw',
+          caption: '車両制限令の一般的制限値（指定道路などでは緩和あり）',
+          width: 400,
+          height: 215,
+          shapes: [
+            { t: 'text', x: 160, y: 22, s: '横から見る', anchor: 'middle', color: 'gray' },
+            { t: 'text', x: 345, y: 22, s: '後ろから見る', anchor: 'middle', color: 'gray' },
+            { t: 'line', x1: 50, y1: 164, x2: 270, y2: 164, stroke: 'gray' },
+            { t: 'rect', x: 70, y: 60, w: 140, h: 90, fill: 'concrete', stroke: 'gray' },
+            { t: 'rect', x: 210, y: 100, w: 50, h: 50, fill: 'water', stroke: 'gray' },
+            { t: 'circle', cx: 100, cy: 155, r: 9, fill: 'gray', stroke: 'gray' },
+            { t: 'circle', cx: 235, cy: 155, r: 9, fill: 'gray', stroke: 'gray' },
+            { t: 'text', x: 140, y: 110, s: '総重量 20t', anchor: 'middle', bold: true },
+            { t: 'line', x1: 35, y1: 60, x2: 35, y2: 164, stroke: 'accent', both: true },
+            { t: 'text', x: 35, y: 45, s: '高さ3.8m', anchor: 'middle', color: 'accent', bold: true },
+            { t: 'line', x1: 70, y1: 182, x2: 260, y2: 182, stroke: 'accent', both: true },
+            { t: 'text', x: 165, y: 202, s: '長さ 12m', anchor: 'middle', color: 'accent', bold: true },
+            { t: 'rect', x: 310, y: 60, w: 70, h: 94, fill: 'concrete', stroke: 'gray' },
+            { t: 'rect', x: 316, y: 154, w: 12, h: 10, fill: 'gray' },
+            { t: 'rect', x: 362, y: 154, w: 12, h: 10, fill: 'gray' },
+            { t: 'line', x1: 300, y1: 164, x2: 390, y2: 164, stroke: 'gray' },
+            { t: 'line', x1: 310, y1: 182, x2: 380, y2: 182, stroke: 'accent', both: true },
+            { t: 'text', x: 345, y: 202, s: '幅 2.5m', anchor: 'middle', color: 'accent', bold: true },
+          ],
+        },
+      ],
       body: ['幅 2.5m、高さ 3.8m、長さ 12m、総重量 20t（指定道路などでは緩和あり）。超える車両は道路管理者の特殊車両通行許可が必要。'],
     },
   ],
