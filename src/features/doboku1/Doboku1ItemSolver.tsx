@@ -9,6 +9,9 @@ import type { DbkQuestionRow } from '../../lib/doboku1/types'
 import { statusOfAttempt } from '../../lib/doboku1/record'
 import { supabase } from '../../lib/supabase'
 import Doboku1Solver from './Doboku1Solver'
+import { d1PrimerOf } from '../../data/doboku1/primer/index'
+import Doboku1PrimerSolver from './Doboku1PrimerSolver'
+import PrimerNoteView from '../kenkei2/PrimerNoteView'
 
 const COLS = 'id, year, paper, q_no, group_label, required, category, topic, kind, direction, stem, statements, choice_header, choices, correct, has_figure, figure_path, explain, explain_verified'
 
@@ -22,8 +25,11 @@ export default function Doboku1ItemSolver({ itemId, title, userId, onRecord, onU
 }) {
   const [q, setQ] = useState<DbkQuestionRow | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
+  // 入門の○×（D1_P_）はリポジトリのデータで解く（DB を読まない。docs/design/doboku1-primer.md）。
+  const primer = d1PrimerOf(itemId)
 
   useEffect(() => {
+    if (d1PrimerOf(itemId)) return
     let alive = true
     supabase.from('dbk_questions').select(COLS).eq('user_id', userId).eq('id', itemId).maybeSingle()
       .then(({ data, error }) => {
@@ -42,7 +48,19 @@ export default function Doboku1ItemSolver({ itemId, title, userId, onRecord, onU
           <h2 className="flex-1 text-sm font-bold text-gray-700">{title}</h2>
           <button onClick={onClose} aria-label="閉じる" className="p-1 text-gray-500"><X size={20} /></button>
         </div>
-        {state === 'loading' ? (
+        {primer ? (
+          <div className="space-y-4">
+            <PrimerNoteView key={primer.topic.id} topic={primer.topic} readKey="d1:primer:read" doneLabel="読んだ → 下の○×を解く" />
+            <Doboku1PrimerSolver
+              key={itemId}
+              heading={`入門 ${primer.topic.name} (${primer.n})`}
+              quiz={primer.quiz}
+              onRecord={a => onRecord(statusOfAttempt(a), a)}
+              onUndo={onUndoRecord}
+              onClose={onClose}
+            />
+          </div>
+        ) : state === 'loading' ? (
           <p className="text-sm text-gray-500">本文を読み込み中…</p>
         ) : state === 'error' || !q ? (
           <p className="text-sm text-gray-600">

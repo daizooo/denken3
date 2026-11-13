@@ -1,18 +1,23 @@
 // 入門ノート（前提知識）の表示。入門ドリルの上に出す。未読なら開いた状態、「読んだ」で次からは畳む（端末に記録）。
 import { useState } from 'react'
-import type { PrimerTopic } from '../../data/kenkei2/primer/types'
+import type { PrimerSection } from '../../data/kenkei2/primer/types'
 
 const READ_KEY = 'kk2:primer:read'
 
-function readSet(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(READ_KEY) ?? '[]') as string[]) } catch { return new Set() }
+function readSet(key: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]) } catch { return new Set() }
 }
-function markRead(topicId: string): void {
-  try { localStorage.setItem(READ_KEY, JSON.stringify([...readSet(), topicId])) } catch { /* 記録できなくても表示は動く */ }
+function markRead(key: string, topicId: string): void {
+  try { localStorage.setItem(key, JSON.stringify([...readSet(key), topicId])) } catch { /* 記録できなくても表示は動く */ }
 }
 
-export default function PrimerNoteView({ topic }: { topic: PrimerTopic }) {
-  const [open, setOpen] = useState(() => !readSet().has(topic.id))
+/** readKey: 既読の記録キー（資格ごとに分ける。1級土木は 'd1:primer:read'）。doneLabel: 「読んだ」ボタンの文言。 */
+export default function PrimerNoteView({ topic, readKey = READ_KEY, doneLabel = '読んだ → 下のドリルを解く' }: {
+  topic: { id: string; name: string; sections: PrimerSection[]; basis: string }
+  readKey?: string
+  doneLabel?: string
+}) {
+  const [open, setOpen] = useState(() => !readSet(readKey).has(topic.id))
   return (
     <section className="rounded-xl border border-amber-200 bg-amber-50/60">
       <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
@@ -43,9 +48,9 @@ export default function PrimerNoteView({ topic }: { topic: PrimerTopic }) {
             </div>
           ))}
           <p className="text-[11px] text-gray-500">Claude 作成・根拠未確認。根拠：{topic.basis}</p>
-          <button type="button" onClick={() => { markRead(topic.id); setOpen(false) }}
+          <button type="button" onClick={() => { markRead(readKey, topic.id); setOpen(false) }}
             className="w-full rounded-lg border border-amber-400 bg-white py-2 text-sm font-bold text-amber-900">
-            読んだ → 下のドリルを解く
+            {doneLabel}
           </button>
         </div>
       )}

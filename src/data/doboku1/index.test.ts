@@ -3,13 +3,15 @@ import { DOBOKU1_EXAM, dbkCategoryOfId } from './index.ts'
 import { DOBOKU1_CATEGORIES, YEAR_INDEX } from './categories.ts'
 
 describe('DOBOKU1_EXAM', () => {
-  const qs = DOBOKU1_EXAM.subjects.flatMap(s => s.chapters.flatMap(c => c.questions))
+  // 過去問の科目（先頭の「入門」を除く。入門は primer/index.test.ts）
+  const past = DOBOKU1_EXAM.subjects.filter(s => s.id !== 'nyumon')
+  const qs = past.flatMap(s => s.chapters.flatMap(c => c.questions))
   it('索引の全年度の全問を、重複なく1回ずつ載せる', () => {
     expect(qs.length).toBe(YEAR_INDEX.reduce((n, y) => n + y.total.A + y.total.B, 0))
     expect(new Set(qs.map(q => q.id)).size).toBe(qs.length)
   })
   it('全学習分野がどれか1つの科目に属する', () => {
-    const codes = DOBOKU1_EXAM.subjects.flatMap(s => s.chapters.map(c => c.code))
+    const codes = past.flatMap(s => s.chapters.map(c => c.code))
     expect(new Set(codes)).toEqual(new Set(DOBOKU1_CATEGORIES.map(c => c.id)))
     expect(codes.length).toBe(DOBOKU1_CATEGORIES.length)
   })
