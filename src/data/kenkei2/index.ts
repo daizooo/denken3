@@ -5,6 +5,7 @@
 import type { Chapter, ExamDefinition, MasterQuestion, SubjectDefinition } from '../../domain/types'
 import { KENKEI2_MASTERS } from './masters/index.ts'
 import type { Kk2Master } from './masters/types.ts'
+import { KENKEI2_PRIMER_SUBJECT } from './primer/index.ts'
 
 export const KENKEI2_EXAM_ID = 'kenkei2'   // denken_reviews.exam_id（lib/kenkei2/record.ts と同じ）
 
@@ -47,5 +48,6 @@ export const KENKEI2_EXAM: ExamDefinition = {
   // 合格基準は70点以上と理解している（公式で未確認。docs/design/kenkei2.md §2）。
   passingScore: 70,
   features: {},
-  subjects: buildKenkei2Subjects(KENKEI2_MASTERS),
+  // 先頭は「入門」（前提知識のノート＋基礎ドリル。docs/design/kenkei2-primer.md）。初学者が最初に開くタブにする。
+  subjects: [KENKEI2_PRIMER_SUBJECT, ...buildKenkei2Subjects(KENKEI2_MASTERS)],
 }

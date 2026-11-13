@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { BookOpen, Save, LogOut, Settings } from 'lucide-react'
 import type { ExamId, ExamPlan, MockSession, Review, ReviewHistoryEntry, Status, Subject } from './domain/types'
-import { EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, subjectIdOf } from './data/registry'
+import { VISIBLE_EXAMS, DEFAULT_EXAM_ID, getExam, subjectNamesOf, chaptersOf, subjectIdOf } from './data/registry'
 import { addDaysStr, diffDays, formatMD, REVIEW_WINDOW_DAYS, toDateStr, todayJST } from './lib/date'
 import { deriveFromHistory, defaultReview, RETENTION_DEFAULT } from './lib/fsrs'
 import { analyzePace, applicationReminder } from './lib/pace'
@@ -67,7 +67,7 @@ export default function App() {
   // 対象資格（registry駆動・§7.8）。登録が1つの間は DEFAULT_EXAM_ID で固定。
   const [examId, setExamId]       = useState<ExamId>(() => {
     const saved = readStoredExam()
-    return EXAMS.find(e => e.id === saved)?.id ?? DEFAULT_EXAM_ID
+    return VISIBLE_EXAMS.find(e => e.id === saved)?.id ?? DEFAULT_EXAM_ID
   })
   const [subject, setSubject]     = useState<Subject>(() => subjectNamesOf(DEFAULT_EXAM_ID)[0])
   const [chapterCode, setChapterCode] = useState('ALL')
@@ -924,8 +924,8 @@ export default function App() {
     return groups
   })()
 
-  // 資格切替の選択肢（EXAMS）。選択は端末に記憶する。
-  const switcherOptions = EXAMS.map(e => ({ id: e.id as string, name: e.name }))
+  // 資格切替の選択肢（VISIBLE_EXAMS＝非表示の資格を除く）。選択は端末に記憶する。
+  const switcherOptions = VISIBLE_EXAMS.map(e => ({ id: e.id as string, name: e.name }))
   const switcherValue = examId
   const switchExam = (id: string) => {
     storeExam(id)

@@ -9,6 +9,8 @@ import type { Kk2Row } from '../../lib/kenkei2/cards'
 import { statusOfAttempt } from '../../lib/kenkei2/record'
 import { supabase } from '../../lib/supabase'
 import Kenkei2Solver from './Kenkei2Solver'
+import { primerOf, primerRowOf } from '../../data/kenkei2/primer/index'
+import PrimerNoteView from './PrimerNoteView'
 
 const COLS = 'id, exam_no, part, sub, form_kind, points, stem, frame, key'
 
@@ -23,7 +25,12 @@ export default function Kenkei2ItemSolver({ itemId, title, userId, onRecord, onU
   const [row, setRow] = useState<Kk2Row | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
 
+  // 入門ドリル（K2_P_）はリポジトリのデータから作る（DB を読まない）。
+  const primer = primerOf(itemId)
+
   useEffect(() => {
+    const local = primerRowOf(itemId)
+    if (local) { setRow(local); setState('ok'); return }
     let alive = true
     supabase.from('kk2_questions').select(COLS).eq('user_id', userId).eq('id', itemId).maybeSingle()
       .then(({ data, error }) => {
@@ -50,13 +57,18 @@ export default function Kenkei2ItemSolver({ itemId, title, userId, onRecord, onU
             {typeof navigator !== 'undefined' && !navigator.onLine && ' オンラインに戻ってから開き直してください。'}
           </p>
         ) : (
-          <Kenkei2Solver
-            userId={userId}
-            row={row}
-            onRecord={a => onRecord(statusOfAttempt(a), a)}
-            onUndo={onUndoRecord}
-            onClose={onClose}
-          />
+          <div className="space-y-4">
+            {primer && <PrimerNoteView topic={primer.topic} />}
+            <Kenkei2Solver
+              userId={userId}
+              row={row}
+              heading={primer ? `入門ドリル ${primer.topic.name} (${primer.n})` : undefined}
+              explain={primer?.drill.explain}
+              onRecord={a => onRecord(statusOfAttempt(a), a)}
+              onUndo={onUndoRecord}
+              onClose={onClose}
+            />
+          </div>
         )}
       </div>
     </div>
