@@ -17,6 +17,7 @@ import { HOUKI } from './topics/houki.ts'
 import { KANKYOU } from './topics/kankyou.ts'
 import { KYOUTSU } from './topics/kyoutsu.ts'
 import { DOURO } from './topics/douro.ts'
+import { KASEN } from './topics/kasen.ts'
 import { KOUZOU } from './topics/kouzou.ts'
 import { TETSUDOU } from './topics/tetsudou.ts'
 import { KAIGAN } from './topics/kaigan.ts'
@@ -35,6 +36,7 @@ export const D1_PRIMER_TOPICS: D1PrimerTopic[] = [
   KANKYOU,
   KYOUTSU,
   DOURO,
+  KASEN,
   KOUZOU,
   TETSUDOU,
   KAIGAN,
