@@ -42,6 +42,7 @@ import BatchButtons from './features/license/BatchButtons'
 import AnalysisMenu from './features/license/AnalysisMenu'
 import TextMockButton from './features/license/TextMockButton'
 import Kenkei2MockButton from './features/kenkei2/Kenkei2MockButton'
+import PrimerNotesButton from './features/shared/PrimerNotesButton'
 import ProgressionButton from './features/license/ProgressionButton'
 import CutoffDashboardButton from './features/license/CutoffDashboardButton'
 import ExamSwitcher, { readStoredExam, storeExam } from './features/shared/ExamSwitcher'
@@ -1139,6 +1140,17 @@ export default function App() {
                 />
                 <CutoffDashboardButton userId={user.id} exam={exam} reviews={reviews} />
               </AnalysisMenu>
+            )}
+
+            {/* 入門ノート（図解つき）。入門の科目を開いているときだけ。問題は章ごとにここから開く */}
+            {subject === '入門' && (exam.id === 'kenkei2' || exam.id === 'doboku1') && (
+              <PrimerNotesButton
+                examId={exam.id}
+                onOpen={(id, title) => {
+                  timersRef.current[id] = startTimer(todayStr)
+                  setViewerQ({ id, title, solving: true })
+                }}
+              />
             )}
 
             {/* 2級建設経理: 本番形式模試（90分・100点。docs/design/kenkei2.md §7 K6） */}

@@ -4,8 +4,26 @@
 /** ノートの表。1列目が見出し。 */
 export interface PrimerTable { columns: string[]; rows: string[][] }
 
-/** ノートの1節。body は段落（1要素 = 1段落）。 */
-export interface PrimerSection { heading: string; body: string[]; table?: PrimerTable }
+/** 図解の中の箱。sub は小さく添える説明（勘定名・金額など）。 */
+export interface FigBox { label: string; sub?: string }
+
+/**
+ * ノートの図解（宣言的。画面側で描く）。
+ * - flow: 箱を矢印でつなぐ。next は次の箱へのつなぎの文字（既定 →。計算式なら × − ＝ など）
+ * - funnel: 左（上）の複数の箱が真ん中の箱に集まり、右（下）の箱へ分かれる
+ * - sides: 左右2つの囲み（借方／貸方、貸借対照表／損益計算書など）
+ * - taccount: T字勘定（借方が左・貸方が右）
+ * - grid: 見出しをグループ化した表（精算表・数値例）。hi は強調する [行, 列] の位置
+ */
+export type PrimerFigure =
+  | { kind: 'flow'; caption?: string; steps: (FigBox & { next?: string })[] }
+  | { kind: 'funnel'; caption?: string; sources: FigBox[]; hub: FigBox; outs?: FigBox[] }
+  | { kind: 'sides'; caption?: string; left: { title: string; items: string[] }; right: { title: string; items: string[] } }
+  | { kind: 'taccount'; caption?: string; accounts: { name: string; debit: string[]; credit: string[] }[] }
+  | { kind: 'grid'; caption?: string; groups: { title: string; cols: string[] }[]; rows: string[][]; hi?: [number, number][] }
+
+/** ノートの1節。body は段落（1要素 = 1段落）。figures は本文の後・表の前に出す。 */
+export interface PrimerSection { heading: string; body: string[]; figures?: PrimerFigure[]; table?: PrimerTable }
 
 /** 基礎ドリル1問。仕訳は [記号, 金額] の組（記号は symbols.ts の科目群）。金額は円。 */
 export type PrimerDrill =

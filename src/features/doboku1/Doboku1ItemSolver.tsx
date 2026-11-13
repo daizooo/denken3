@@ -11,7 +11,6 @@ import { supabase } from '../../lib/supabase'
 import Doboku1Solver from './Doboku1Solver'
 import { d1PrimerOf } from '../../data/doboku1/primer/index'
 import Doboku1PrimerSolver from './Doboku1PrimerSolver'
-import PrimerNoteView from '../kenkei2/PrimerNoteView'
 
 const COLS = 'id, year, paper, q_no, group_label, required, category, topic, kind, direction, stem, statements, choice_header, choices, correct, has_figure, figure_path, explain, explain_verified'
 
@@ -50,7 +49,6 @@ export default function Doboku1ItemSolver({ itemId, title, userId, onRecord, onU
         </div>
         {primer ? (
           <div className="space-y-4">
-            <PrimerNoteView key={primer.topic.id} topic={primer.topic} readKey="d1:primer:read" doneLabel="読んだ → 下の○×を解く" />
             <Doboku1PrimerSolver
               key={itemId}
               heading={`入門 ${primer.topic.name} (${primer.n})`}
