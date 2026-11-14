@@ -104,7 +104,7 @@ export const R08_KISO: Explains = {
       }],
       checks: [
         { label: '⑴', ok: true, note: '断面積 ア＞ウ＞イ＞エ なので、σ は ア→ウ→イ→エ の順に大きくなる。' },
-        { label: '⑵', ok: false, note: '大きい順に並べている。さらにウとイの順も逆。' },
+        { label: '⑵', ok: false, note: 'σ の大きい順（エ→イ→ウ→ア）でもなく、ウとイの順も誤り。' },
         { label: '⑶', ok: false, note: '中空のイは中実の三角形ウより断面積が小さく、σ は大きい。' },
         { label: '⑷', ok: false, note: '⑴の逆（σ の大きい順）。' },
       ],
@@ -113,7 +113,7 @@ export const R08_KISO: Explains = {
   },
   A05: {
     explain: {
-      point: '水面とオリフィスでベルヌーイの定理を立てると、水面の高さ H の位置エネルギーがすべて流速に変わる。H＝v²／2g より v＝√(2gH)。',
+      point: '水面と孔でベルヌーイの定理を立てる。どちらも大気圧、水面の流速はほぼ0なので、高さ H の位置水頭がすべて速度水頭に変わる。H＝v²／2g より v＝√(2gH)。',
       figures: [{ type: 'svg', title: 'オリフィスからの流出（トリチェリの定理）', svg: ORIFICE, alt: '水槽の水面①から深さHの側面の孔②から水が流速vで噴き出す。H＝v²/2g から v＝√(2gH)。' }],
       checks: [
         { label: '⑴', ok: false, note: '√ がなく、単位も速度にならない。' },
