@@ -5,7 +5,7 @@ import type { Explains } from '../../../lib/doboku1/build.ts'
 export const R08_SUIDOU: Explains = {
   A50: {
     explain: {
-      point: 'ブラスト直後の鋼材面は活性で錆びやすい。様子を見ずに、できるだけ早く（同じ日のうちに）下塗りする。',
+      point: 'ブラスト直後の鋼材面は活性で錆びやすい。様子を見ずに、できるだけ速やかに下塗りする。',
       figures: [{
         type: 'rule',
         title: '鋼構造物塗装の施工管理',
