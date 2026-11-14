@@ -68,12 +68,12 @@ export const R02_B_KOUTEI: Explains = {
         rows: [
           { label: '⑤の最早結合点時刻', value: 'C・D経路で22日（E・F経路は21日）' },
           { label: 'Kの最早開始', value: '⑤からダミー経由で22日', trap: '26日' },
-          { label: '①→⑥→⑦→⑧の余裕', value: '⑧の最遅24日 −（5＋16）＝3日', trap: '4日' },
+          { label: '①→⑥→⑦→⑧の余裕', value: '⑧に21日で着き、⑧の最早22日まで1日（令和元年度 No.12 と同じ図・同じ考え方）', trap: '4日' },
         ],
       }],
       checks: [
         { label: '⑴', ok: false, note: '④を通る経路は27日。CPはC・Dを通る②→③→⑤。' },
-        { label: '⑵', ok: false, note: '⑧の最遅は24日、①から16日かかるので余裕は3日。' },
+        { label: '⑵', ok: false, note: '⑧には5＋16＝21日で着き、⑧の最早は22日なので余裕は1日。4日ではない。' },
         { label: '⑶', ok: false, note: 'Kの最早開始は⑤の22日（ダミー経由）。26日ではない。' },
         { label: '⑷', ok: true, note: '最長経路 A→B→C→D→J の28日が工期。' },
       ],
