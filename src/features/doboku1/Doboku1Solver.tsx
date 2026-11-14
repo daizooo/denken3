@@ -10,6 +10,12 @@ import { STATUS_BG } from '../shared/status'
 import ExplainView from './ExplainView'
 import Doboku1Figure from './Doboku1Figure'
 
+/** 'R08' → '令和8年度'、'R01' → '令和元年度'。 */
+const yearLabel = (y: string) => {
+  const n = Number(y.slice(1))
+  return /^R\d{2}$/.test(y) ? `令和${n === 1 ? '元' : n}年度` : y
+}
+
 export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, hasNext }: {
   userId: string
   q: DbkQuestionRow
@@ -43,7 +49,7 @@ export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, has
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-        <span className="font-bold text-gray-700">{q.year} 試験問題{q.paper} No.{q.q_no}</span>
+        <span className="font-bold text-gray-700">{yearLabel(q.year)} 問題{q.paper} No.{q.q_no}</span>
         <span>{q.group_label}</span>
       </div>
 
@@ -92,6 +98,7 @@ export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, has
             className="rounded-lg border border-blue-700 px-2 py-2.5 text-sm font-bold text-blue-800 disabled:opacity-40">迷いありで決定</button>
           <button onClick={() => commit(null)}
             className="rounded-lg border border-gray-300 px-2 py-2.5 text-sm text-gray-700">分からない</button>
+          <p className="col-span-3 text-xs text-gray-500">正解なら 自信あり＝A・迷いあり＝B。不正解・分からない＝C。A ほど次の復習が先になります。</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -103,7 +110,7 @@ export default function Doboku1Solver({ userId, q, onRecord, onUndo, onNext, has
             <span className={`ml-auto rounded border px-2 py-0.5 text-xs ${STATUS_BG[statusOfAttempt(done)]}`}>{statusOfAttempt(done)} を記録</span>
             <button onClick={undo} className="text-xs text-gray-500 underline">修正</button>
           </div>
-          <ExplainView explain={q.explain} verified={q.explain_verified} correctLabel={q.kind === 'statements' ? undefined : CHOICE_LABELS[q.correct - 1]} />
+          <ExplainView explain={q.explain} verified={q.explain_verified} correctLabel={q.kind === 'statements' ? undefined : CHOICE_LABELS[q.correct - 1]} pickWrong={q.direction === 'wrong'} />
           <button onClick={onNext} className="w-full rounded-lg bg-gray-800 py-2.5 text-sm font-bold text-white">
             {hasNext ? '次の問題へ' : '閉じる'}
           </button>
