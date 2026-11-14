@@ -50,7 +50,7 @@ export const R04_B_KYOUTSU: Explains = {
   },
   B03: {
     explain: {
-      point: '配筋図は記号の頭文字で部材を読む（S＝頂版、W＝側壁、F＝底版）。側壁の内面主鉄筋は W₁ の D13 で、D22 は底版の F₁。',
+      point: '配筋図は記号の頭文字で部材を読む（S＝頂版、W＝側壁、F＝底版）。側壁の内面主鉄筋は W₁ の D13。D22 は底版から外面に立ち上がる F₁。',
       figures: [{
         type: 'compare',
         title: '配筋図の読み取り（図より）',
@@ -59,13 +59,13 @@ export const R04_B_KYOUTSU: Explains = {
           { label: '頂版の主鉄筋（S₁）', cells: ['D19', '250mm'] },
           { label: '側壁の内面主鉄筋（W₁）', cells: ['D13', '250mm'] },
           { label: '側壁の外面主鉄筋', cells: ['S₁ D19・F₁ D22 が回り込む', '250mm'] },
-          { label: '配力鉄筋など（S₃・W₃ など）', cells: ['D13', '250mm'] },
+          { label: '配力鉄筋（S₅・W₃・F₅）', cells: ['D13', '250mm'] },
         ],
       }],
       checks: [
         { label: '⑴', ok: true, note: '頂版の主鉄筋は S₁ の D19。' },
         { label: '⑵', ok: true, note: '頂版の下面主鉄筋は軸方向に 250mm 間隔。' },
-        { label: '⑶', ok: false, note: '側壁の内面主鉄筋は W₁ の D13。D22 は底版の F₁。' },
+        { label: '⑶', ok: false, note: '側壁の内面主鉄筋は W₁ の D13。D22 は外面の F₁。' },
         { label: '⑷', ok: true, note: '側壁の外面主鉄筋も軸方向に 250mm 間隔で配置されている。' },
       ],
       basis: '設計図（配筋図）の読み方',

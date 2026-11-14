@@ -57,7 +57,7 @@ export const R06_B_KYOUTSU: Explains = {
         columns: ['記号・径', '間隔（軸方向）'],
         rows: [
           { label: '頂版 上面主鉄筋', cells: ['S1 D19', '250mm'] },
-          { label: '頂版 下面主鉄筋', cells: ['S3 D13', '250mm'] },
+          { label: '頂版 下面主鉄筋（B-B）', cells: ['S1 D19', '250mm'] },
           { label: '側壁 外面主鉄筋', cells: ['S1 D19・F1 D22', '250mm'] },
           { label: '側壁 内面主鉄筋', cells: ['W1 D13', '250mm'] },
         ],

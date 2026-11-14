@@ -60,7 +60,7 @@ export const R07_B_KYOUTSU: Explains = {
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#fff"/><path d="M150 30 L310 30 L310 150 L170 150 Z" fill="#e9dfc7"/><text x="240" y="60" font-size="12" fill="#6d6248">盛土</text><path d="M60 150 L290 150 L290 178 L60 178 Z" fill="#cfd8e3" stroke="#334"/><path d="M140 20 L170 20 L170 150 L140 150 Z" fill="#cfd8e3" stroke="#334"/><line x1="166" y1="26" x2="166" y2="170" stroke="#d33" stroke-width="3"/><line x1="166" y1="155" x2="286" y2="155" stroke="#d33" stroke-width="3"/><line x1="64" y1="174" x2="140" y2="174" stroke="#d33" stroke-width="3"/><line x1="174" y1="174" x2="286" y2="174" stroke="#888" stroke-dasharray="3 2"/><text x="176" y="95" font-size="12" fill="#d33">④ 背面（引張）</text><text x="174" y="146" font-size="12" fill="#d33">② かかと版上面（引張）</text><text x="196" y="194" font-size="12" fill="#555">③ かかと版下面</text><text x="62" y="194" font-size="12" fill="#d33">つま先版下面（引張）</text><path d="M285 86 L285 122" stroke="#2a5db0" stroke-width="2"/><path d="M285 128 l-5 -8 h10 Z" fill="#2a5db0"/><text x="236" y="80" font-size="11" fill="#2a5db0">土の重さ</text><text x="66" y="140" font-size="11" fill="#334">つま先</text><text x="30" y="80" font-size="11" fill="#555">前面</text></svg>',
       }],
       checks: [
-        { label: '⑴', ok: false, note: '①D13 はつま先側の鉄筋で、かかと版の引張鉄筋ではない。' },
+        { label: '⑴', ok: false, note: '①D13 は底版の配力鉄筋（延長方向）。引張鉄筋ではない。' },
         { label: '⑵', ok: true, note: 'かかと版の上面に配置された主鉄筋。上面側が引張になる。' },
         { label: '⑶', ok: false, note: '③D13 はかかと版の下面（圧縮側）の鉄筋。' },
         { label: '⑷', ok: false, note: '④D22 はたて壁の背面側の主鉄筋（たて壁の引張鉄筋）。' },
