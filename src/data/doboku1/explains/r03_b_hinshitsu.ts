@@ -65,7 +65,7 @@ export const R03_B_HINSHITSU: Explains = {
         { label: '⑴', ok: true, note: '荷卸し時や打込み前に目視で異常がないか確かめる。' },
         { label: '⑵', ok: true, note: '1回/日または20〜150m³ごと、及び変化を認めたときに行う。' },
         { label: '⑶', ok: false, note: '1回の試験結果は呼び強度の強度値の85％以上。' },
-        { label: '⑷', ok: true, note: '単位水量は加熱乾燥法やエアメータ法などで測る。' },
+        { label: '⑷', ok: true, note: '単位水量は加熱乾燥法やエアメータ法などで推定する。' },
       ],
       basis: 'コンクリート標準示方書［施工編：検査標準］（土木学会）・JIS A 5308',
     },
