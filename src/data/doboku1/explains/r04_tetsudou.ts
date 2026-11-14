@@ -39,7 +39,7 @@ export const R04_TETSUDOU: Explains = {
         ],
       }],
       checks: [
-        { label: '⑴', ok: false, note: '伸縮は両端部だけ。中央部はふく進が拘束された不動区間。' },
+        { label: '⑴', ok: false, note: '伸縮は両端部だけ。中央部は道床の抵抗で伸縮が拘束された不動区間。' },
         { label: '⑵', ok: true, note: '犬くぎでレールの位置を保ち、浮き上がりを防ぐ。' },
         { label: '⑶', ok: false, note: '重いレールほど保守量は減る。増加は誤り。' },
         { label: '⑷', ok: false, note: '曲線区間で顕著に摩耗するのは外側レール。' },
