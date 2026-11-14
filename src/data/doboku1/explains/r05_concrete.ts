@@ -10,7 +10,7 @@ export const R05_CONCRETE: Explains = {
         type: 'rule',
         title: 'コンクリート用骨材の要点',
         rows: [
-          { label: '混合する細骨材の吸水率', value: '混合前の各骨材で測定・判定', trap: '「混合後の試料」は誤り' },
+          { label: '混合する細骨材の吸水率', value: '混合前の各骨材で測定・判定', trap: '「混合後の試料」' },
           { label: '凍結融解への耐久性', value: '硫酸ナトリウムによる安定性試験で判定' },
           { label: '砕石を使う場合', value: '砂利より単位水量を大きくする' },
           { label: '耐火性が必要な場合', value: '耐火的な粗骨材を用いる' },
@@ -82,7 +82,7 @@ export const R05_CONCRETE: Explains = {
           { label: '寒中コンクリート', value: '日平均気温 4℃以下が予想されるとき' },
           { label: '寒中の養生終了後', value: '急に寒気にさらさず、表面の急冷を防ぐ' },
           { label: '暑中コンクリート', value: '日平均気温 25℃を超えるとき' },
-          { label: '暑中の減水剤・AE減水剤', value: '遅延形を使いコールドジョイントを防ぐ', trap: '「促進形」は誤り' },
+          { label: '暑中の減水剤・AE減水剤', value: '遅延形を使いコールドジョイントを防ぐ', trap: '「促進形」' },
         ],
       }],
       checks: [
@@ -101,7 +101,7 @@ export const R05_CONCRETE: Explains = {
         type: 'rule',
         title: '打込み・締固めの原則',
         rows: [
-          { label: 'シュート', value: '縦シュートが標準', trap: '斜めシュートは分離しやすい' },
+          { label: 'シュート', value: '縦シュートが標準', trap: '斜めシュートが標準' },
           { label: '分離した粗骨材', value: 'すくい上げてモルタルの多い所に埋め込む' },
           { label: '棒状バイブレータ', value: '鉛直に挿して締め固める。横移動に使わない' },
           { label: '許容打重ね時間間隔', value: '外気温が高いほど短い' },
@@ -125,7 +125,7 @@ export const R05_CONCRETE: Explains = {
         rows: [
           { label: '重ね継手の緊結', value: '直径 0.8mm 以上の焼なまし鉄線で数箇所' },
           { label: '重ね継手の長さ', value: '鉄筋直径の 20 倍以上' },
-          { label: 'ガス圧接の端面', value: '軸線に直角に切断', trap: '「傾斜させて」は誤り' },
+          { label: 'ガス圧接の端面', value: '軸線に直角に切断', trap: '「傾斜させて」' },
           { label: '径の異なる鉄筋の手動圧接', value: '径の差が小さければ（直近の径）可能' },
         ],
       }],

@@ -18,7 +18,7 @@ export const R01_CONCRETE: Explains = {
       }],
       checks: [
         { label: '⑴', ok: true, note: '高炉スラグ細骨材は天然細骨材と混ぜて粒度や塩分を調整する。' },
-        { label: '⑵', ok: true, note: '粒形判定実績率で判定し、角ばり・偏平の少ないものを選ぶ。' },
+        { label: '⑵', ok: true, note: '粒形判定実積率で判定し、角ばり・偏平の少ないものを選ぶ。' },
         { label: '⑶', ok: true, note: '微粒分量試験で微粒分を除いた試料で粘土塊量を測る。' },
         { label: '⑷', ok: false, note: '再生骨材 L は JIS A 5308 に使えない。JIS A 5023 の再生骨材コンクリート用。' },
       ],
@@ -27,7 +27,7 @@ export const R01_CONCRETE: Explains = {
   },
   A07: {
     explain: {
-      point: '膨張材は乾燥収縮ひび割れを抑えるための混和材。温度ひび割れやアルカリシリカ反応の抑制は、フライアッシュ・高炉スラグ微粉末などの役目。',
+      point: '膨張材は膨張で収縮を打ち消し、ひび割れを抑える混和材。アルカリシリカ反応の抑制効果はない（それはフライアッシュ・高炉スラグ微粉末などの役目）。',
       figures: [{
         type: 'compare',
         title: '混和材の主な効果',
@@ -43,7 +43,7 @@ export const R01_CONCRETE: Explains = {
       checks: [
         { label: '⑴', ok: true, note: '球形粒子で単位水量を減らし、長期強度が伸びる。' },
         { label: '⑵', ok: true, note: '組織が緻密になり水密性・化学抵抗性が上がる。' },
-        { label: '⑶', ok: false, note: '膨張材は乾燥収縮ひび割れの抑制。温度ひび割れ・ASRの抑制効果は期待しない。' },
+        { label: '⑶', ok: false, note: '膨張材にアルカリシリカ反応の抑制効果はない。' },
         { label: '⑷', ok: true, note: '微粉で粘性が増し、分離やブリーディングを抑える。' },
       ],
       basis: 'コンクリート標準示方書［施工編］（土木学会）',
@@ -56,9 +56,9 @@ export const R01_CONCRETE: Explains = {
         type: 'rule',
         title: 'コンクリートの打込みの決まり',
         rows: [
-          { label: 'バイブレータ', value: '横移動に使わない（材料分離の原因）', trap: '横移動させながら充てんは誤り' },
+          { label: 'バイブレータ', value: '横移動に使わない（材料分離の原因）', trap: '横移動させながら充てん' },
           { label: 'シュート', value: '縦シュートが標準。斜めはやむを得ない場合のみ' },
-          { label: '許容打重ね時間', value: '外気温25℃超で2.0時間、25℃以下で2.5時間', trap: '気温が高いほど短い' },
+          { label: '許容打重ね時間', value: '外気温25℃超で2.0時間、25℃以下で2.5時間', trap: '気温が高いほど長い' },
           { label: '打上がり面の帯水', value: 'スポンジ・ひしゃくなどで除去してから打つ' },
         ],
       }],
@@ -78,7 +78,7 @@ export const R01_CONCRETE: Explains = {
         type: 'rule',
         title: '暑中コンクリートの要点',
         rows: [
-          { label: '運搬中の変化', value: 'スランプ低下・連行空気量の減少', trap: '空気量の「増加」は誤り' },
+          { label: '運搬中の変化', value: 'スランプ低下・連行空気量の減少', trap: '空気量の「増加」' },
           { label: '打込み温度', value: '35℃以下を標準' },
           { label: '単位水量', value: '練上がり温度10℃上昇で2〜5％増える' },
           { label: '混和剤', value: '遅延形の減水剤・AE減水剤・流動化剤' },
@@ -101,7 +101,7 @@ export const R01_CONCRETE: Explains = {
         type: 'rule',
         title: '鉄筋の継手の決まり',
         rows: [
-          { label: '配置', value: '同一断面に集めず、相互にずらす', trap: '「集中して配置」は誤り' },
+          { label: '配置', value: '同一断面に集めず、相互にずらす', trap: '「集中して配置」' },
           { label: '横方向鉄筋', value: '原則として重ね継手を用いない' },
           { label: '焼なまし鉄線', value: '必要以上に長く巻かない（付着低下）' },
           { label: '露出させる継足し鉄筋', value: 'セメントペースト塗布・皮膜で保護' },
