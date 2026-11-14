@@ -32,7 +32,7 @@ export const R04_DAMTUNNEL: Explains = {
   },
   A34: {
     explain: {
-      point: '表面水率の変動が問題になるのは細骨材。上屋を設けて7日以上の水切りを確保するのは、粗骨材ではなく細骨材。',
+      point: '表面水率が変動しやすいのは細骨材。上屋を設けて水切りを特に確保するのは、粗骨材ではなく細骨材。',
       figures: [{
         type: 'rule',
         title: 'ダムコンクリートの数値',
@@ -40,7 +40,7 @@ export const R04_DAMTUNNEL: Explains = {
           { label: 'RCD の敷均し', value: '0.75mリフト3層・1mリフト4層の薄層' },
           { label: '打込み中止の降雨', value: '有スランプ 4mm/h 以上・RCD 2mm/h 以上' },
           { label: 'RCD の練混ぜ〜締固め', value: '夏季3時間・冬季4時間程度' },
-          { label: '骨材の水切り', value: '特に細骨材を上屋で7日以上', trap: '「粗骨材」は誤り' },
+          { label: '骨材の水切り', value: '特に細骨材を上屋で水切り（日数は資料で異なる）', trap: '「粗骨材」は誤り' },
         ],
       }],
       checks: [
