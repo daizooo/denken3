@@ -87,7 +87,7 @@ export const R06_KISO: Explains = {
       checks: [
         { label: '⑴', ok: false, note: 'PL／2 はスパン全体の半分で計算した誤り。腕の長さは L／3。' },
         { label: '⑵', ok: true, note: 'RA＝P、C点で P×L／3＝PL／3。' },
-        { label: '⑶', ok: false, note: 'PL／6 は小さすぎる。反力 P に L／3 を掛ける。' },
+        { label: '⑶', ok: false, note: '反力を P／2 と誤ると P／2×L／3＝PL／6。2つの荷重で反力は各 P。' },
         { label: '⑷', ok: false, note: 'PL／9 は誤り。M＝P×L／3。' },
       ],
       basis: '単純梁の反力と曲げモーメント（構造力学）',
