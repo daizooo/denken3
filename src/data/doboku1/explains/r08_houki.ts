@@ -187,7 +187,7 @@ export const R08_HOUKI: Explains = {
         rows: [
           { label: '建築確認（6条）', cells: ['除外'] },
           { label: '建ぺい率（53条）', cells: ['除外'] },
-          { label: '防火・準防火地域の屋根', cells: ['除外'] },
+          { label: '防火・準防火地域の屋根', cells: ['除外（延べ50m²以下）'] },
           { label: '構造耐力（20条）', cells: ['適用される'] },
         ],
       }],
