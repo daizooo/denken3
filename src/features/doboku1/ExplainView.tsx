@@ -3,10 +3,11 @@
 import type { Explain } from '../../lib/doboku1/types'
 import ExplainFigureView from './ExplainFigureView'
 
-export default function ExplainView({ explain, verified, correctLabel }: {
+export default function ExplainView({ explain, verified, correctLabel, pickWrong }: {
   explain: Explain | null
   verified: boolean
   correctLabel?: string   // 例: '⑶'。正答肢の行を強調する
+  pickWrong?: boolean      // 「適当でないもの」を選ぶ問（正答肢は × になる）
 }) {
   if (!explain) {
     return <p className="rounded-lg border bg-gray-50 p-3 text-sm text-gray-500">（解説は準備中です）</p>
@@ -24,6 +25,7 @@ export default function ExplainView({ explain, verified, correctLabel }: {
 
       {explain.figures.map((f, i) => <ExplainFigureView key={i} figure={f} />)}
 
+      <p className="text-xs text-gray-500">○＝正しい　×＝誤り{pickWrong && '（この問は誤りの肢 × が正答）'}</p>
       <ul className="divide-y rounded border bg-white">
         {explain.checks.map(c => (
           <li key={c.label} className={`flex items-start gap-2 px-3 py-2 ${c.label === correctLabel ? 'bg-blue-50' : ''}`}>

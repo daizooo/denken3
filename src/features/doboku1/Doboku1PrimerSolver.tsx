@@ -29,7 +29,7 @@ export default function Doboku1PrimerSolver({ heading, quiz, onRecord, onUndo, o
   const btnCls = (v: boolean) => {
     if (done) {
       if (v === quiz.answer) return 'bg-green-50 border-green-400'
-      if (picked === v) return 'bg-red-50 border-red-400'
+      if (done.selected?.[0] === (v ? 1 : 2)) return 'bg-red-50 border-red-400'
       return 'bg-white border-gray-200 opacity-70'
     }
     return picked === v ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-300' : 'bg-white border-gray-200 hover:bg-gray-50'
@@ -57,6 +57,7 @@ export default function Doboku1PrimerSolver({ heading, quiz, onRecord, onUndo, o
             className="rounded-lg border border-blue-700 px-2 py-2.5 text-sm font-bold text-blue-800 disabled:opacity-40">迷いありで決定</button>
           <button onClick={() => commit(null)}
             className="rounded-lg border border-gray-300 px-2 py-2.5 text-sm text-gray-700">分からない</button>
+          <p className="col-span-3 text-xs text-gray-500">正解なら 自信あり＝A・迷いあり＝B。不正解・分からない＝C。A ほど次の復習が先になります。</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -70,7 +71,7 @@ export default function Doboku1PrimerSolver({ heading, quiz, onRecord, onUndo, o
           </div>
           <div className="rounded-lg bg-blue-50 p-3 text-sm leading-relaxed text-gray-800">
             <p><span className="font-bold">解説 </span>{quiz.explain}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Claude 作成・根拠未確認（根拠は上の入門ノートの末尾）</p>
+            <p className="mt-1 text-[11px] text-gray-500">Claude 作成・根拠未確認（根拠は「入門ノート」の各分野の末尾）</p>
           </div>
           <button onClick={onClose} className="w-full rounded-lg bg-gray-800 py-2.5 text-sm font-bold text-white">閉じる</button>
         </div>
