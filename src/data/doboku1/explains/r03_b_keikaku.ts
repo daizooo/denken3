@@ -81,7 +81,7 @@ export const R03_B_KEIKAKU: Explains = {
       }],
       checks: [
         { label: '⑴', ok: false, note: '基準は最終原価ではなく実行予算。終点は設計変更ではなく工事決算。' },
-        { label: '⑵', ok: false, note: '終点は工事決算、比較するのは発生原価。' },
+        { label: '⑵', ok: false, note: 'ロは工事決算、ハは原価計算、ニは発生原価。' },
         { label: '⑶', ok: true, note: '実行予算・工事決算・原価計算・発生原価の組合せ。' },
         { label: '⑷', ok: false, note: '起点は原価計算ではなく実行予算の作成。' },
       ],
