@@ -69,7 +69,7 @@ export const R02_B_KEIKAKU: Explains = {
   },
   B08: {
     explain: {
-      point: '原価管理では天災その他不可抗力による損害も考慮する。考えなくてよいものはない。',
+      point: '原価管理では、天災その他不可抗力による損害も考慮する必要がある（考えなくてよいわけではない）。',
       figures: [{
         type: 'flow',
         title: '原価管理の流れ',
