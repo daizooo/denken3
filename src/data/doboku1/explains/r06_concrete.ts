@@ -13,7 +13,7 @@ export const R06_CONCRETE: Explains = {
           { label: '定義', value: '5mm網ふるいに質量で85％以上とどまる骨材' },
           { label: '砂利の絶乾密度', value: '一般に2.5g/cm³以上' },
           { label: '再生粗骨材H', value: '通常骨材と同等。レディーミクストに使用可' },
-          { label: '砕石を使う場合', value: '砂利より単位水量・細骨材率を大きくする', trap: '「小さくする」は誤り' },
+          { label: '砕石を使う場合', value: '砂利より単位水量・細骨材率を大きくする', trap: '「小さくする」' },
         ],
       }],
       checks: [
@@ -57,9 +57,9 @@ export const R06_CONCRETE: Explains = {
         title: '配合設計の原則',
         rows: [
           { label: '締固め作業高さが高い', value: 'スランプを大きく設定' },
-          { label: 'スランプ', value: '作業に適する範囲でできるだけ小さく', trap: '「できるだけ大きく」は誤り' },
-          { label: '高性能AE減水剤', value: '通常のAE減水剤より細骨材率を1〜2％大きく', trap: '「小さく」は誤り' },
-          { label: '圧送性', value: '閉塞防止には単位粉体量を一定以上確保', trap: '「減らす」は誤り' },
+          { label: 'スランプ', value: '作業に適する範囲でできるだけ小さく', trap: '「できるだけ大きく」' },
+          { label: '高性能AE減水剤', value: '通常のAE減水剤より細骨材率を1〜2％大きく', trap: '「小さく」' },
+          { label: '圧送性', value: '閉塞防止には単位粉体量を一定以上確保', trap: '「減らす」' },
         ],
       }],
       checks: [

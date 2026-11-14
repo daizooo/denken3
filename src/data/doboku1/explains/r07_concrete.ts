@@ -11,7 +11,7 @@ export const R07_CONCRETE: Explains = {
         title: '細骨材を混合して使う場合の判定',
         rows: [
           { label: '塩化物量', value: '混合後の試料で判定してよい' },
-          { label: '吸水率など', value: '混合前のそれぞれで規定に適合', trap: '混合後だけで判定は誤り' },
+          { label: '吸水率など', value: '混合前のそれぞれで規定に適合', trap: '混合後だけで判定' },
           { label: '砕砂の粒形', value: '粒形判定実積率で判定（角ばり・扁平が少ない）' },
           { label: '多孔質の粒子', value: '密度小・吸水率大 → 耐凍害性を損なう' },
         ],
@@ -32,7 +32,7 @@ export const R07_CONCRETE: Explains = {
         type: 'rule',
         title: '骨材の主な数値',
         rows: [
-          { label: '細骨材の粘土塊量', value: '1.0％以下', trap: '「2.0％以上」は誤り' },
+          { label: '細骨材の粘土塊量', value: '1.0％以下', trap: '「2.0％以上」' },
           { label: '再生粗骨材H の吸水率', value: '3.0％以下' },
           { label: '安定性試験', value: '硫酸ナトリウムの結晶圧で凍結融解を模擬' },
           { label: '高炉スラグ細骨材', value: '天然砂と混合して粒度調整することが多い' },
@@ -118,7 +118,7 @@ export const R07_CONCRETE: Explains = {
         type: 'rule',
         title: '鉄筋の加工・組立の要点',
         rows: [
-          { label: 'スペーサ', value: '床版等で 1m² 当たり 4 個程度', trap: '「1 個以下」は誤り' },
+          { label: 'スペーサ', value: '床版等で 1m² 当たり 4 個程度', trap: '「1 個以下」' },
           { label: '重ね継手', value: '直径 0.8mm 以上の焼なまし鉄線で数箇所緊結' },
           { label: '長時間経過後', value: '打込み前に浮き錆などを除去' },
           { label: 'エポキシ樹脂塗装鉄筋', value: '加工・組立後に塗膜の損傷を確認' },

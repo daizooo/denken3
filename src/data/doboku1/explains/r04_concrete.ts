@@ -11,7 +11,7 @@ export const R04_CONCRETE: Explains = {
         title: '細骨材の品質の見方',
         rows: [
           { label: '砕砂の粒形', value: '粒形判定実積率で判定。角ばり・細長・扁平の少ないもの' },
-          { label: '石粉（微粒分）', value: '適量なら材料分離を抑える。規定量以内で使う', trap: '「分離が顕著」は誤り' },
+          { label: '石粉（微粒分）', value: '適量なら材料分離を抑える。規定量以内で使う', trap: '「分離が顕著」' },
           { label: '多孔質の粒子', value: '密度小・吸水率大で耐凍害性を損なう' },
           { label: '混合した細骨材', value: '塩化物量は混合後の試料で判定してよい' },
         ],
@@ -59,7 +59,7 @@ export const R04_CONCRETE: Explains = {
           { label: '早強ポルトランド', value: '湿潤養生 3日' },
           { label: '混合セメントB種', value: '湿潤養生 7日' },
           { label: '寒中（4℃以下の予想）', value: '初期凍害を防ぐ強度まで 5℃以上に保つ' },
-          { label: '給熱養生', value: '乾燥させないよう散水などで湿潤に保つ', trap: '「乾燥させる」は誤り' },
+          { label: '給熱養生', value: '乾燥させないよう散水などで湿潤に保つ', trap: '「乾燥させる」' },
         ],
       }],
       checks: [
@@ -80,7 +80,7 @@ export const R04_CONCRETE: Explains = {
         rows: [
           { label: '水セメント比', value: '強度・耐久性などから定まる値のうち最小' },
           { label: '単位水量', value: '作業できる範囲でできるだけ少なく' },
-          { label: 'スランプ', value: '作業に適する範囲でできるだけ小さく', trap: '「大きく」は誤り' },
+          { label: 'スランプ', value: '作業に適する範囲でできるだけ小さく', trap: '「大きく」' },
           { label: '試し練り', value: '実績で配合条件を満たすと確認できれば省略可' },
         ],
       }],
@@ -101,8 +101,8 @@ export const R04_CONCRETE: Explains = {
         title: '暑中コンクリートの数値',
         rows: [
           { label: '適用', value: '日平均気温が25℃を超える時期' },
-          { label: '打込み時の温度', value: '35℃以下', trap: '40℃は誤り' },
-          { label: '練混ぜ〜打終わり', value: '1.5時間以内', trap: '2時間は誤り' },
+          { label: '打込み時の温度', value: '35℃以下', trap: '40℃' },
+          { label: '練混ぜ〜打終わり', value: '1.5時間以内', trap: '2時間' },
           { label: '材料', value: '練混ぜ水・骨材はなるべく低い温度' },
           { label: '混和剤', value: '遅延形の減水剤・AE減水剤・流動化剤' },
         ],
