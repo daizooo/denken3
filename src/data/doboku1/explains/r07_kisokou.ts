@@ -5,7 +5,7 @@ import type { Explains } from '../../../lib/doboku1/build.ts'
 export const R07_KISOKOU: Explains = {
   A17: {
     explain: {
-      point: '摩擦杭は先端を支持層に届かせず、主に杭の周面摩擦力で支える杭。先端（底面）の支持はあてにしない。',
+      point: '摩擦杭基礎は、所要の支持力を杭の周面摩擦力で得る。杭基礎なので基礎（フーチング）底面の支持は見込まない。',
       figures: [{
         type: 'compare',
         title: '道路橋の基礎形式と主な支持',
@@ -20,7 +20,7 @@ export const R07_KISOKOU: Explains = {
       }],
       checks: [
         { label: '⑴', ok: true, note: 'ケーソンは永続的な鉛直荷重を原則として底面のみで支持する。' },
-        { label: '⑵', ok: false, note: '摩擦杭は主に周面摩擦力で支持する。底面の支持を合わせて見込むのは誤り。' },
+        { label: '⑵', ok: false, note: '周面摩擦力で所要の支持力を得る。基礎底面の支持を合わせて見込むのは誤り。' },
         { label: '⑶', ok: true, note: '砂・砂礫は十分な強度、粘性土は圧密のおそれのない層が必要。' },
         { label: '⑷', ok: true, note: '先端支持で井筒部の下端を地盤で拘束するため根入れが要る。' },
       ],
