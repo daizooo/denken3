@@ -59,7 +59,7 @@ export const R08_TETSUDOU: Explains = {
         ],
       }],
       checks: [
-        { label: '⑴', ok: true, note: '工事管理者等に確認させ、自らも支障物を確認する。' },
+        { label: '⑴', ok: true, note: '工事管理者等に運転に支障がないことを確かめ、自らも支障物を確認する。' },
         { label: '⑵', ok: false, note: 'き電停止の申込みは列車見張員の仕事ではない。見張員は列車の見張りに専念する。' },
         { label: '⑶', ok: true, note: '建築限界から1m以上離れた安全な場所に留置する。' },
         { label: '⑷', ok: true, note: '工事用しゃ断機・列車防護装置・接近警報機を備える。' },
