@@ -86,7 +86,7 @@ export const R07_B_HINSHITSU: Explains = {
       checks: [
         { label: '①', ok: true, note: '工程の安定状態を調べ、保持するための図。' },
         { label: '②', ok: false, note: '計量値と計数値が逆。連続量が計量値、数えるものが計数値。' },
-        { label: '③', ok: true, note: '点が管理限界線内にあれば工程は安定と判断する。' },
+        { label: '③', ok: true, note: '管理図の基本の判定。ただし限界線内でも点の並び方にくせ（連・傾向など）があれば異常とみる（R06・R08）。' },
         { label: '④', ok: false, note: '強度・ばらつきの管理は x̄-R 管理図。p 管理図は不良率。' },
       ],
       basis: 'JIS Z 9020（管理図）、土木施工管理の教本類',

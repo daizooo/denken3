@@ -27,7 +27,7 @@ export const R05_B_HINSHITSU: Explains = {
   },
   B15: {
     explain: {
-      point: '路床・路盤の試験は目的とセットで覚える。本問は⑴が不適当とされる。修正CBRは路盤材料の品質規格（修正CBR○%以上）の判定に使う。',
+      point: '路床・路盤の試験は目的とセットで覚える。修正CBRで知るのは路盤材料の「強さ（強度特性）」で、「支持力値」とした⑴が不適当（公式の正答）。支持力は平板載荷試験（K値）で調べる。',
       figures: [{
         type: 'compare',
         title: '路床・路盤の品質管理の試験',
@@ -40,7 +40,7 @@ export const R05_B_HINSHITSU: Explains = {
         ],
       }],
       checks: [
-        { label: '⑴', ok: false, note: '出題では不適当とされる。修正CBRは路盤材料の品質規格の判定に使う。' },
+        { label: '⑴', ok: false, note: '修正CBRは所要の締固め度での路盤材料の強さを知る試験。「支持力値」ではない（R06では「強度特性」で適当）。' },
         { label: '⑵', ok: true, note: 'RI で現場の密度と含水比を求める。' },
         { label: '⑶', ok: true, note: '地盤反力係数を求めて支持力を把握する。' },
         { label: '⑷', ok: true, note: '追加転圧で締め固め、たわみの大きい不良箇所を見つける。' },

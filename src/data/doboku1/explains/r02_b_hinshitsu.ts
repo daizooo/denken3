@@ -13,7 +13,7 @@ export const R02_B_HINSHITSU: Explains = {
       }],
       checks: [
         { label: '⑴', ok: true, note: '品質特性・品質標準を定め、作業標準に従い早期に異常を見つける。' },
-        { label: '⑵', ok: false, note: '代用特性を用いてもよい（例：強度の代わりにスランプ等）。' },
+        { label: '⑵', ok: false, note: '直接測りにくい特性は代用特性を用いてよい（例：28日強度の代わりに早期材齢の強度）。' },
         { label: '⑶', ok: true, note: '品質標準はばらつきの度合いを考慮して設定する。' },
         { label: '⑷', ok: true, note: '作業標準は具体的な管理方法・試験方法を決めるもの。' },
       ],

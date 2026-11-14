@@ -80,7 +80,7 @@ export const R08_B_HINSHITSU: Explains = {
         title: '管理図の点の並び方',
         columns: ['見方', '判定'],
         rows: [
-          { label: '（A）中心線の上側に連続', cells: ['連（片側に7点以上）', '異常'] },
+          { label: '（A）中心線の上側に連続', cells: ['連（片側に連続）', '異常'] },
           { label: '（B）上下にばらつく', cells: ['くせがない', '安定'] },
           { label: '（C）管理限界に接近', cells: ['限界近くに点が多い', '異常'] },
           { label: '（D）中心線付近に集中', cells: ['中心化傾向', '異常（限界の見直し）'] },
